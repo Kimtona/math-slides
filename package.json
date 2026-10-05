@@ -82,7 +82,24 @@
           ]
         }
       ],
-      "icon": "build/icons/icon.icns"
+      "icon": "build/icons/icon.icns",
+      "extendInfo": {
+        "UTExportedTypeDeclarations": [
+          {
+            "UTTypeIdentifier": "com.mathslides.presentation",
+            "UTTypeDescription": "MathSlides presentation",
+            "UTTypeConformsTo": [
+              "public.data"
+            ],
+            "UTTypeIconFile": "mslides.icns",
+            "UTTypeTagSpecification": {
+              "public.filename-extension": [
+                "mslides"
+              ]
+            }
+          }
+        ]
+      }
     },
     "win": {
       "target": [
@@ -104,7 +121,8 @@
         "ext": "mslides",
         "name": "MathSlides presentation",
         "description": "MathSlides presentation",
-        "role": "Editor"
+        "role": "Editor",
+        "icon": "icons/mslides"
       }
     ]
   }
