@@ -94,8 +94,8 @@ export function newContentSlide(): Slide {
 
 /** A new presentation: one Title Slide. */
 export function initialDeck(): Deck {
-  const { slide } = newTitleSlide();
-  return { version: 1, title: DEFAULT_TITLE, slides: [slide] };
+  const { slide, titleId } = newTitleSlide();
+  return { version: 1, title: DEFAULT_TITLE, slides: [slide], titleElementId: titleId };
 }
 
 export { SLIDE_W, SLIDE_H };

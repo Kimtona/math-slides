@@ -73,6 +73,26 @@ export function findSlide(deck: Deck, id: ID) {
   return deck.slides.find((s) => s.id === id);
 }
 
+function findElement(deck: Deck, id: ID) {
+  for (const s of deck.slides) for (const e of s.elements) if (e.id === id) return e;
+  return undefined;
+}
+
+/**
+ * First-slide title → project title. Runs after every change; only reacts when the
+ * designated title element's text actually changed (so renaming the project in the
+ * toolbar sticks until the slide title is edited again).
+ */
+function syncTitle(prev: Deck, next: Deck): Deck {
+  const id = next.titleElementId;
+  if (!id || prev === next) return next;
+  const a = findElement(prev, id), b = findElement(next, id);
+  if (!b || b.type !== 'text' || (a?.type === 'text' && a.doc === b.doc)) return next;
+  const text = plainText(b.doc).replace(/\s+/g, ' ').trim();
+  if (!text || text === next.title) return next;
+  return produce(next, (d) => { d.title = text; });
+}
+
 export const useStore = create<AppState>()((set, get) => {
   const deck0 = initialDeck();
 
@@ -111,14 +131,14 @@ export const useStore = create<AppState>()((set, get) => {
 
     commit: (fn) => {
       const { deck, past, gestureBase } = get();
-      const next = produce(deck, fn);
+      const next = syncTitle(deck, produce(deck, fn));
       if (next === deck) return;
       if (gestureBase) set({ deck: next });
       else set({ deck: next, past: [...past, deck].slice(-HISTORY_LIMIT), future: [] });
     },
     live: (fn) => {
       const { deck } = get();
-      const next = produce(deck, fn);
+      const next = syncTitle(deck, produce(deck, fn));
       if (next !== deck) set({ deck: next });
     },
     beginGesture: () => {
@@ -289,8 +309,8 @@ export const useStore = create<AppState>()((set, get) => {
       if (get().editingId) get().stopEditing();
       if (deck.slides.length <= 1) {
         // Never leave the deck empty: replace the last slide with a blank one.
-        const s = newTitleSlide().slide; // the deck's (new) first slide is a Title Slide
-        get().commit((d) => { d.slides = [s as any]; });
+        const { slide: s, titleId } = newTitleSlide(deck.title); // the deck's (new) first slide is a Title Slide
+        get().commit((d) => { d.slides = [s as any]; d.titleElementId = titleId; });
         set({ currentSlideId: s.id, selection: [] });
         return;
       }

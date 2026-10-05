@@ -33,7 +33,11 @@ You can also double-click `MathSlides.command` in Finder to launch the desktop a
 | Shapes | `R` rectangle, `O` ellipse, `L` line, `A` arrow |
 | Resize | Text corners scale the font. Shapes: `Shift` = keep aspect ratio |
 | Snapping | Edges and centers of the slide and other objects (hold `Alt` to turn it off) |
+| Text sizes | At the start of a line: `# ` 80 · `## ` 50 · `### ` 30 · `#### ` 25 (Backspace at the line start reverts). Sizes live in `src/model/typography.ts` |
 | Lists | Type `- ` or `1. `, `Tab` / `⇧Tab` to indent |
+| Footer | Slide number `n/total` bottom-left (automatic). Click the bottom-right to type a reference (citation) for that slide |
+| Templates | New presentation = Title Slide; each added slide = Content Slide (title + body). Template boxes are ordinary text boxes |
+| Title | Editing the Title Slide's main title renames the presentation (default export file name) |
 | Undo/redo | `⌘Z` / `⌘⇧Z` (while editing text, these undo within the text) |
 | Copy/paste/duplicate | `⌘C` `⌘V` `⌘X` `⌘D`, arrow keys nudge (`Shift` = 10px) |
 | Z-order | `⌘]` `⌘[` (with `⇧` = to front/back) |
@@ -67,6 +71,7 @@ src/
   model/types.ts        Deck / Slide / SlideElement (text | image | shape | line)
   model/geometry.ts     bounding boxes, snapping
   model/colors.ts       preset palette (the only place colors are defined)
+  model/typography.ts   TYPOGRAPHY (h1/h2/h3/body) and footer constants, shared by # shortcuts and templates
   model/imageCrop.ts    crop math (frame ↔ full-image rectangle)
   store/store.ts        state, history (commit / live / gesture), slide operations
   store/persistence.ts  autosave, .mslides files
@@ -83,6 +88,9 @@ src/
 - Text box height is automatic, measured from the content. A box widens automatically if an equation is wider than it.
 - Undo: every change produces a new immutable deck, and the previous deck goes on the `past` stack. Continuous actions such as dragging or a text-editing session become one history entry, between `beginGesture` and `endGesture`.
 - Images are stored once in a separate `assets` map; elements reference them by `assetId`.
+- `Slide.reference` (optional) is the per-slide citation. The slide number is never stored; it's computed from the slide's position.
+- `Deck.titleElementId` (optional) explicitly links the Title Slide's main title box to `Deck.title`: editing that box's text updates the title (older files without it don't sync).
+- Per-line font sizes from `#` shortcuts are a paragraph attribute (`fontSize`).
 - Image crop is non-destructive: `ImageElement.crop = {x, y, w, h}` is the visible part of the original as fractions (0–1). It's optional, so files without it open as uncropped. It maps 1:1 to PowerPoint's `srcRect`.
 
 ### 3. How `/math` works

@@ -95,8 +95,14 @@ export interface Slide {
 
 export interface Deck {
   version: 1;
+  /** Presentation/project title (export default file name). */
   title: string;
   slides: Slide[];
+  /**
+   * The Title Slide's main title box. Editing its text updates `title`.
+   * Explicit link (not inferred from size/position); absent in older files = no syncing.
+   */
+  titleElementId?: ID;
 }
 
 export interface Asset {

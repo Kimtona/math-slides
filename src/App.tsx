@@ -48,6 +48,9 @@ export default function App() {
     return () => { window.removeEventListener('beforeprint', before); window.removeEventListener('afterprint', after); };
   }, []);
   const presenting = useStore((s) => s.presenting);
+  // Window / tab title follows the (synchronized) project title.
+  const title = useStore((s) => s.deck.title);
+  useEffect(() => { document.title = `${title} — MathSlides`; }, [title]);
   return (
     <>
       <div className="app">

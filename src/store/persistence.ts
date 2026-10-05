@@ -78,7 +78,17 @@ function projectJson(): string {
   return JSON.stringify(file);
 }
 
-export const safeName = (t: string) => (t.trim() || 'presentation').replace(/[\\/:*?"<>|]+/g, '_');
+/** Default export/save file name from the project title, made valid on macOS and Windows. */
+export function safeName(title: string): string {
+  const name = title
+    .replace(/\s*:\s*/g, ' - ')          // "RLHF: From PPO" → "RLHF - From PPO"
+    .replace(/[\\/]+/g, '-')
+    .replace(/[*?"<>|\u0000-\u001f]+/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s.]+|[\s.]+$/g, '')      // no leading/trailing dots or spaces
+    .slice(0, 180);
+  return name || 'presentation';
+}
 
 /** Save a Blob: native "Save As" dialog when available, otherwise a download. */
 export async function saveBlob(blob: Blob, suggestedName: string, types?: any[]): Promise<boolean> {
