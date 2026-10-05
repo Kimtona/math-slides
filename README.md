@@ -45,6 +45,8 @@ The macOS build is currently unsigned and not notarized, so macOS may show a sec
 - **저장** writes the current `.mslides` file (the picker appears only when there is none or it can't be written). The current file is remembered across restarts.
 - **다른 이름으로 저장** creates an independent presentation: a new `Deck.id`, written into the new file; the original file is not touched.
 
+`.mslides` is registered as a MathSlides document type in the packaged app (macOS `CFBundleDocumentTypes`; Windows through the installer's file association). Double-clicking a `.mslides` file launches or reuses MathSlides and opens it through the same path as **열기…**: the current presentation is preserved first, the file's `Deck.id` is kept, and Save writes back to that file. The Electron main process only reads/writes `.mslides` documents it was asked to open.
+
 ## How to use it
 
 | Action | How |

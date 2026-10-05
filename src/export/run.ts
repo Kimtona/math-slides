@@ -4,7 +4,12 @@ import { buildPptx } from './pptx';
 
 declare global {
   interface Window {
-    native?: { printToPDF: (suggestedName: string) => Promise<string | null> };
+    native?: {
+      printToPDF: (suggestedName: string) => Promise<string | null>;
+      openReady?: () => Promise<{ path?: string; name?: string; text?: string; error?: string }[]>;
+      onOpenFile?: (cb: (file: { path?: string; name?: string; text?: string; error?: string }) => void) => void;
+      writeFile?: (path: string, text: string) => Promise<{ ok: boolean; error?: string }>;
+    };
   }
 }
 

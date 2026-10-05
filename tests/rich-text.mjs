@@ -34,7 +34,14 @@ app.setPath('userData', ${JSON.stringify(profile)});
 const originalFetch = global.fetch;
 global.fetch = (url, ...args) => String(url).startsWith('https://export.arxiv.org/api/') ? Promise.resolve(new Response(${JSON.stringify(arxivXml)})) : originalFetch(url, ...args);
 dialog.showSaveDialog = async (_win, opts) => ({ canceled: false, filePath: ${JSON.stringify(output)} + '/' + require('path').basename(opts.defaultPath) });
-require(${JSON.stringify(path.join(root, 'electron/main.cjs'))});\n`);
+require(${JSON.stringify(path.join(root, 'electron/main.cjs'))});
+// Test hooks that drive the real OS-open handlers: an open-file event before the window exists, and later requests from a trigger file.
+if (process.env.TEST_OPEN_AT_START) app.emit('open-file', {preventDefault(){}}, process.env.TEST_OPEN_AT_START);
+const trigger = ${JSON.stringify(path.join(profile, 'trigger.json'))};
+require('fs').watchFile(trigger, {interval: 100}, () => { try {
+  const t = JSON.parse(require('fs').readFileSync(trigger, 'utf8'));
+  if (t.event === 'open-file') app.emit('open-file', {preventDefault(){}}, t.path); else app.emit('second-instance', {}, ['main', t.path], process.cwd());
+} catch {} });\n`);
 let electron, socket;
 const pending = new Map();
 let id = 0;
@@ -101,8 +108,8 @@ async function inject() {
     window.__opfsRead = async (name) => (await (await (await __opfsDir()).getFileHandle(name)).getFile()).text();
   })()`);
 }
-async function launch() {
-  electron = spawn(require('electron'), [wrapper, `--remote-debugging-port=${debugPort}`], { cwd: root, env: { ...process.env, ELECTRON_DEV_URL: 'http://127.0.0.1:5187' }, stdio: ['ignore', 'pipe', 'pipe'] });
+async function launch({ args = [], env = {} } = {}) {
+  electron = spawn(require('electron'), [wrapper, `--remote-debugging-port=${debugPort}`, ...args], { cwd: root, env: { ...process.env, ELECTRON_DEV_URL: 'http://127.0.0.1:5187', ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
   electron.stderr.on('data', () => {});
   await connect();
 }
@@ -1044,7 +1051,7 @@ try {
   const archiveSig = () => evaluate('persist.loadArchive().then(a => a.map(x => x.id).join())');
   const setTitle2 = async (t) => { await evaluate(`store.getState().commit(d => { d.title = ${JSON.stringify(t)}; })`); await pause(); };
   const settled = () => until(() => evaluate("store.getState().saveState === 'saved'"), 'autosave settled');
-  const restart = async () => { await settled(); await pause(300); socket.close(); electron.kill('SIGTERM'); await new Promise((r) => electron.once('exit', r)); await launch(); };
+  const restart = async (opts) => { await settled(); await pause(300); socket.close(); electron.kill('SIGTERM'); await new Promise((r) => electron.once('exit', r)); await launch(opts); };
   const assoc = () => evaluate(`new Promise((res) => { const o = indexedDB.open('keyval-store'); o.onsuccess = () => { const g = o.result.transaction('keyval').objectStore('keyval').get('file:v1'); g.onsuccess = () => res(g.result ? {name: g.result.name, deckId: g.result.deckId, hasHandle: !!g.result.handle} : null); }; })`);
   const stubSavePicker = (name) => evaluate(`window.__picks = 0; window.showSaveFilePicker = async () => { __picks++; return await (await __opfsDir()).getFileHandle(${JSON.stringify(name)}, {create: true}); };`);
   const fileDeck = async (name) => JSON.parse(await evaluate(`__opfsRead(${JSON.stringify(name)})`)).deck;
@@ -1214,6 +1221,75 @@ try {
   assert.equal((await slidesInfo()).filter((x) => x.kind === 'title').length, titleCount, 'inserted Title Slides persist across restart');
   assert.equal(await evaluate('store.getState().deck.slides.filter(s => s.kind === "title").length > 0'), true);
   console.log('PASS title slide insertion (menu order, canonical template, selection, theme, undo/redo, other actions, persistence)');
+  // ---- Files opened by the OS (.mslides association): cold launch, running app, invalid files, write-back ----
+  const nativeDir = path.join(output, 'native'); await mkdir(nativeDir, { recursive: true });
+  const triggerFile = path.join(profile, 'trigger.json'); let triggerN = 0;
+  const trigger = async (event, file) => { await writeFile(triggerFile, JSON.stringify({ event, path: file, n: ++triggerN })); await pause(700); };
+  const mkFile = async (name, id, title, raw) => {
+    const d = JSON.parse(await evaluate('JSON.stringify(defaults.initialDeck())')); d.id = id; d.title = title;
+    const file = path.join(nativeDir, name);
+    await writeFile(file, raw ?? JSON.stringify({ format: 'mathslides', version: 1, deck: d, assets: {} }));
+    return file;
+  };
+  const onDisk = async (name) => JSON.parse(await readFile(path.join(nativeDir, name), 'utf8')).deck;
+  await evaluate('persist.newProject()'); await pause(400); await setTitle2('Before native'); await settled();
+  const beforeNativeId = await deckId();
+  const fC = await mkFile('C.mslides', 'NATIVE-C', 'File C native');
+  // Cold launch: the path is queued by the main process until the renderer is ready; the restored deck is archived first.
+  await restart({ args: [fC] });
+  await until(async () => (await deckId()) === 'NATIVE-C', 'cold-launch file opened');
+  assert.ok((await archiveIds()).includes(beforeNativeId), 'the working presentation was preserved before the file replaced it');
+  assert.equal(await evaluate('store.getState().deck.title'), 'File C native');
+  assert.equal(await evaluate('store.getState().fileHandle.name'), 'C.mslides'); assert.equal(await evaluate('store.getState().fileHandle.nativePath'), fC);
+  assert.equal(await evaluate("new Promise((res) => { const o = indexedDB.open('keyval-store'); o.onsuccess = () => { const g = o.result.transaction('keyval').objectStore('keyval').get('file:v1'); g.onsuccess = () => res(g.result?.nativePath ?? null); }; })"), fC, 'the OS-opened file is the persisted current file');
+  // Autosave stays internal; Save writes the same file without a picker.
+  await stubSavePicker('must-not-be-used.mslides');
+  await setTitle2('C v2'); await settled();
+  assert.equal((await onDisk('C.mslides')).title, 'File C native', 'autosave does not write the .mslides file');
+  await evaluate('persist.saveProject()'); await pause(600);
+  assert.equal((await onDisk('C.mslides')).title, 'C v2', 'Save writes the OS-opened file'); assert.equal((await onDisk('C.mslides')).id, 'NATIVE-C');
+  assert.equal(await evaluate('__picks'), 0, 'no picker for an OS-opened file');
+  // Already running: open-file (macOS) and second-instance (Windows/Linux argv) requests.
+  const fD = await mkFile('D.mslides', 'NATIVE-D', 'File D');
+  await trigger('open-file', fD); await until(async () => (await deckId()) === 'NATIVE-D', 'running app opened D');
+  assert.ok((await archiveIds()).includes('NATIVE-C'), 'C (current) was preserved before D replaced it');
+  await setTitle2('D v2'); await evaluate('persist.saveProject()'); await pause(600);
+  assert.equal((await onDisk('D.mslides')).title, 'D v2', 'Save targets D'); assert.equal((await onDisk('C.mslides')).title, 'C v2', 'C is untouched');
+  const fE = await mkFile('E.mslides', 'NATIVE-E', 'File E');
+  await trigger('second-instance', fE); await until(async () => (await deckId()) === 'NATIVE-E', 'second instance forwarded E');
+  // Invalid requests fail safely: nothing changes, no crash.
+  const archiveNow = await archiveSig();
+  await trigger('open-file', path.join(nativeDir, 'notes.txt'));
+  assert.equal(await deckId(), 'NATIVE-E', 'non-.mslides paths are ignored');
+  for (const [name, raw] of [['broken.mslides', '{ not json'], ['other.mslides', JSON.stringify({ format: 'something-else', deck: {} })], ['empty.mslides', JSON.stringify({ format: 'mathslides', version: 1, deck: { slides: [] } })]]) {
+    await mkFile(name, 'x', 'x', raw); await trigger('open-file', path.join(nativeDir, name));
+    assert.equal(await deckId(), 'NATIVE-E', name + ' does not replace the current presentation');
+    assert.ok(await evaluate("[...document.querySelectorAll('.toast')].some(t => t.textContent.includes('열 수 없습니다'))"), name + ' shows an error toast');
+  }
+  await trigger('open-file', path.join(nativeDir, 'missing.mslides'));
+  assert.equal(await deckId(), 'NATIVE-E', 'a missing file is reported, not opened');
+  assert.equal(await archiveSig(), archiveNow, 'failed opens do not touch the archive');
+  // The renderer cannot write anywhere except to documents that were opened through the OS.
+  const evil = await mkFile('evil.mslides', 'EVIL', 'ORIGINAL');
+  assert.equal(await evaluate(`window.native.writeFile(${JSON.stringify(evil)}, 'HACKED').then(r => r.ok)`), false, 'unopened path is refused');
+  assert.equal((await onDisk('evil.mslides')).title, 'ORIGINAL', 'the refused write changed nothing');
+  assert.equal(await evaluate(`window.native.writeFile(${JSON.stringify(path.join(nativeDir, 'plain.txt'))}, 'x').then(r => r.ok)`), false, 'non-.mslides target is refused');
+  // The association survives a restart; Save keeps writing the file.
+  await restart();
+  assert.equal(await deckId(), 'NATIVE-E'); assert.equal(await evaluate('store.getState().fileHandle?.name'), 'E.mslides', 'native association restored');
+  await stubSavePicker('must-not-be-used.mslides'); await setTitle2('E v2'); await evaluate('persist.saveProject()'); await pause(600);
+  assert.equal((await onDisk('E.mslides')).title, 'E v2', 'Save after restart writes the OS-opened file'); assert.equal(await evaluate('__picks'), 0);
+  // An open-file event delivered before the window exists is queued, not lost.
+  const fF = await mkFile('F.mslides', 'NATIVE-F', 'File F');
+  await restart({ env: { TEST_OPEN_AT_START: fF } });
+  await until(async () => (await deckId()) === 'NATIVE-F', 'early open-file request opened after startup');
+  // New Presentation shows no success toast.
+  await pause(2500);
+  assert.equal(await evaluate("document.querySelectorAll('.toast').length"), 0, 'no stray toasts before the check');
+  await click('.logo'); await pause(300); await evaluate("[...document.querySelectorAll('.menu-item')].find(e => e.textContent.includes('새 프레젠테이션')).click()"); await pause(600);
+  assert.equal(await evaluate("document.querySelectorAll('.toast').length"), 0, 'New Presentation shows no success toast');
+  assert.notEqual(await deckId(), 'NATIVE-F');
+  console.log('PASS .mslides opened by the OS (cold launch, queued early request, running app, invalid files, write-back, association, New without toast)');
   console.log('PASS presentation lifecycle (restore, New, Open, Save, Save As, file association, pristine detection, archive)');
   console.log('OUTPUT', output);
   }

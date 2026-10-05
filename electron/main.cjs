@@ -3,6 +3,85 @@ const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron')
 const path = require('path');
 const fs = require('fs');
 
+// ---------- opening .mslides files from the OS (Finder double-click, "Open With", argv) ----------
+// Requests are validated here (only *.mslides files), queued until the renderer is ready, and handed to
+// the renderer as {path, name, text}. The renderer can only write back to paths that arrived this way.
+const MSLIDES = /\.mslides$/i;
+const MAX_FILE_BYTES = 256 * 1024 * 1024;
+let mainWin = null;
+let rendererReady = false;
+const openQueue = [];
+const allowedFile = () => path.join(app.getPath('userData'), 'native-files.json');
+let allowed = null;
+function allowedSet() {
+  if (!allowed) {
+    try { allowed = new Set(JSON.parse(fs.readFileSync(allowedFile(), 'utf8'))); } catch { allowed = new Set(); }
+  }
+  return allowed;
+}
+function allow(p) {
+  const set = allowedSet();
+  if (set.has(p)) return;
+  set.add(p);
+  try { fs.writeFileSync(allowedFile(), JSON.stringify([...set])); } catch (e) { console.error('could not persist the file allow-list', e); }
+}
+/** Path of a valid-looking document request, or null. */
+function documentPath(p) {
+  return typeof p === 'string' && MSLIDES.test(p) ? path.resolve(p) : null;
+}
+function readDocument(p) {
+  const st = fs.statSync(p);
+  if (!st.isFile()) throw new Error('not a file');
+  if (st.size > MAX_FILE_BYTES) throw new Error('file is too large');
+  allow(p);
+  return { path: p, name: path.basename(p), text: fs.readFileSync(p, 'utf8') };
+}
+function safeDocument(p) {
+  try { return readDocument(p); } catch (e) { return { error: String(e.message || e), name: path.basename(p) }; }
+}
+function focusWindow() {
+  if (!mainWin || mainWin.isDestroyed()) return;
+  if (mainWin.isMinimized()) mainWin.restore();
+  mainWin.show();
+  mainWin.focus();
+}
+function requestOpen(candidate) {
+  const p = documentPath(candidate);
+  if (!p) return;
+  if (rendererReady && mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('open-file', safeDocument(p));
+  else {
+    openQueue.push(p);
+    if (app.isReady() && BrowserWindow.getAllWindows().length === 0) createWindow();
+  }
+  focusWindow();
+}
+ipcMain.handle('native-open-ready', () => {
+  rendererReady = true;
+  return openQueue.splice(0).map(safeDocument);
+});
+// Write-back only to documents that were opened through the OS (current file association of such documents).
+ipcMain.handle('native-write', (_event, target, text) => {
+  try {
+    const p = documentPath(target);
+    if (!p || typeof text !== 'string' || !allowedSet().has(p)) return { ok: false, error: 'not an opened document' };
+    if (!fs.statSync(p).isFile()) return { ok: false, error: 'not a file' };
+    const tmp = p + '.tmp-' + process.pid;
+    fs.writeFileSync(tmp, text);
+    fs.renameSync(tmp, p);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e.message || e) };
+  }
+});
+app.on('open-file', (event, p) => { event.preventDefault(); requestOpen(p); });
+const singleInstance = app.requestSingleInstanceLock();
+if (!singleInstance) app.quit();
+app.on('second-instance', (_event, argv, cwd) => {
+  argv.slice(1).forEach((a) => requestOpen(typeof a === 'string' && !path.isAbsolute(a) ? path.resolve(cwd || '', a) : a));
+  focusWindow();
+});
+process.argv.slice(1).forEach(requestOpen); // Windows/Linux: the file arrives as an argument
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
@@ -14,6 +93,9 @@ function createWindow() {
     backgroundColor: '#eceef1',
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true },
   });
+  mainWin = win;
+  win.on('closed', () => { if (mainWin === win) { mainWin = null; rendererReady = false; } });
+  win.webContents.on('did-start-loading', () => { rendererReady = false; }); // reload: the renderer asks again
   if (process.env.ELECTRON_DEV_URL) win.loadURL(process.env.ELECTRON_DEV_URL);
   else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -67,6 +149,7 @@ const template = [
 ];
 
 app.whenReady().then(() => {
+  if (!singleInstance) return;
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());

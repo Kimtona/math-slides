@@ -98,6 +98,14 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": "mslides",
+        "name": "MathSlides presentation",
+        "description": "MathSlides presentation",
+        "role": "Editor"
+      }
+    ]
   }
 }

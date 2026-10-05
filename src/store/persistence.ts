@@ -48,8 +48,11 @@ export async function startSession() {
     if (isValidDeck(last)) {
       const deck: Deck = last.id ? last : { ...last, id: uid() };
       useStore.getState().loadDeck(deck, await loadAssetsFor(deck));
-      const assoc = (await get(FILE_KEY)) as { handle?: any; deckId?: string } | undefined;
-      if (assoc?.handle && assoc.deckId === deck.id) useStore.setState({ fileHandle: assoc.handle });
+      const assoc = (await get(FILE_KEY)) as { handle?: any; nativePath?: string; name?: string; deckId?: string } | undefined;
+      if (assoc && assoc.deckId === deck.id) {
+        if (assoc.handle) useStore.setState({ fileHandle: assoc.handle });
+        else if (assoc.nativePath && window.native?.writeFile) useStore.setState({ fileHandle: nativeFileHandle(assoc.nativePath, assoc.name ?? 'presentation.mslides') });
+      }
       return;
     }
     if (last !== undefined) await set(`deck:unreadable:${Date.now()}`, last);
@@ -59,10 +62,32 @@ export async function startSession() {
   }
 }
 
-/** Remember which .mslides file the current presentation belongs to (a File System Access handle). */
+/**
+ * A .mslides file that the operating system asked us to open (Finder, "Open With", argv): there is no File System
+ * Access handle for it, so this stand-in offers the same createWritable() interface; writing goes through the
+ * Electron main process, which only accepts paths that were opened that way.
+ */
+export function nativeFileHandle(path: string, name: string) {
+  return {
+    kind: 'native', name, nativePath: path,
+    async createWritable() {
+      const parts: string[] = [];
+      return {
+        write: async (data: Blob | string) => { parts.push(typeof data === 'string' ? data : await data.text()); },
+        close: async () => {
+          const r = await window.native?.writeFile?.(path, parts.join(''));
+          if (!r?.ok) throw new Error(r?.error ?? 'native write failed');
+        },
+      };
+    },
+  };
+}
+
+/** Remember which .mslides file the current presentation belongs to (a File System Access handle, or an OS path). */
 async function rememberFile(handle: any, deckId: string | undefined) {
   try {
     if (!handle || !deckId) return void (await del(FILE_KEY));
+    if (handle.nativePath) return void (await set(FILE_KEY, { nativePath: handle.nativePath, name: handle.name, deckId }));
     await set(FILE_KEY, { handle, name: handle.name, deckId });
   } catch (e) {
     // Not every handle can be stored (e.g. non-native stand-ins); the in-memory association still works.
@@ -240,19 +265,49 @@ export async function openProject() {
   }
   if (!file) return;
   try {
-    const data = JSON.parse(await file.text()) as ProjectFile;
-    if (data.format !== 'mathslides' || !isValidDeck(data.deck)) throw new Error('not a MathSlides file');
-    // Never replace meaningful unsaved work silently: it goes to the archive first (same-id entries are updated).
-    await archiveCurrent();
-    const deck: Deck = data.deck.id ? data.deck : { ...data.deck, id: uid() }; // keep the file's identity
-    Object.values(data.assets ?? {}).forEach(saveAsset);
-    useStore.getState().loadDeck(deck, data.assets ?? {});
-    useStore.setState({ fileHandle: handle });
-    await rememberFile(handle, deck.id);
-    await saveWorking();
+    await openFromText(await file.text(), handle);
   } catch (e) {
     alert('파일을 열 수 없습니다: ' + (e as Error).message);
   }
+}
+
+/**
+ * The one Open path (in-app 열기… and files opened by the OS): validates the file, archives meaningful current work,
+ * keeps the file's Deck.id, and makes the file the current one. Throws on an invalid file (nothing is changed then).
+ */
+export async function openFromText(text: string, handle: any) {
+  const data = JSON.parse(text) as ProjectFile;
+  if (data?.format !== 'mathslides' || !isValidDeck(data.deck)) throw new Error('not a MathSlides file');
+  // Never replace meaningful unsaved work silently: it goes to the archive first (same-id entries are updated).
+  await archiveCurrent();
+  const deck: Deck = data.deck.id ? data.deck : { ...data.deck, id: uid() }; // keep the file's identity
+  Object.values(data.assets ?? {}).forEach(saveAsset);
+  useStore.getState().loadDeck(deck, data.assets ?? {});
+  useStore.setState({ fileHandle: handle });
+  await rememberFile(handle, deck.id);
+  await saveWorking();
+}
+
+/** A request from the OS (see electron/main.cjs): same lifecycle as 열기…, errors become a toast. Requests are handled one at a time. */
+let nativeOpenChain: Promise<void> = Promise.resolve();
+export function openNativeFile(file: { path?: string; name?: string; text?: string; error?: string }) {
+  nativeOpenChain = nativeOpenChain.then(async () => {
+    try {
+      if (file.error || typeof file.text !== 'string' || !file.path) throw new Error(file.error ?? 'unreadable file');
+      await openFromText(file.text, nativeFileHandle(file.path, file.name ?? 'presentation.mslides'));
+    } catch (e) {
+      flash(`${file.name ?? '파일'}을(를) 열 수 없습니다: ${(e as Error).message}`);
+    }
+  });
+  return nativeOpenChain;
+}
+
+/** Start listening for OS open requests and process those queued before the renderer was ready. */
+export async function startNativeOpen() {
+  const n = window.native;
+  if (!n?.openReady || !n.onOpenFile) return;
+  n.onOpenFile((f) => void openNativeFile(f));
+  for (const f of await n.openReady()) await openNativeFile(f);
 }
 
 // ---------- new presentation vs. restoring an existing one ----------
@@ -321,7 +376,6 @@ export async function newProject() {
   useStore.setState({ fileHandle: null });
   await rememberFile(null, undefined);
   await saveWorking();
-  flash('새 프레젠테이션 — 이전 프레젠테이션은 ∑ 메뉴에서 다시 열 수 있습니다');
 }
 
 /** Reopen an archived presentation; the current one is archived in its place (nothing is lost). */
