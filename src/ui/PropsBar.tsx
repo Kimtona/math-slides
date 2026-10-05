@@ -8,7 +8,7 @@ import { DEFAULT_TEXT_COLOR, emptyDoc, shapeTextStyle } from '../model/defaults'
 import { cropOf, isCropped, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { activeTextColor, markActive, setTextStyle, toggleList, toggleMark } from './textFormat';
-import { HighlightButton, ShapeFillButton, TextColorButton, ThemeColorButton } from './TextColorPalette';
+import { HighlightButton, PaletteColorButton, ShapeFillButton, TextColorButton, ThemeColorButton } from './TextColorPalette';
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
 
@@ -88,8 +88,8 @@ function ShapeProps({ el }: { el: ShapeElement }) {
   return (
     <>
       <ShapeFillButton value={el.fill} onChange={(c) => upd((d) => { d.fill = c; })} />
-      <ColorButton title="테두리 (Border)" label={<span className="small-label">테두리</span>} allowNone noneLabel="테두리 없음"
-        value={el.stroke} onChange={(c) => upd((d) => { d.stroke = c; })} />
+      <PaletteColorButton title="테두리 (Border)" label={<span className="small-label">테두리</span>} noneLabel="테두리 없음"
+        value={el.stroke} onChange={(c) => upd((d) => { d.stroke = c; })} onNone={() => upd((d) => { d.stroke = null; })} />
       <WidthButton title="테두리 두께" allowNone value={el.stroke ? el.strokeWidth : null}
         onChange={(w) => upd((d) => {
           if (w === null) { d.stroke = null; return; }
@@ -211,8 +211,8 @@ export function PropsBar() {
           <span className="small-label">슬라이드 {slideIdx + 1} / {total}</span>
           <Sep />
           <ThemeColorButton value={themeColorOf(deck)} onChange={(c) => useStore.getState().commit((d) => { d.themeColor = c; })} />
-          <ColorButton title="슬라이드 배경" label={<span className="small-label">배경색</span>} value={slide.background}
-            onChange={(c) => useStore.getState().commit((d) => { d.slides[slideIdx].background = c ?? '#ffffff'; })} />
+          <PaletteColorButton title="슬라이드 배경" label={<span className="small-label">배경색</span>} value={slide.background}
+            onChange={(c) => useStore.getState().commit((d) => { d.slides[slideIdx].background = c; })} />
           <span className="hint">빈 곳 클릭 → 텍스트 · 텍스트에서 <kbd>/math</kbd> → 수식 · 이미지는 끌어다 놓기 / ⌘V</span>
         </>
       )}

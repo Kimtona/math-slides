@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { HIGHLIGHT_COLORS, parseHex, sameColor, STANDARD_COLORS, THEME_COLORS } from '../model/colors';
 import { captureTextSelection, setHighlight, setTextColor } from './textFormat';
 import { Icons, Popover } from './controls';
@@ -9,7 +9,7 @@ function Swatch({ color, label, value, apply }: { color: string; label: string; 
     onClick={() => apply(color)} />;
 }
 
-function ColorPalette({ value, apply, close }: { value: string | null; apply: (color: string) => void; close: () => void }) {
+function ColorPalette({ value, apply, close, noneLabel, onNone }: { value: string | null; apply: (color: string) => void; close: () => void; noneLabel?: string; onNone?: () => void }) {
   const [custom, setCustom] = useState(false);
   const [hex, setHex] = useState(value || '#3B82F6');
   const valid = parseHex(hex);
@@ -29,6 +29,7 @@ function ColorPalette({ value, apply, close }: { value: string | null; apply: (c
     <div className="palette-heading">Standard Colors</div>
     <div className="standard-colors">{STANDARD_COLORS.map((c) =>
       <Swatch key={c.name} color={c.hex} label={`Standard ${c.name}`} value={value} apply={choose} />)}</div>
+    {onNone && <button className="palette-other" onClick={() => { onNone(); close(); }}>{noneLabel ?? 'None'}</button>}
     <button className="palette-other" onClick={() => setCustom(!custom)} aria-expanded={custom}>Other Colors...</button>
     {custom && <form className="custom-color" onSubmit={(e) => { e.preventDefault(); if (valid) choose(valid); }}>
       <div className="custom-color-row">
@@ -49,6 +50,20 @@ export function TextColorButton({ value }: { value: string | null }) {
       <span className={`swatch${value === null ? ' mixed' : ''}`} style={{ backgroundColor: value ?? undefined }} /></span>
   }>
     {(close) => <ColorPalette value={value} close={close} apply={(c) => { if (restore.current()) setTextColor(c); }} />}
+  </Popover>;
+}
+
+/**
+ * The full PowerPoint-style palette (Theme / Standard / Other colors) for a plain color property — slide
+ * background, shape border. `onNone` adds a "no value" entry for properties that can be off (e.g. no border).
+ */
+export function PaletteColorButton({ title, label, value, onChange, onNone, noneLabel = '없음' }: {
+  title: string; label: ReactNode; value: string | null; onChange: (c: string) => void; onNone?: () => void; noneLabel?: string;
+}) {
+  return <Popover title={`${title}: ${value ?? noneLabel}`} button={
+    <span className="color-btn">{label}<span className={`swatch${value ? '' : ' none'}`} style={{ backgroundColor: value ?? undefined }} /></span>
+  }>
+    {(close) => <ColorPalette value={value} close={close} apply={onChange} onNone={onNone} noneLabel={noneLabel} />}
   </Popover>;
 }
 
