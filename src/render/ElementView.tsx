@@ -68,7 +68,16 @@ export function ElementBody({ el, assets }: { el: SlideElement; assets: Record<s
     case 'text': return <StaticText doc={el.doc} />;
     case 'image': {
       const a = assets[el.assetId];
-      return a ? <img className="el-img" src={a.dataUrl} draggable={false} alt="" /> : <div className="el-img missing">image</div>;
+      if (!a) return <div className="el-img missing">image</div>;
+      if (!el.crop) return <img className="el-img" src={a.dataUrl} draggable={false} alt="" />;
+      // Cropped: the full image is drawn larger and offset; the element box clips it.
+      const c = el.crop;
+      return (
+        <div className="el-img-crop">
+          <img className="el-img-src" src={a.dataUrl} draggable={false} alt=""
+            style={{ left: `${(-c.x / c.w) * 100}%`, top: `${(-c.y / c.h) * 100}%`, width: `${100 / c.w}%`, height: `${100 / c.h}%` }} />
+        </div>
+      );
     }
     case 'shape': return <ShapeSvg el={el} />;
     case 'line': return <LineSvg el={el} />;

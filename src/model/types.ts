@@ -36,9 +36,25 @@ export interface TextElement extends ElementBase {
   style: TextStyle;
 }
 
+/**
+ * Non-destructive crop: the part of the original image shown inside the element frame,
+ * as fractions (0..1) of the source image's natural width/height. The asset is never modified,
+ * so shrinking and later re-growing the crop reveals the original pixels again.
+ * Maps directly to PowerPoint's <a:srcRect> and to CSS percentages.
+ * (A future mask shape, e.g. ellipse, would be a sibling field on ImageElement.)
+ */
+export interface ImageCrop {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface ImageElement extends ElementBase {
   type: 'image';
   assetId: ID;
+  /** Absent (older files, uncropped images) = the whole image. */
+  crop?: ImageCrop;
 }
 
 export type ShapeKind = 'rect' | 'roundRect' | 'ellipse';

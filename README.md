@@ -27,8 +27,11 @@ You can also double-click `MathSlides.command` in Finder to launch the desktop a
 | Edit an equation | Click (or double-click) the equation → the LaTeX popover opens again |
 | Equation-only box | `M` or the toolbar's 수식 button |
 | Image | Drag and drop, `⌘V` (paste a screenshot), or `I`. PNG/JPEG/WebP/GIF/SVG |
+| Image resize | Handle drag = keep aspect ratio · `⌥ Option`+drag = free resize · `⇧ Shift`+drag = **crop** |
+| Crop edit | Double-click the image (or `Enter`): drag = move the image inside the frame, wheel/pinch or blue dots = zoom, white handles = crop frame. `Esc` / `Enter` / outside click = done |
+| Colors | Text color, shape Fill/Border, line color: preset palette (edit the presets in `src/model/colors.ts`) |
 | Shapes | `R` rectangle, `O` ellipse, `L` line, `A` arrow |
-| Resize | Image corners keep aspect ratio (`Shift` = free). Text corners scale the font |
+| Resize | Text corners scale the font. Shapes: `Shift` = keep aspect ratio |
 | Snapping | Edges and centers of the slide and other objects (hold `Alt` to turn it off) |
 | Lists | Type `- ` or `1. `, `Tab` / `⇧Tab` to indent |
 | Undo/redo | `⌘Z` / `⌘⇧Z` (while editing text, these undo within the text) |
@@ -63,6 +66,8 @@ Electron (optional shell)           webContents.printToPDF → one-click vector 
 src/
   model/types.ts        Deck / Slide / SlideElement (text | image | shape | line)
   model/geometry.ts     bounding boxes, snapping
+  model/colors.ts       preset palette (the only place colors are defined)
+  model/imageCrop.ts    crop math (frame ↔ full-image rectangle)
   store/store.ts        state, history (commit / live / gesture), slide operations
   store/persistence.ts  autosave, .mslides files
   math/mathjax.ts       renderTex(latex, display) → SVG (em units, cached)
@@ -78,6 +83,7 @@ src/
 - Text box height is automatic, measured from the content. A box widens automatically if an equation is wider than it.
 - Undo: every change produces a new immutable deck, and the previous deck goes on the `past` stack. Continuous actions such as dragging or a text-editing session become one history entry, between `beginGesture` and `endGesture`.
 - Images are stored once in a separate `assets` map; elements reference them by `assetId`.
+- Image crop is non-destructive: `ImageElement.crop = {x, y, w, h}` is the visible part of the original as fractions (0–1). It's optional, so files without it open as uncropped. It maps 1:1 to PowerPoint's `srcRect`.
 
 ### 3. How `/math` works
 
@@ -104,13 +110,13 @@ src/
 - Text: runs of consecutive plain paragraphs become **one editable PowerPoint text box**, keeping bold, italic, underline, color, bullets, numbering, line spacing and alignment.
 - Block equations become **SVG pictures** (PowerPoint 365 keeps them as vectors; a high-resolution PNG fallback is included).
 - Paragraphs with inline equations: PowerPoint can't put a picture inside a text run, so each line is split at the equations. The text pieces become small text boxes and the equations become SVGs, all at their measured positions.
-- Shapes and lines become native PowerPoint shapes (fill, outline, arrows, dashes). Images keep their original quality (WebP and similar formats are converted to PNG). Speaker notes are included.
+- Shapes and lines become native PowerPoint shapes (fill / no fill, outline, arrows, dashes). Images keep their original quality (WebP and similar formats are converted to PNG). Cropped images use **PowerPoint's native crop** (`<a:srcRect>`): the original is embedded, so the crop can still be adjusted in PowerPoint. Speaker notes are included.
 - pptxgenjs writes multiple `<a:pPr>` per paragraph, which breaks the OOXML schema; this is cleaned up with JSZip after generation.
 - Tested: the file opens in Microsoft PowerPoint for Mac without a repair prompt and renders correctly.
 
 ## Known limitations (MVP)
 
-- No rotation, grouping, image cropping, or tables.
+- No rotation, grouping, or tables. Crop is rectangular only (no mask shapes).
 - Equations in PPTX are pictures, not native PowerPoint equations (OMML).
 - In PPTX, a line containing inline equations becomes several separate text boxes, so editing the text in PowerPoint can disturb the layout.
 - Font size and alignment are set per text box (no per-character sizes).

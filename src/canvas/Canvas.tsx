@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Box, LineElement, SlideElement, TextElement } from '../model/types';
+import type { Box, ImageElement, LineElement, SlideElement, TextElement } from '../model/types';
+import { clampFrameToSource, coverFrame, cropFrom, cropOf, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { lineBox } from '../model/defaults';
 import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
@@ -88,7 +89,7 @@ function startMove(e: React.PointerEvent, el: SlideElement) {
 
 // ---------- resize ----------
 
-function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle) {
+function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle, opts: { crop?: boolean } = {}) {
   e.stopPropagation();
   e.preventDefault();
   const st = useStore.getState();
@@ -125,6 +126,12 @@ function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle) {
       return;
     }
 
+    if (o.type === 'image') {
+      resizeImage(o, handle, p, ev, targets, thr(), guides, opts.crop || ev.shiftKey);
+      useStore.setState({ guides });
+      return;
+    }
+
     const hasW = handle.includes('w'), hasE = handle.includes('e'), hasN = handle.includes('n'), hasS = handle.includes('s');
     let x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h;
     if (hasW) x1 = p.x; if (hasE) x2 = p.x; if (hasN) y1 = p.y; if (hasS) y2 = p.y;
@@ -141,7 +148,7 @@ function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle) {
     const MIN = 12;
     let w = Math.max(MIN, x2 - x1), h = Math.max(MIN, y2 - y1);
     const corner = (hasW || hasE) && (hasN || hasS);
-    const keepAspect = corner && (o.type === 'image' ? !ev.shiftKey : o.type === 'shape' ? ev.shiftKey : o.type === 'text');
+    const keepAspect = corner && (o.type === 'shape' ? ev.shiftKey : o.type === 'text');
     if (keepAspect) {
       const sc = o.type === 'text' ? w / o.w : Math.max(w / o.w, h / o.h);
       w = Math.max(MIN, o.w * sc); h = Math.max(MIN, o.h * sc);
@@ -164,8 +171,147 @@ function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle) {
     useStore.setState({ guides });
   }, (_ev, moved) => {
     useStore.setState({ guides: [] });
-    if (moved) useStore.getState().endGesture();
+    // In crop edit mode the whole session is one undo step (closed by exitCrop).
+    if (moved && !useStore.getState().cropEditId) useStore.getState().endGesture();
   });
+}
+
+/**
+ * Image handles:
+ *   drag          → resize keeping the current aspect ratio
+ *   ⌥ Option+drag → free resize (stretch)
+ *   ⇧ Shift+drag  → crop: the frame edge moves, the image stays put (non-destructive)
+ */
+function resizeImage(o: ImageElement, handle: Handle, p: { x: number; y: number }, ev: PointerEvent,
+  targets: ReturnType<typeof snapTargets>, thr: number, guides: Guide[], crop: boolean) {
+  const hasW = handle.includes('w'), hasE = handle.includes('e'), hasN = handle.includes('n'), hasS = handle.includes('s');
+  let x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h;
+  if (hasW) x1 = p.x; if (hasE) x2 = p.x; if (hasN) y1 = p.y; if (hasS) y2 = p.y;
+  if (hasW || hasE) {
+    const sn = snap1([hasW ? x1 : x2], targets.xs, thr);
+    if (sn) { if (hasW) x1 += sn.delta; else x2 += sn.delta; guides.push({ axis: 'x', pos: sn.pos }); }
+  }
+  if (hasN || hasS) {
+    const sn = snap1([hasN ? y1 : y2], targets.ys, thr);
+    if (sn) { if (hasN) y1 += sn.delta; else y2 += sn.delta; guides.push({ axis: 'y', pos: sn.pos }); }
+  }
+  const upd = (fn: (d: ImageElement) => void) => useStore.getState().updateElements([o.id], (d) => fn(d as ImageElement), true);
+
+  if (crop) {
+    const R = sourceRect(o, cropOf(o));
+    const f = clampFrameToSource({ x1, y1, x2, y2 }, R, { w: hasW, e: hasE, n: hasN, s: hasS });
+    const F = { x: Math.round(f.x), y: Math.round(f.y), w: Math.round(f.w), h: Math.round(f.h) };
+    upd((d) => { Object.assign(d, F); d.crop = cropFrom(F, R); });
+    return;
+  }
+
+  const MIN = 12;
+  let w = Math.max(MIN, x2 - x1), h = Math.max(MIN, y2 - y1);
+  let x = hasW ? o.x + o.w - w : o.x, y = hasN ? o.y + o.h - h : o.y;
+  if (!ev.altKey) {
+    const ratio = o.w / o.h;
+    const corner = (hasW || hasE) && (hasN || hasS);
+    if (corner) {
+      const sc = Math.max(w / o.w, h / o.h);
+      w = o.w * sc; h = o.h * sc;
+      x = hasW ? o.x + o.w - w : o.x; y = hasN ? o.y + o.h - h : o.y;
+    } else if (hasW || hasE) {
+      h = w / ratio; y = o.y + o.h / 2 - h / 2; // edge: grow around the perpendicular center
+    } else {
+      w = h * ratio; x = o.x + o.w / 2 - w / 2;
+    }
+    if (w < MIN || h < MIN) return;
+  }
+  upd((d) => { d.x = Math.round(x); d.y = Math.round(y); d.w = Math.round(w); d.h = Math.round(h); });
+}
+
+// ---------- crop edit mode (double-click an image) ----------
+
+/** Update the crop of the image in crop mode from a new full-image rectangle R (frame stays fixed). */
+function setSourceRect(el: ImageElement, R: Box) {
+  const r = coverFrame(el, R);
+  useStore.getState().updateElements([el.id], (d) => { (d as ImageElement).crop = cropFrom(d, r); }, true);
+}
+
+function startPan(e: React.PointerEvent, el: ImageElement) {
+  if (e.button !== 0) return;
+  e.stopPropagation();
+  e.preventDefault();
+  const R0 = sourceRect(el, cropOf(el));
+  track(e, (_ev, dx, dy) => setSourceRect(el, { ...R0, x: R0.x + dx, y: R0.y + dy }), () => {});
+}
+
+/** Dragging a corner of the full image scales it (aspect locked) around the opposite corner. */
+function startZoomHandle(e: React.PointerEvent, el: ImageElement, corner: 'nw' | 'ne' | 'se' | 'sw') {
+  e.stopPropagation();
+  e.preventDefault();
+  const R0 = sourceRect(el, cropOf(el));
+  const ax = corner.includes('w') ? R0.x + R0.w : R0.x;
+  const ay = corner.includes('n') ? R0.y + R0.h : R0.y;
+  track(e, (ev) => {
+    const p = toSlide(ev.clientX, ev.clientY);
+    // Signed distances: dragging past the anchor shrinks to the minimum (coverFrame) instead of flipping.
+    const sx = corner.includes('w') ? -1 : 1, sy = corner.includes('n') ? -1 : 1;
+    const k = Math.max((sx * (p.x - ax)) / R0.w, (sy * (p.y - ay)) / R0.h, 0.01);
+    const w = R0.w * k, h = R0.h * k;
+    setSourceRect(el, { x: corner.includes('w') ? ax - w : ax, y: corner.includes('n') ? ay - h : ay, w, h });
+  }, () => {});
+}
+
+function CropOverlay({ el, scale }: { el: ImageElement; scale: number }) {
+  const asset = useStore((s) => s.assets[el.assetId]);
+  const ref = useRef<HTMLDivElement>(null);
+  const R = sourceRect(el, cropOf(el));
+
+  // Wheel / trackpad pinch zooms the image around the pointer (non-passive to stop browser zoom).
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const onWheel = (ev: WheelEvent) => {
+      ev.preventDefault();
+      const cur = currentSlide().elements.find((x) => x.id === el.id) as ImageElement | undefined;
+      if (!cur) return;
+      const r = sourceRect(cur, cropOf(cur));
+      const p = toSlide(ev.clientX, ev.clientY);
+      const k = Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.01 : 0.002));
+      setSourceRect(cur, { x: p.x - (p.x - r.x) * k, y: p.y - (p.y - r.y) * k, w: r.w * k, h: r.h * k });
+    };
+    node.addEventListener('wheel', onWheel, { passive: false });
+    return () => node.removeEventListener('wheel', onWheel);
+  }, [el.id]);
+
+  if (!asset) return null;
+  const hs = 10 / scale, bw = 1.5 / scale;
+  const corners = ['nw', 'ne', 'se', 'sw'] as const;
+  const frameHandles: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+  const fpos = (h: Handle) => ({
+    left: h.includes('w') ? el.x : h.includes('e') ? el.x + el.w : el.x + el.w / 2,
+    top: h.includes('n') ? el.y : h.includes('s') ? el.y + el.h : el.y + el.h / 2,
+  });
+  const done = (e: React.MouseEvent) => { e.stopPropagation(); useStore.getState().exitCrop(); };
+  return (
+    <div ref={ref} className="crop-layer" onDoubleClick={done}>
+      {/* the whole original image, dimmed: what is outside the frame */}
+      <div className="crop-ghost" style={{ left: R.x, top: R.y, width: R.w, height: R.h }} onPointerDown={(e) => startPan(e, el)}>
+        <img src={asset.dataUrl} draggable={false} alt="" />
+      </div>
+      {/* the visible part, at full opacity */}
+      <div className="crop-window" style={{ left: el.x, top: el.y, width: el.w, height: el.h }} onPointerDown={(e) => startPan(e, el)}>
+        <img src={asset.dataUrl} draggable={false} alt="" style={{ left: R.x - el.x, top: R.y - el.y, width: R.w, height: R.h }} />
+      </div>
+      <div className="sel-frame crop-frame" style={{ left: el.x, top: el.y, width: el.w, height: el.h, borderWidth: bw }} />
+      {corners.map((c) => (
+        <div key={'z' + c} className={`handle zoom-handle h-${c}`} title="이미지 확대/축소"
+          style={{ left: c.includes('w') ? R.x : R.x + R.w, top: c.includes('n') ? R.y : R.y + R.h, width: hs, height: hs, borderWidth: bw }}
+          onPointerDown={(e) => startZoomHandle(e, el, c)} />
+      ))}
+      {frameHandles.map((h) => (
+        <div key={'f' + h} className={`handle crop-handle h-${h}`} title="크롭 영역"
+          style={{ ...fpos(h), width: hs * 1.6, height: hs * 1.6, borderWidth: bw }}
+          onPointerDown={(e) => startResize(e, el, h, { crop: true })} />
+      ))}
+    </div>
+  );
 }
 
 // ---------- components ----------
@@ -207,6 +353,7 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
     startMove(e, el);
   };
   const onDoubleClick = (e: React.MouseEvent) => {
+    if (el.type === 'image') { e.stopPropagation(); useStore.getState().enterCrop(el.id); return; }
     if (el.type !== 'text' || editing) return;
     e.stopPropagation();
     useStore.getState().startEditing(el.id, { x: e.clientX, y: e.clientY });
@@ -225,6 +372,7 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
 function SelectionOverlay({ scale }: { scale: number }) {
   const selection = useStore((s) => s.selection);
   const editingId = useStore((s) => s.editingId);
+  const cropEditId = useStore((s) => s.cropEditId);
   const slide = useStore((s) => s.deck.slides.find((x) => x.id === s.currentSlideId));
   if (!slide) return null;
   const els = slide.elements.filter((e) => selection.includes(e.id));
@@ -242,6 +390,7 @@ function SelectionOverlay({ scale }: { scale: number }) {
     );
   }
   const el = els[0];
+  if (el.type === 'image' && cropEditId === el.id) return <CropOverlay el={el} scale={scale} />;
   if (el.type === 'line') {
     return (
       <>
@@ -254,7 +403,6 @@ function SelectionOverlay({ scale }: { scale: number }) {
   }
   const handles: Handle[] =
     el.type === 'text' ? ['nw', 'ne', 'se', 'sw', 'e', 'w'] :
-    el.type === 'image' ? ['nw', 'ne', 'se', 'sw'] :
     ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
   const pos = (h: Handle) => ({
     left: h.includes('w') ? el.x : h.includes('e') ? el.x + el.w : el.x + el.w / 2,

@@ -24,6 +24,8 @@ export interface AppState {
   editingIsNew: boolean;
   editCaret: { x: number; y: number } | 'end' | 'all' | 'math' | null;
   mathEdit: MathEditState | null;
+  /** Image being re-framed in crop edit mode (double-click an image). */
+  cropEditId: ID | null;
   focusArea: 'canvas' | 'navigator';
   guides: Guide[];
   exportMode: null | 'print' | 'measure';
@@ -45,6 +47,8 @@ export interface AppState {
   startEditing: (id: ID, caret?: AppState['editCaret'], isNew?: boolean) => void;
   stopEditing: () => void;
   setMathEdit: (m: MathEditState | null) => void;
+  enterCrop: (id: ID) => void;
+  exitCrop: () => void;
 
   // elements
   addElements: (els: SlideElement[], opts?: { edit?: boolean; caret?: AppState['editCaret'] }) => void;
@@ -96,6 +100,7 @@ export const useStore = create<AppState>()((set, get) => {
     editingIsNew: false,
     editCaret: null,
     mathEdit: null,
+    cropEditId: null,
     focusArea: 'canvas',
     guides: [],
     exportMode: null,
@@ -126,6 +131,7 @@ export const useStore = create<AppState>()((set, get) => {
     },
     undo: () => {
       if (get().editingId) get().stopEditing();
+      if (get().cropEditId) get().exitCrop();
       const { past, future, deck } = get();
       if (!past.length) return;
       const prev = past[past.length - 1];
@@ -133,20 +139,26 @@ export const useStore = create<AppState>()((set, get) => {
     },
     redo: () => {
       if (get().editingId) get().stopEditing();
+      if (get().cropEditId) get().exitCrop();
       const { past, future, deck } = get();
       if (!future.length) return;
       set(fixup(future[0], { past: [...past, deck], future: future.slice(1) }));
     },
     loadDeck: (deck, assets) => {
       set({
-        deck, assets, past: [], future: [], gestureBase: null, selection: [], editingId: null, mathEdit: null,
+        deck, assets, past: [], future: [], gestureBase: null, selection: [], editingId: null, mathEdit: null, cropEditId: null,
         currentSlideId: deck.slides[0].id,
       });
     },
 
-    select: (ids) => set({ selection: ids, focusArea: 'canvas' }),
+    select: (ids) => {
+      const { cropEditId } = get();
+      if (cropEditId && !(ids.length === 1 && ids[0] === cropEditId)) get().exitCrop();
+      set({ selection: ids, focusArea: 'canvas' });
+    },
 
     startEditing: (id, caret = 'end', isNew = false) => {
+      if (get().cropEditId) get().exitCrop();
       const st = get();
       if (st.editingId === id) return;
       if (st.editingId) st.stopEditing();
@@ -178,10 +190,24 @@ export const useStore = create<AppState>()((set, get) => {
       get().endGesture();
     },
     setMathEdit: (m) => set({ mathEdit: m }),
+    enterCrop: (id) => {
+      const st = get();
+      if (st.cropEditId === id) return;
+      if (st.editingId) st.stopEditing();
+      if (st.cropEditId) st.exitCrop();
+      get().beginGesture(); // the whole crop session is one undo step
+      set({ cropEditId: id, selection: [id], focusArea: 'canvas' });
+    },
+    exitCrop: () => {
+      if (!get().cropEditId) return;
+      set({ cropEditId: null });
+      get().endGesture();
+    },
 
     addElements: (els, opts = {}) => {
       const { currentSlideId } = get();
       if (get().editingId) get().stopEditing();
+      if (get().cropEditId) get().exitCrop();
       if (opts.edit) get().beginGesture();
       get().commit((d) => {
         findSlide(d as Deck, currentSlideId)!.elements.push(...(els as any));
@@ -192,6 +218,7 @@ export const useStore = create<AppState>()((set, get) => {
       }
     },
     deleteSelection: () => {
+      if (get().cropEditId) get().exitCrop();
       const { selection, currentSlideId } = get();
       if (!selection.length) return;
       const ids = new Set(selection);
@@ -232,12 +259,14 @@ export const useStore = create<AppState>()((set, get) => {
 
     goToSlide: (id) => {
       if (get().editingId) get().stopEditing();
+      if (get().cropEditId) get().exitCrop();
       set({ currentSlideId: id, selection: [] });
     },
     addSlide: (afterId, slide) => {
       const s = slide ?? newSlide();
       const after = afterId ?? get().currentSlideId;
       if (get().editingId) get().stopEditing();
+      if (get().cropEditId) get().exitCrop();
       get().commit((d) => {
         const i = d.slides.findIndex((x) => x.id === after);
         d.slides.splice(i + 1, 0, s as any);

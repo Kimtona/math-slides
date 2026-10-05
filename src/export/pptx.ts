@@ -1,6 +1,7 @@
 import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
 import type { Asset, Deck, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
+import { sourceRect } from '../model/imageCrop';
 
 // Slide units are CSS px on a 1280×720 canvas = 13.333×7.5in (PowerPoint widescreen).
 const IN = (px: number) => px / 96;
@@ -266,7 +267,19 @@ async function imageData(a: Asset): Promise<string> {
 async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset>) {
   const a = assets[el.assetId];
   if (!a) return;
-  s.addImage({ data: await imageData(a), x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h) });
+  const data = await imageData(a);
+  if (!el.crop) {
+    s.addImage({ data, x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h) });
+    return;
+  }
+  // Native PowerPoint crop (<a:srcRect>): the full-resolution original is embedded and only
+  // the cropped part is shown, so the crop stays adjustable in PowerPoint (Picture Format → Crop).
+  // w/h = the whole image at its displayed scale; sizing.x/y/w/h = the visible frame inside it.
+  const R = sourceRect(el, el.crop);
+  s.addImage({
+    data, x: IN(el.x), y: IN(el.y), w: IN(R.w), h: IN(R.h),
+    sizing: { type: 'crop', x: IN(el.x - R.x), y: IN(el.y - R.y), w: IN(el.w), h: IN(el.h) },
+  });
 }
 
 // ---------- XML clean-up ----------

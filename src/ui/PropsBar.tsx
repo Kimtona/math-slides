@@ -4,6 +4,8 @@ import { useStore } from '../store/store';
 import { getActiveEditor, onActiveEditorChange } from '../editor/active';
 import { Btn, ColorButton, Icons, NumberField, Popover, Sep, WidthButton } from './controls';
 import { DEFAULT_TEXT_COLOR } from '../model/defaults';
+import { cropOf, isCropped, sourceRect } from '../model/imageCrop';
+import { SLIDE_H, SLIDE_W } from '../model/types';
 import { markActive, setTextColor, setTextStyle, toggleList, toggleMark } from './textFormat';
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
@@ -107,13 +109,41 @@ function LineProps({ el }: { el: LineElement }) {
 
 function ImageProps({ el }: { el: ImageElement }) {
   const asset = useStore((s) => s.assets[el.assetId]);
+  const cropping = useStore((s) => s.cropEditId === el.id);
+  const st = useStore.getState();
+  const c = cropOf(el);
+  const resetCrop = () => {
+    // Show the whole image again at its current scale, kept on the slide.
+    const R = sourceRect(el, c);
+    const k = Math.min(1, SLIDE_W / R.w, SLIDE_H / R.h);
+    const w = R.w * k, h = R.h * k;
+    const cx = el.x + el.w / 2, cy = el.y + el.h / 2;
+    st.updateElements([el.id], (d) => {
+      const i = d as ImageElement;
+      i.crop = undefined;
+      i.w = Math.round(w); i.h = Math.round(h);
+      i.x = Math.round(Math.min(Math.max(cx - w / 2, 0), SLIDE_W - w));
+      i.y = Math.round(Math.min(Math.max(cy - h / 2, 0), SLIDE_H - h));
+    });
+  };
+  if (cropping) {
+    return (
+      <>
+        <Btn wide className="active" title="크롭 완료 (Esc / Enter / 바깥 클릭)" onClick={() => st.exitCrop()}>✓ 크롭 완료</Btn>
+        <Btn wide title="크롭 해제 — 원본 전체 보기" onClick={() => { st.exitCrop(); resetCrop(); }}>크롭 해제</Btn>
+        <span className="hint">드래그 = 이미지 이동 · 휠/핀치·파란 점 = 확대/축소 · 흰 핸들 = 크롭 영역</span>
+      </>
+    );
+  }
   return (
     <>
+      <Btn wide title="크롭 편집 (더블클릭 / Enter)" onClick={() => st.enterCrop(el.id)}>크롭</Btn>
+      {isCropped(el.crop) && <Btn wide title="크롭 해제 — 원본 전체 보기" onClick={resetCrop}>크롭 해제</Btn>}
       <Btn wide title="원본 비율로 되돌리기" onClick={() => {
         if (!asset) return;
-        useStore.getState().updateElements([el.id], (d) => { d.h = Math.round(d.w * asset.height / asset.width); });
+        st.updateElements([el.id], (d) => { d.h = Math.round(d.w * (c.h * asset.height) / (c.w * asset.width)); });
       }}>원본 비율</Btn>
-      <span className="hint">모서리 드래그 = 비율 유지 · Shift = 자유 변형</span>
+      <span className="hint">드래그 = 비율 유지 · ⌥ Option = 자유 변형 · ⇧ Shift = 크롭 · 더블클릭 = 크롭 편집</span>
     </>
   );
 }
