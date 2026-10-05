@@ -220,6 +220,50 @@ function addFragments(s: Slide, base: TextElement, p: Element, content: Element,
   walk(p);
 }
 
+/**
+ * Code Block → native rounded rectangle (its light-gray background) + editable monospace text at the
+ * measured inner area, one paragraph per code line (leading spaces kept).
+ */
+function addCodeBlock(s: Slide, pre: Element, origin: DOMRect) {
+  const r = relRect(pre, origin);
+  const cs = getComputedStyle(pre);
+  const code = pre.querySelector('code') ?? pre;
+  const ccs = getComputedStyle(code);
+  const px = (v: string) => parseFloat(v) || 0;
+  const radius = Math.min(px(cs.borderTopLeftRadius), r.w / 2, r.h / 2);
+  s.addShape('roundRect', { x: IN(r.x), y: IN(r.y), w: IN(r.w), h: IN(r.h), fill: { color: hex(cs.backgroundColor) }, rectRadius: IN(radius), objectName: 'Code Block' });
+  const fs = px(ccs.fontSize);
+  const lh = px(ccs.lineHeight) || fs * 1.45;
+  const lines = (code.textContent ?? '').replace(/\n$/, '').split('\n');
+  const color = hex(ccs.color);
+  const runs: TextProps[] = lines.map((line, i) => ({
+    text: line, options: { fontFace: INLINE_CODE_FONT, fontSize: PT(fs), color, ...(i < lines.length - 1 ? { breakLine: true } : {}) },
+  }));
+  const pl = px(cs.paddingLeft), pr = px(cs.paddingRight), pt = px(cs.paddingTop), pb = px(cs.paddingBottom);
+  s.addText(runs, {
+    x: IN(r.x + pl), y: IN(r.y + pt), w: IN(r.w - pl - pr + Math.max(4, r.w * 0.02)), h: IN(Math.max(1, r.h - pt - pb)),
+    margin: 0, valign: 'top', wrap: true, fit: 'none', align: 'left',
+    fontFace: INLINE_CODE_FONT, fontSize: PT(fs), color, lineSpacing: PT(lh), paraSpaceBefore: 0, paraSpaceAfter: 0, objectName: 'Code',
+  });
+}
+
+/** Quote → native vertical line where the editor draws the left border. */
+function addQuoteLine(s: Slide, quote: Element, origin: DOMRect) {
+  const r = relRect(quote, origin);
+  const cs = getComputedStyle(quote);
+  const bw = parseFloat(cs.borderLeftWidth) || 0;
+  if (!bw) return;
+  s.addShape('line', { x: IN(r.x + bw / 2), y: IN(r.y), w: 0, h: IN(r.h), line: { color: hex(cs.borderLeftColor), width: PT(bw) }, objectName: 'Quote Line' });
+}
+
+/** Text area of a quote: right of its border and padding. */
+function quoteContentRect(quote: Element, origin: DOMRect): Rect {
+  const r = relRect(quote, origin);
+  const cs = getComputedStyle(quote);
+  const inset = (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.paddingLeft) || 0);
+  return { x: r.x + inset, y: r.y, w: r.w - inset, h: r.h };
+}
+
 function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect) {
   const boxRect = relRect(dom, origin);
   if (el.style.fill) {
@@ -227,15 +271,25 @@ function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect
   }
   const content = dom.querySelector('.tb-content');
   if (!content) return;
-  const blocks = [...content.querySelectorAll('p, .math-block')];
-  const hasMath = blocks.some((b) => b.classList.contains('math-block') || b.querySelector('.math-inline'));
+  const blocks = [...content.querySelectorAll('p, .math-block, pre')];
+  // A plain box (only paragraphs) becomes one text box with the element's own frame.
+  const plain = !content.querySelector('.math-block, .math-inline, pre, blockquote');
   let group: Element[] = [];
+  let groupQuote: Element | null = null;
   const flush = () => {
-    if (group.length) addTextGroup(s, el, group, content, origin, boxRect, !hasMath);
+    if (group.length) addTextGroup(s, el, group, content, origin, groupQuote ? quoteContentRect(groupQuote, origin) : boxRect, plain);
     group = [];
   };
+  const drawnQuotes = new Set<Element>();
   for (const b of blocks) {
-    if (b.classList.contains('math-block')) { flush(); addMath(s, b.querySelector('svg'), origin); }
+    // Quote lines (also of enclosing quotes), drawn once per quote.
+    for (let q = b.closest('blockquote'); q && content.contains(q); q = q.parentElement?.closest('blockquote') ?? null) {
+      if (!drawnQuotes.has(q)) { drawnQuotes.add(q); addQuoteLine(s, q, origin); }
+    }
+    const quote = b.closest('blockquote');
+    if (quote !== groupQuote) { flush(); groupQuote = quote; }
+    if (b.tagName === 'PRE') { flush(); addCodeBlock(s, b, origin); }
+    else if (b.classList.contains('math-block')) { flush(); addMath(s, b.querySelector('svg'), origin); }
     else if (b.querySelector('.math-inline')) { flush(); addFragments(s, el, b, content, origin); }
     else group.push(b);
   }

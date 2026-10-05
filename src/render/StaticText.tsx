@@ -62,6 +62,12 @@ function renderNode(n: PMNode, key: number, ctx: Ctx): ReactNode {
     case 'paragraph': return renderParagraph(n, key, ctx);
     case 'text': return renderMarks(n.text ?? '', n.marks, key);
     case 'hardBreak': return <br key={key} />;
+    case 'codeBlock': {
+      // Same DOM as TipTap: <pre><code>; a trailing <br> keeps a final empty line visible.
+      const text = (n.content ?? []).map((c) => c.text ?? '').join('');
+      return <pre key={key}><code>{text}{!text || text.endsWith('\n') ? <br className="ProseMirror-trailingBreak" /> : null}</code></pre>;
+    }
+    case 'blockquote': return <blockquote key={key}>{kids()}</blockquote>;
     case 'bulletList': return <ul key={key}>{kids()}</ul>;
     case 'orderedList': return <ol key={key} start={n.attrs?.start ?? 1}>{kids()}</ol>;
     case 'listItem': {

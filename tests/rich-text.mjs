@@ -244,6 +244,50 @@ try {
   await evaluate('store.getState().stopEditing()');
   assert.equal(await evaluate("!!document.querySelector('.slide.editable .math-block svg')"), true);
   console.log('PASS Title/Content templates, heading shortcuts and /math');
+  // Code Block (/code at line start) and Quote ("| " at line start), typed in a fresh box on the content slide.
+  await evaluate(`store.getState().addElements([defaults.newText(64,330,{w:900})],{edit:true})`);
+  await until(() => evaluate('!!active()'), 'Block text editor');
+  const blockTypes = async () => (await doc()).content.map((n) => n.type);
+  await send('Input.insertText', {text:'P(A | B) stays text'}); await pause();
+  assert.deepEqual(await blockTypes(), ['paragraph'], 'mid-line "|" must not create a quote');
+  await key('Enter');
+  await send('Input.insertText', {text:'/code'}); await pause();
+  assert.equal(await evaluate("[...document.querySelectorAll('.slash-item .slash-name')].map(e=>e.textContent).join()"), 'Code block');
+  await key('Enter'); await pause();
+  assert.deepEqual(await blockTypes(), ['paragraph', 'codeBlock']);
+  assert.ok(!JSON.stringify(await doc()).includes('/code'), '/code trigger removed');
+  const codeCreated = await doc();
+  await evaluate('active().commands.undo()'); await pause();
+  assert.deepEqual((await doc()).content[1], {type:'paragraph', attrs:{fontSize:null}, content:[{type:'text', text:'/code'}]}, 'undo restores the typed /code line');
+  await evaluate('active().commands.redo()'); await pause();
+  assert.deepEqual(await doc(), codeCreated, 'redo restores the code block');
+  await send('Input.insertText', {text:'def policy(state):'}); await key('Enter');
+  await send('Input.insertText', {text:'    return actor(state)'}); await pause();
+  const codeNode = (await doc()).content[1];
+  assert.equal(codeNode.content.map((t) => t.text).join(''), 'def policy(state):\n    return actor(state)', 'multiline + indentation kept');
+  assert.ok(codeNode.content.every((t) => !t.marks), 'code block holds plain text (separate from the inline code mark)');
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.el.editing pre code')).fontFamily.startsWith('Menlo')"), true);
+  await key('Enter'); await key('Enter'); await key('Enter'); // triple Enter leaves the code block
+  await send('Input.insertText', {text:'|'}); await send('Input.insertText', {text:' '}); await pause();
+  assert.equal((await doc()).content.at(-1).type, 'blockquote', '"| " at line start creates a quote');
+  assert.ok(!JSON.stringify((await doc()).content.at(-1)).includes('|'), 'quote trigger removed');
+  const quoteCreated = await doc();
+  await evaluate('active().commands.undo()'); await pause();
+  assert.notEqual((await doc()).content.at(-1).type, 'blockquote', 'undo removes the quote');
+  await evaluate('active().commands.redo()'); await pause();
+  assert.deepEqual(await doc(), quoteCreated, 'redo restores the quote');
+  await send('Input.insertText', {text:'Clipping keeps updates small.'}); await key('Enter');
+  await send('Input.insertText', {text:'Schulman et al.'}); await pause();
+  const quoteNode = (await doc()).content.at(-1);
+  assert.deepEqual(quoteNode.content.map((p) => p.content?.[0]?.text), ['Clipping keeps updates small.', 'Schulman et al.'], 'Enter continues the quote');
+  // Formatting inside a quote: bold + highlight on "Clipping"
+  await evaluate(`(() => { let at = 0; active().state.doc.descendants((n, p) => { if (n.isText && n.text.startsWith('Clipping')) at = p; }); active().commands.setTextSelection({from: at, to: at + 8}); })()`); await pause();
+  await click('.propsbar button[title="굵게 ⌘B"]'); await choose(highlight, 'Highlight Yellow');
+  assert.deepEqual(marksAt({content:[(await doc()).content.at(-1).content[0]]}, 0).map((m) => m.type).sort(), ['bold', 'highlight']);
+  await evaluate('store.getState().stopEditing()'); await pause();
+  assert.equal(await evaluate("!!document.querySelector('.slide.editable pre code') && !!document.querySelector('.slide.editable blockquote')"), true, 'static render');
+  assert.equal(await evaluate("!!document.querySelector('.thumb pre') && !!document.querySelector('.thumb blockquote')"), true, 'thumbnail render');
+  console.log('PASS code block (/code, multiline, indentation, undo/redo) and quote ("| ", P(A | B), continuation, formatting)');
   // TOC entered in the real editor; generated sections retain their IDs through formatting.
   await evaluate('store.getState().addTocSlide()');
   await evaluate(`store.getState().startEditing(store.getState().deck.slides.find(s=>s.kind==='toc').elements.find(e=>e.role==='toc').id)`);
@@ -255,8 +299,9 @@ try {
   await select(3, 8); await choose(highlight, 'Highlight Light Purple');
   assert.deepEqual(await evaluate('store.getState().deck.sections'), sections);
   await evaluate('store.getState().stopEditing()'); await pause();
-  await click('.slide.editable .toc-link'); await pause(350);
-  assert.equal(await evaluate('store.getState().currentSlideId'), sections[0].subtitleSlideId);
+  await click('.slide.editable .toc-link');
+  // Links follow after a short delay (so a double-click can edit instead); wait for it rather than a fixed pause.
+  await until(async () => (await evaluate('store.getState().currentSlideId')) === sections[0].subtitleSlideId, 'TOC link did not navigate', 3000);
   await evaluate(`store.getState().goToSlide(store.getState().deck.slides.find(s=>s.kind==='toc').id); store.setState({presenting:true})`); await pause();
   await click('.presenter .toc-link');
   assert.equal(await evaluate("document.querySelector('.presenter [data-slide-id]').getAttribute('data-slide-id')"), sections[0].subtitleSlideId);
@@ -278,6 +323,8 @@ try {
   await writeFile(projectPath, Buffer.from(await evaluate("testFiles['Formatting validation.mslides']")));
   const saved = JSON.parse(await readFile(projectPath,'utf8'));
   assert.deepEqual(saved.deck.slides[0].elements[0].doc, mixed);
+  const savedSlide2 = JSON.stringify(saved.deck.slides[1]);
+  assert.ok(savedSlide2.includes('"codeBlock"') && savedSlide2.includes('"blockquote"'), '.mslides keeps code/quote blocks');
   await evaluate(`persist.newProject()`); await pause();
   assert.equal(await evaluate('store.getState().deck.title'), 'Untitled presentation');
   await evaluate(`(async()=>{const archive=await persist.loadArchive(); await persist.restoreArchived(archive.find(a=>a.deck.title==='Formatting validation').id)})()`);
@@ -311,6 +358,13 @@ try {
   assert.match(xml, /<a:t>torch.nn.Module<\/a:t>/);
   assert.ok(!xml.includes('<p:pic>'), 'Formatted text was not rasterized');
   assert.match(await zip.file('ppt/slides/_rels/slide1.xml.rels').async('string'), /https:\/\/arxiv.org\/abs\/1706.03762/);
+  const xml2 = await zip.file('ppt/slides/slide2.xml').async('string');
+  assert.match(xml2, /<a:t>    return actor\(state\)<\/a:t>/, 'code line with indentation is editable text');
+  assert.match(xml2, /name="Code Block"[\s\S]*?prst="roundRect"/, 'code background is a native rounded rectangle');
+  assert.match(xml2, /name="Code"[\s\S]*?typeface="Menlo"/, 'code text uses the monospace font');
+  assert.match(xml2, /name="Quote Line"[\s\S]*?prst="line"/, 'quote line is a native line');
+  assert.match(xml2, /<a:t>Clipping<\/a:t>/, 'quote text is editable');
+  assert.equal((xml2.match(/<p:pic>/g) || []).length, 1, 'only the E=mc^2 equation is a picture; code/quote are not rasterized');
   const tocIndex = saved.deck.slides.findIndex(s=>s.kind==='toc')+1;
   const tocRels = await zip.file('ppt/slides/_rels/slide'+tocIndex+'.xml.rels').async('string');
   assert.match(tocRels, /relationships\/slide/);

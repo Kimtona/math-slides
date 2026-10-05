@@ -1,4 +1,8 @@
 import { Editor, Extension, InputRule, Mark, type Extensions } from '@tiptap/core';
+import CodeBlock from '@tiptap/extension-code-block';
+import Blockquote from '@tiptap/extension-blockquote';
+import { closeHistory } from '@tiptap/pm/history';
+import { findWrapping } from '@tiptap/pm/transform';
 import { Plugin } from '@tiptap/pm/state';
 import { uid } from '../model/defaults';
 import StarterKit from '@tiptap/starter-kit';
@@ -130,6 +134,48 @@ const TocSections = Extension.create<{ enabled: boolean }>({
   },
 });
 
+/**
+ * Code Block (semantic <pre><code>, plain text: Enter adds a line, whitespace kept, triple Enter or
+ * ↓ at the end leaves it). Created with `/code` at the start of a line (slash menu); TipTap's
+ * ``` markdown rule is not used. Separate from the inline `code` mark.
+ */
+const SlideCodeBlock = CodeBlock.extend({
+  addInputRules() {
+    return [];
+  },
+});
+
+/** Quote (semantic <blockquote>): `| ` at the very start of a line wraps it. `P(A | B)` never triggers. */
+const SlideBlockquote = Blockquote.extend({
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /^\|\s$/,
+        handler: ({ state, range }) => {
+          const tr = state.tr;
+          const $start = tr.doc.resolve(range.from);
+          if ($start.parent.type.name !== 'paragraph') return null; // the regex already anchors to the line start
+          tr.delete(range.from, range.to);
+          const blockRange = tr.doc.resolve(range.from).blockRange();
+          const wrapping = blockRange && findWrapping(blockRange, this.type);
+          if (!blockRange || !wrapping) return null;
+          closeHistory(tr); // the conversion is its own undo step
+          tr.wrap(blockRange, wrapping);
+        },
+      }),
+    ];
+  },
+});
+
+/** Turn the current line into a Code Block, removing the typed trigger (one undo step). */
+export function convertToCodeBlock(editor: Editor, range: { from: number; to: number }) {
+  return editor.chain().focus()
+    .command(({ tr }) => { closeHistory(tr); return true; })
+    .deleteRange(range)
+    .setNode('codeBlock')
+    .run();
+}
+
 export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } = {}): Extensions {
   const exts: Extensions = [
     StarterKit.configure({
@@ -149,6 +195,8 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } =
     MathInline,
     MathBlock,
     ParagraphFontSize,
+    SlideCodeBlock,
+    SlideBlockquote,
     LinkMark,
     TocSections.configure({ enabled: !!opts.toc }),
   ];

@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/core';
 import { insertMath } from './mathNodes';
+import { convertToCodeBlock } from './extensions';
 
 interface Item {
   title: string;
   hint: string;
   icon: string;
   keys: string[];
+  /** Only offered when the "/" starts the line (e.g. /code converts the whole line). */
+  lineStart?: boolean;
   run: (editor: Editor, range: { from: number; to: number }) => void;
 }
 
@@ -16,19 +19,20 @@ const ITEMS: Item[] = [
     run: (ed, r) => insertMath(ed, true, r) },
   { title: 'Inline equation', hint: '인라인 수식 — ⌘⇧E, $$x$$', icon: '𝑥', keys: ['inline', 'imath', 'math', 'equation', 'tex', 'latex'],
     run: (ed, r) => insertMath(ed, false, r) },
+  { title: 'Code block', hint: '코드 블록 — 줄 시작에서 /code', icon: '{ }', keys: ['code', 'codeblock', 'pre'], lineStart: true,
+    run: (ed, r) => { convertToCodeBlock(ed, r); } },
   { title: 'Bulleted list', hint: '글머리 기호 — "- "', icon: '•', keys: ['bullet', 'list', 'ul'],
     run: (ed, r) => ed.chain().focus().deleteRange(r).toggleBulletList().run() },
   { title: 'Numbered list', hint: '번호 목록 — "1. "', icon: '1.', keys: ['number', 'numbered', 'ordered', 'list', 'ol'],
     run: (ed, r) => ed.chain().focus().deleteRange(r).toggleOrderedList().run() },
 ];
 
-function filter(q: string) {
+function filter(q: string, lineStart: boolean) {
   const s = q.toLowerCase();
-  if (!s) return ITEMS;
-  return ITEMS.filter((it) => it.keys.some((k) => k.startsWith(s)) || it.title.toLowerCase().includes(s));
+  return ITEMS.filter((it) => (!it.lineStart || lineStart) && (!s || it.keys.some((k) => k.startsWith(s)) || it.title.toLowerCase().includes(s)));
 }
 
-interface MenuState { from: number; to: number; query: string; x: number; y: number }
+interface MenuState { from: number; to: number; query: string; x: number; y: number; lineStart: boolean }
 
 /** Notion-like "/" command menu. `keyRef.current` is called from the editor's handleKeyDown. */
 export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { current: ((e: KeyboardEvent) => boolean) | null } }) {
@@ -40,7 +44,8 @@ export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { curren
     const update = () => {
       const { state, view } = editor;
       const sel = state.selection;
-      if (!sel.empty || !sel.$from.parent.isTextblock) return setMenu(null);
+      // No commands inside a code block: "/" there is code.
+      if (!sel.empty || !sel.$from.parent.isTextblock || sel.$from.parent.type.spec.code) return setMenu(null);
       const $from = sel.$from;
       const before = $from.parent.textBetween(Math.max(0, $from.parentOffset - 40), $from.parentOffset, undefined, '￼');
       const m = /(?:^|\s)\/([a-zA-Z]*)$/.exec(before);
@@ -49,18 +54,20 @@ export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { curren
         return setMenu(null);
       }
       const from = $from.pos - m[1].length - 1;
-      if (dismissedAt.current === from || !filter(m[1]).length) return setMenu(null);
+      // Line start = "/" is the first character of the paragraph and that paragraph could become a code block.
+      const lineStart = from === $from.start() && editor.can().setNode('codeBlock');
+      if (dismissedAt.current === from || !filter(m[1], lineStart).length) return setMenu(null);
       const c = view.coordsAtPos(from);
       setMenu((prev) => {
         if (!prev || prev.query !== m[1]) setIndex(0);
-        return { from, to: $from.pos, query: m[1], x: c.left, y: c.bottom };
+        return { from, to: $from.pos, query: m[1], x: c.left, y: c.bottom, lineStart };
       });
     };
     editor.on('transaction', update);
     return () => void editor.off('transaction', update);
   }, [editor]);
 
-  const items = menu ? filter(menu.query) : [];
+  const items = menu ? filter(menu.query, menu.lineStart) : [];
 
   keyRef.current = (e: KeyboardEvent) => {
     if (!menu || !items.length) return false;

@@ -157,6 +157,11 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .tb-content mark { color: inherit; }
 .tb-content mark code, .tb-content code:has(mark) { background: transparent; }
 .tb-content ul, .tb-content ol { margin: 0; padding-left: 1.3em; }
+/* Code Block (Notion-like, restrained): monospace, light gray, small padding/radius. PPTX reads these computed values. */
+.tb-content pre { margin: .25em 0; padding: .55em .8em; background: #F1F1EF; border-radius: .3em; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; }
+.tb-content pre code { font-family: Menlo, monospace; font-size: .85em; line-height: 1.45; background: none; padding: 0; color: inherit; }
+/* Quote: thin left line, no quotation marks or background box. */
+.tb-content blockquote { margin: .2em 0; padding-left: .75em; border-left: 3px solid #B4BAC1; }
 .tb-content li > p { margin: 0; }
 .tb-content p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #a8afb7; float: left; height: 0; pointer-events: none; white-space: nowrap; }
 

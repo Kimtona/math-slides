@@ -37,6 +37,8 @@ You can also double-click `MathSlides.command` in Finder to launch the desktop a
 | Resize | Text corners scale the font. Shapes: `Shift` = keep aspect ratio |
 | Snapping | Edges and centers of the slide and other objects (hold `Alt` to turn it off) |
 | Text sizes | At the start of a line: `# ` 80 · `## ` 50 · `### ` 30 · `#### ` 25 (Backspace at the line start reverts). Sizes live in `src/model/typography.ts` |
+| Code block | Type `/code` at the start of a line and press Enter (slash menu). Multi-line monospace code with indentation kept; Enter adds a line, triple Enter or ↓ at the end leaves the block. Separate from inline code. No syntax highlighting yet |
+| Quote | Type `| ` at the start of a line. Thin left line, no quotation marks; Enter continues the quote, Enter on an empty line leaves it. `P(A | B)` mid-line stays text |
 | Lists | Type `- ` or `1. `, `Tab` / `⇧Tab` to indent |
 | Footer | Slide number `n/total` bottom-left (automatic). Click the bottom-right to type a reference (citation) for that slide |
 | Templates | New presentation = Title Slide; each added slide = Content Slide (title + body). Template boxes are ordinary text boxes |
@@ -131,6 +133,7 @@ src/
 
 ## Known limitations (MVP)
 
+- PPTX: code blocks are a native rounded rectangle plus editable Menlo text; quotes are editable text plus a native line.
 - PPTX: text highlight and the inline-code background are native PowerPoint text highlights; inline code is editable Menlo text. PowerPoint does not reproduce the code padding / rounded corners, and may substitute Menlo on systems without it.
 - No rotation, grouping, or tables. Crop is rectangular only (no mask shapes).
 - Equations in PPTX are pictures, not native PowerPoint equations (OMML).
