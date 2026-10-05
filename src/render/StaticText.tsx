@@ -43,7 +43,12 @@ function renderNode(n: PMNode, key: number): ReactNode {
     case 'bulletList': return <ul key={key}>{kids()}</ul>;
     case 'orderedList': return <ol key={key} start={n.attrs?.start ?? 1}>{kids()}</ol>;
     case 'listItem': return <li key={key}>{kids()}</li>;
-    case 'mathInline': return <MathView key={key} latex={n.attrs?.latex ?? ''} display={false} />;
+    case 'mathInline': {
+      // Inline equations can carry marks (e.g. a color applied to a selection that contains them).
+      const color = n.marks?.find((m) => m.type === 'textStyle')?.attrs?.color;
+      const math = <MathView latex={n.attrs?.latex ?? ''} display={false} />;
+      return color ? <span key={key} style={{ color }}>{math}</span> : <span key={key}>{math}</span>;
+    }
     case 'mathBlock': return <MathView key={key} latex={n.attrs?.latex ?? ''} display />;
     default: return <>{kids()}</>;
   }

@@ -8,7 +8,13 @@ declare global {
   }
 }
 
-const frame = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+// Wait for React to commit and the browser to lay out. rAF is paused in background tabs,
+// so fall back to a timer (layout is still computed synchronously when measured).
+const frame = () => new Promise<void>((r) => {
+  const done = () => { clearTimeout(t); r(); };
+  const t = setTimeout(done, 100);
+  requestAnimationFrame(() => requestAnimationFrame(done));
+});
 
 /** Mount the 1:1 print DOM and wait until fonts, images and layout are ready. */
 async function mountExportStage(mode: 'print' | 'measure'): Promise<HTMLElement> {

@@ -41,7 +41,7 @@ function TextProps({ el, editing }: { el: TextElement; editing: boolean }) {
       <Btn title="기울임 ⌘I" active={markActive('italic', el, editing)} onClick={() => toggleMark('italic')}><i style={{ fontFamily: 'serif' }}>I</i></Btn>
       <Btn title="밑줄 ⌘U" active={markActive('underline', el, editing)} onClick={() => toggleMark('underline')}><u>U</u></Btn>
       <Btn title="취소선" active={markActive('strike', el, editing)} onClick={() => toggleMark('strike')}><s>S</s></Btn>
-      <ColorButton title="글자 색 (선택한 글자, 또는 전체)" label={<span className="a-glyph">A</span>}
+      <ColorButton title="글자 색 (선택한 글자 / 전체)" label={<span className="a-glyph">A</span>}
         value={(ed?.getAttributes('textStyle').color as string) ?? el.style.color}
         onChange={(c) => c && setTextColor(c)} />
       <Sep />
@@ -167,6 +167,8 @@ export function PropsBar() {
         <>
           <Btn title="굵게" onClick={() => toggleMark('bold')}><b>B</b></Btn>
           <NumberField value={(els[0] as TextElement).style.fontSize} min={6} max={300} title="글자 크기" onChange={(v) => setTextStyle({ fontSize: v })} />
+          <ColorButton title="글자 색" label={<span className="a-glyph">A</span>} value={(els[0] as TextElement).style.color}
+            onChange={(c) => c && setTextColor(c)} />
         </>
       )}
       {els.length > 0 && (

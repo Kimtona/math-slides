@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { PRESET_COLORS, colorName, sameColor } from '../model/colors';
 
 export function Btn(props: {
   title?: string; active?: boolean; disabled?: boolean; onClick: () => void; children: ReactNode; className?: string; wide?: boolean;
@@ -16,22 +18,44 @@ export function Btn(props: {
 
 export const Sep = () => <div className="tsep" />;
 
-/** Click-to-open popover anchored under a button. */
+/**
+ * Click-to-open popover anchored under a button. Rendered in a portal with fixed positioning
+ * so it is never clipped by a scrolling toolbar.
+ */
 export function Popover({ button, children, title, className }: { button: ReactNode; children: (close: () => void) => ReactNode; title?: string; className?: string }) {
   const [open, setOpen] = useState(false);
+  const [at, setAt] = useState<{ left: number; top: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const h = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const h = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (!ref.current?.contains(t) && !popRef.current?.contains(t)) setOpen(false);
+    };
+    const close = () => setOpen(false);
     window.addEventListener('pointerdown', h, true);
-    return () => window.removeEventListener('pointerdown', h, true);
+    window.addEventListener('resize', close);
+    return () => { window.removeEventListener('pointerdown', h, true); window.removeEventListener('resize', close); };
+  }, [open]);
+  useLayoutEffect(() => {
+    if (!open) return setAt(null);
+    const r = ref.current!.getBoundingClientRect();
+    const w = popRef.current?.offsetWidth ?? 0;
+    setAt({ left: Math.max(8, Math.min(r.left, window.innerWidth - w - 8)), top: r.bottom + 6 });
   }, [open]);
   return (
     <div className={`pop-wrap ${className ?? ''}`} ref={ref}>
       <button className={`tbtn${open ? ' active' : ''}`} title={title} onMouseDown={(e) => e.preventDefault()} onClick={() => setOpen(!open)}>
         {button}
       </button>
-      {open && <div className="pop" onMouseDown={(e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault(); }}>{children(() => setOpen(false))}</div>}
+      {open && createPortal(
+        <div ref={popRef} className="pop" style={at ?? { visibility: 'hidden', left: 0, top: 0 }}
+          onMouseDown={(e) => { if ((e.target as HTMLElement).tagName !== 'INPUT') e.preventDefault(); }}>
+          {children(() => setOpen(false))}
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
@@ -45,38 +69,31 @@ export function MenuItem({ onClick, children, shortcut }: { onClick: () => void;
   );
 }
 
-const PALETTE = [
-  '#1f2328', '#57606a', '#8c959f', '#ffffff',
-  '#cf222e', '#bc4c00', '#bf8700', '#1a7f37',
-  '#0969da', '#2f6feb', '#8250df', '#bf3989',
-  '#ffebe9', '#fff8c5', '#dafbe1', '#dbe6fd',
-];
-
-export function ColorButton({ value, onChange, allowNone, title, label }: {
-  value: string | null; onChange: (c: string | null) => void; allowNone?: boolean; title: string; label?: ReactNode;
+/** Small preset palette (colors come from model/colors.ts). `allowNone` adds a transparent / "no color" cell. */
+export function ColorButton({ value, onChange, allowNone, noneLabel = '없음', title, label }: {
+  value: string | null; onChange: (c: string | null) => void; allowNone?: boolean; noneLabel?: string; title: string; label?: ReactNode;
 }) {
   return (
-    <Popover title={title} button={
+    <Popover title={`${title}: ${value ? colorName(value) : noneLabel}`} button={
       <span className="color-btn">
         {label}
         <span className={`swatch${value ? '' : ' none'}`} style={{ background: value ?? undefined }} />
       </span>
     }>
       {(close) => (
-        <div className="palette">
+        <div className="palette" aria-label={title}>
           <div className="palette-grid">
-            {PALETTE.map((c) => (
-              <button key={c} className={`pal${c === value ? ' sel' : ''}`} style={{ background: c }} title={c}
-                onClick={() => { onChange(c); close(); }} />
+            {PRESET_COLORS.map((c) => (
+              <button key={c.hex} className={`pal${sameColor(c.hex, value) ? ' sel' : ''}`} style={{ background: c.hex }}
+                title={c.name} aria-label={c.name} data-color={c.name}
+                onClick={() => { onChange(c.hex); close(); }} />
             ))}
+            {allowNone && (
+              <button className={`pal none${value ? '' : ' sel'}`} title={noneLabel} aria-label={noneLabel} data-color="none"
+                onClick={() => { onChange(null); close(); }} />
+            )}
           </div>
-          <div className="palette-row">
-            {allowNone && <button className="btn small" onClick={() => { onChange(null); close(); }}>없음</button>}
-            <label className="btn small custom-color">
-              직접 선택
-              <input type="color" value={value ?? '#000000'} onChange={(e) => onChange(e.target.value)} />
-            </label>
-          </div>
+          <div className="palette-caption">{value ? colorName(value) : noneLabel}</div>
         </div>
       )}
     </Popover>

@@ -49,7 +49,14 @@ export function setTextColor(color: string) {
   // No text selected: change the box's base color and clear per-run colors.
   const st = useStore.getState();
   const ids = st.editingId ? [st.editingId] : selectedTexts().map((t) => t.id);
-  if (ed && st.editingId) ed.chain().selectAll().unsetColor().run();
+  if (ed && st.editingId) {
+    // Clear run colors in place, keeping the caret where it is.
+    const { tr, schema } = ed.state;
+    tr.removeMark(0, tr.doc.content.size, schema.marks.textStyle);
+    tr.setStoredMarks([]);
+    ed.view.dispatch(tr);
+    ed.view.focus();
+  }
   st.updateElements(ids, (d) => {
     const t = d as TextElement;
     t.style.color = color;

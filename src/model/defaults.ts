@@ -1,11 +1,12 @@
 import { nanoid } from 'nanoid';
 import type { Deck, LineElement, PMNode, ShapeElement, ShapeKind, Slide, TextElement, TextStyle } from './types';
 import { SLIDE_H, SLIDE_W } from './types';
+import { presetHex } from './colors';
 
 export const uid = () => nanoid(10);
 
 export const FONT_FAMILY = 'NanumSquare';
-export const DEFAULT_TEXT_COLOR = '#1f2328';
+export const DEFAULT_TEXT_COLOR = presetHex('Black');
 export const ACCENT = '#2f6feb';
 
 export const emptyDoc = (): PMNode => ({ type: 'doc', content: [{ type: 'paragraph' }] });
