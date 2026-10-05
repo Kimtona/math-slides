@@ -52,7 +52,7 @@ export function Presenter() {
     <div className="presenter" onClick={(e) => setIdx((i) => (e.clientX < size.w * 0.25 ? Math.max(0, i - 1) : Math.min(deck.slides.length - 1, i + 1)))}>
       <div style={{ width: SLIDE_W * scale, height: SLIDE_H * scale, overflow: 'hidden' }}>
         <div style={{ transform: `scale(${scale})`, transformOrigin: '0 0' }}>
-          {slide && <SlideView slide={slide} assets={assets} />}
+          {slide && <SlideView slide={slide} assets={assets} index={idx} total={deck.slides.length} />}
         </div>
       </div>
       <div className="presenter-count">{idx + 1} / {deck.slides.length}</div>

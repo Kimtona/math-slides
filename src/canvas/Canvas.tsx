@@ -5,7 +5,7 @@ import { SLIDE_H, SLIDE_W } from '../model/types';
 import { lineBox } from '../model/defaults';
 import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
 import { currentSlide, useStore } from '../store/store';
-import { ElementBody, elementBoxStyle, LineSvg } from '../render/ElementView';
+import { ElementBody, elementBoxStyle, footerNumberStyle, footerRefStyle, LineSvg, slideNumberText } from '../render/ElementView';
 import { TextEditor } from '../editor/TextEditor';
 import { insertImageFiles, insertTextAt } from './insert';
 import { scaleParagraphSizes } from '../editor/extensions';
@@ -442,6 +442,38 @@ function Guides({ scale }: { scale: number }) {
   );
 }
 
+/**
+ * Footer on the editing canvas: fixed slide number (not editable, clicks pass through) and the
+ * anchored reference field — click and type, no text box needed. Plain text only.
+ */
+function CanvasFooter({ slideId }: { slideId: string }) {
+  const index = useStore((s) => s.deck.slides.findIndex((x) => x.id === slideId));
+  const total = useStore((s) => s.deck.slides.length);
+  const reference = useStore((s) => s.deck.slides.find((x) => x.id === slideId)?.reference ?? '');
+  const ref = useRef<HTMLDivElement>(null);
+  // Uncontrolled while focused (keeps the caret); synced from the store otherwise (undo, slide switch).
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (node && document.activeElement !== node && node.textContent !== reference) node.textContent = reference;
+  }, [reference, slideId]);
+  const save = () => {
+    const v = (ref.current?.textContent ?? '').replace(/\s*\n\s*/g, ' ');
+    useStore.getState().live((d) => { const sl = d.slides.find((x) => x.id === slideId); if (sl) sl.reference = v; });
+  };
+  return (
+    <>
+      <div className="footer-num" style={footerNumberStyle}>{slideNumberText(index, total)}</div>
+      <div ref={ref} className="footer-ref editable" style={footerRefStyle} contentEditable="plaintext-only" suppressContentEditableWarning
+        spellCheck={false} data-placeholder="참고문헌 (클릭해서 입력)" title="참고문헌 / 출처"
+        onPointerDown={(e) => { e.stopPropagation(); const st = useStore.getState(); if (st.editingId) st.stopEditing(); if (st.selection.length) st.select([]); }}
+        onFocus={() => useStore.getState().beginGesture()}
+        onBlur={() => { save(); useStore.getState().endGesture(); }}
+        onInput={save}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); (e.target as HTMLElement).blur(); } }} />
+    </>
+  );
+}
+
 export function Canvas() {
   const vpRef = useRef<HTMLDivElement>(null);
   const slideRef = useRef<HTMLDivElement>(null);
@@ -504,6 +536,7 @@ export function Canvas() {
         <div ref={slideRef} className="slide editable" style={{ width: SLIDE_W, height: SLIDE_H, transform: `scale(${scale})`, background: slide.background }}>
           <div className="slide-content">
             {slide.elements.map((el) => <CanvasElement key={el.id} el={el} editing={editingId === el.id} />)}
+            <CanvasFooter slideId={slide.id} />
           </div>
           <div className="overlay">
             <SelectionOverlay scale={scale} />

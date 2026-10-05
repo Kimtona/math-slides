@@ -2,6 +2,7 @@ import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
 import type { Asset, Deck, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
 import { sourceRect } from '../model/imageCrop';
+import { FOOTER_COLOR, FOOTER_FONT_SIZE } from '../model/typography';
 
 // Slide units are CSS px on a 1280×720 canvas = 13.333×7.5in (PowerPoint widescreen).
 const IN = (px: number) => px / 96;
@@ -312,6 +313,25 @@ async function fixXml(blob: Blob): Promise<Blob> {
   return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', compression: 'DEFLATE' });
 }
 
+/** Footer: slide number (bottom-left) and reference (bottom-right, only when non-empty). */
+function addFooter(s: Slide, slideDom: Element, origin: DOMRect) {
+  const common = {
+    margin: 0, valign: 'top' as const, fit: 'none' as const, fontFace: PPT_FONT,
+    fontSize: PT(FOOTER_FONT_SIZE), color: hex(FOOTER_COLOR), lineSpacing: PT(FOOTER_FONT_SIZE * 1.3),
+  };
+  const num = slideDom.querySelector('[data-footer-num]');
+  if (num) {
+    const r = relRect(num, origin);
+    s.addText(num.textContent ?? '', { ...common, x: IN(r.x), y: IN(r.y), w: IN(r.w + 24), h: IN(r.h), align: 'left', wrap: false, objectName: 'Slide Number' });
+  }
+  const ref = slideDom.querySelector('[data-footer-ref]');
+  if (ref?.textContent?.trim()) {
+    const r = relRect(ref, origin);
+    const slack = Math.max(6, r.w * 0.03); // grows to the left, like the editor
+    s.addText(ref.textContent, { ...common, x: IN(r.x - slack), y: IN(r.y), w: IN(r.w + slack), h: IN(r.h), align: 'right', wrap: true, objectName: 'Reference' });
+  }
+}
+
 export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root: HTMLElement): Promise<Blob> {
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE';
@@ -333,6 +353,7 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
         if (dom) addTextElement(s, el, dom, origin);
       }
     }
+    addFooter(s, slideDom, origin);
     if (slide.notes.trim()) s.addNotes(slide.notes);
   }
   const blob = (await pptx.write({ outputType: 'blob' })) as Blob;

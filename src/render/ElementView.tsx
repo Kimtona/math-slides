@@ -2,6 +2,7 @@ import { memo, type CSSProperties, type ReactNode } from 'react';
 import type { Asset, LineElement, ShapeElement, Slide, SlideElement, TextElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { StaticText } from './StaticText';
+import { FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE } from '../model/typography';
 
 export function textBoxStyle(el: TextElement): CSSProperties {
   return {
@@ -90,8 +91,32 @@ export function elementBoxStyle(el: SlideElement): CSSProperties {
   return { ...base, height: el.h };
 }
 
+/** "4/12" — computed from the slide's position, never stored. */
+export const slideNumberText = (index: number, total: number) => `${index + 1}/${total}`;
+
+export const footerNumberStyle: CSSProperties = {
+  left: FOOTER_MARGIN_X, bottom: FOOTER_MARGIN_Y, fontSize: FOOTER_FONT_SIZE, color: FOOTER_COLOR,
+};
+export const footerRefStyle: CSSProperties = {
+  right: FOOTER_MARGIN_X, bottom: FOOTER_MARGIN_Y, fontSize: FOOTER_FONT_SIZE, color: FOOTER_COLOR,
+  // Long references wrap toward the left/top but never reach the slide number.
+  maxWidth: SLIDE_W - 2 * FOOTER_MARGIN_X - FOOTER_NUMBER_RESERVE,
+};
+
+/** Static footer: slide number bottom-left, reference bottom-right (hidden when empty). */
+export function SlideFooter({ index, total, reference }: { index: number; total: number; reference?: string }) {
+  return (
+    <>
+      <div className="footer-num" style={footerNumberStyle} data-footer-num>{slideNumberText(index, total)}</div>
+      {reference?.trim() ? <div className="footer-ref" style={footerRefStyle} data-footer-ref>{reference}</div> : null}
+    </>
+  );
+}
+
 /** Static, non-interactive slide at 1280×720 (thumbnails, presenter, print, export measurement). */
-export const SlideView = memo(function SlideView({ slide, assets, className }: { slide: Slide; assets: Record<string, Asset>; className?: string }) {
+export const SlideView = memo(function SlideView({ slide, assets, className, index, total }: {
+  slide: Slide; assets: Record<string, Asset>; className?: string; index: number; total: number;
+}) {
   return (
     <div className={`slide ${className ?? ''}`} style={{ width: SLIDE_W, height: SLIDE_H, background: slide.background }} data-slide-id={slide.id}>
       {slide.elements.map((el) => (
@@ -99,6 +124,7 @@ export const SlideView = memo(function SlideView({ slide, assets, className }: {
           <ElementBody el={el} assets={assets} />
         </div>
       ))}
+      <SlideFooter index={index} total={total} reference={slide.reference} />
     </div>
   );
 });

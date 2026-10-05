@@ -89,6 +89,8 @@ export interface Slide {
   background: string;
   elements: SlideElement[];
   notes: string;
+  /** Citation shown bottom-right in the footer. Optional: older files have none. */
+  reference?: string;
 }
 
 export interface Deck {

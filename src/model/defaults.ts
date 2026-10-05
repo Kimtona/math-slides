@@ -51,7 +51,7 @@ export function newLine(x1: number, y1: number, x2: number, y2: number, arrow = 
 }
 
 export function newSlide(): Slide {
-  return { id: uid(), background: '#ffffff', elements: [], notes: '' };
+  return { id: uid(), background: '#ffffff', elements: [], notes: '', reference: '' };
 }
 
 export function initialDeck(): Deck {

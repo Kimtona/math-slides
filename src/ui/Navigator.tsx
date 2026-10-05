@@ -8,13 +8,13 @@ import { MOD } from './Toolbar';
 
 const THUMB_W = 176;
 
-const Thumb = memo(function Thumb({ slide }: { slide: Slide }) {
+const Thumb = memo(function Thumb({ slide, index, total }: { slide: Slide; index: number; total: number }) {
   const assets = useStore((s) => s.assets);
   const scale = THUMB_W / SLIDE_W;
   return (
     <div className="thumb-inner" style={{ width: THUMB_W, height: THUMB_W * 9 / 16 }}>
       <div style={{ transform: `scale(${scale})`, transformOrigin: '0 0' }}>
-        <SlideView slide={slide} assets={assets} />
+        <SlideView slide={slide} assets={assets} index={index} total={total} />
       </div>
     </div>
   );
@@ -66,7 +66,7 @@ export function Navigator() {
             onClick={() => st().goToSlide(s.id)}
             onContextMenu={(e) => { e.preventDefault(); st().goToSlide(s.id); setMenu({ x: e.clientX, y: e.clientY, id: s.id }); }}>
             <span className="thumb-num">{i + 1}</span>
-            <Thumb slide={s} />
+            <Thumb slide={s} index={i} total={slides.length} />
           </div>
         ))}
         <button className="add-slide" title="새 슬라이드 (슬라이드 목록에서 Enter)" onClick={() => st().addSlide()}>

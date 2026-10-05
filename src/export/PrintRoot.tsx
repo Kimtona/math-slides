@@ -13,9 +13,9 @@ export function PrintRoot() {
   if (!mode) return null;
   return (
     <div className="print-root" id="print-root">
-      {deck.slides.map((s) => (
+      {deck.slides.map((s, i) => (
         <div className="print-page" key={s.id}>
-          <SlideView slide={s} assets={assets} />
+          <SlideView slide={s} assets={assets} index={i} total={deck.slides.length} />
         </div>
       ))}
     </div>
