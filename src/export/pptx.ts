@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import type { Asset, Deck, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
 import { sourceRect } from '../model/imageCrop';
 import { FOOTER_COLOR, FOOTER_FONT_SIZE } from '../model/typography';
+import { INLINE_CODE_BACKGROUND, INLINE_CODE_FONT } from '../model/textFormatting';
 
 // Slide units are CSS px on a 1280×720 canvas = 13.333×7.5in (PowerPoint widescreen).
 const IN = (px: number) => px / 96;
@@ -76,7 +77,7 @@ function runOptions(textNode: Node, base: TextElement, text: string): TextPropsO
   const parent = textNode.parentElement!;
   const cs = getComputedStyle(parent);
   const o: TextPropsOptions = {
-    fontFace: PPT_FONT,
+    fontFace: parent.closest('code') ? INLINE_CODE_FONT : PPT_FONT,
     fontSize: PT(parseFloat(cs.fontSize) || base.style.fontSize),
     color: hex(cs.color),
     bold: parseInt(cs.fontWeight) >= 600,
@@ -85,6 +86,9 @@ function runOptions(textNode: Node, base: TextElement, text: string): TextPropsO
   };
   if (parent.closest('u')) o.underline = { style: 'sng' };
   if (parent.closest('s')) o.strike = 'sngStrike';
+  const highlight = parent.closest('mark');
+  if (highlight) o.highlight = hex(getComputedStyle(highlight).backgroundColor);
+  else if (parent.closest('code')) o.highlight = hex(INLINE_CODE_BACKGROUND);
   const link = linkOf(textNode);
   if (link) o.hyperlink = link;
   return o;

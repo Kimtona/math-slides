@@ -92,6 +92,25 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .pal.none { background: linear-gradient(135deg, #fff 44%, #d62728 44%, #d62728 56%, #fff 56%); }
 .pal.none.sel::after { content: ''; }
 .palette-caption { font-size: 11px; color: var(--muted); padding: 2px 6px 2px; }
+.text-palette { width: 252px; padding: 4px; }
+.palette-heading { font-size: 11px; font-weight: 600; color: var(--muted); margin: 4px 0 8px; }
+.theme-colors, .standard-colors, .highlight-colors { display: flex; gap: 5px; }
+.theme-column, .theme-shades { display: flex; flex-direction: column; gap: 3px; }
+.theme-shades { margin: 5px 0 12px; }
+.text-swatch { width: 20px; height: 20px; padding: 0; border: 1px solid rgba(0,0,0,.16); border-radius: 2px; cursor: pointer; }
+.text-swatch:hover, .text-swatch:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.text-swatch.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+.palette-other { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 12px; padding: 10px 2px 4px; margin-top: 10px; cursor: pointer; }
+.palette-other:hover { color: var(--accent); }
+.custom-color { margin-top: 10px; }
+.custom-color-row { display: flex; align-items: center; gap: 6px; }
+.custom-color input { min-width: 0; width: 112px; height: 28px; border: 1px solid var(--line); border-radius: 4px; padding: 4px; font: inherit; font-size: 12px; }
+.custom-color input[type=color] { width: 32px; padding: 1px; cursor: pointer; }
+.custom-color button { border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; background: var(--panel); cursor: pointer; }
+.custom-color button:disabled { opacity: .45; cursor: default; }
+.color-error { margin-top: 6px; font-size: 11px; color: #B42318; }
+.highlight-palette { padding: 4px; width: 172px; }
+.swatch.mixed { background: repeating-linear-gradient(135deg, #94A3B8 0 3px, #F1F5F9 3px 6px); }
 
 /* ---------- workspace ---------- */
 .workspace { flex: 1; display: flex; min-height: 0; }
@@ -133,6 +152,10 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 
 .tb-content { outline: none; white-space: pre-wrap; word-break: keep-all; overflow-wrap: break-word; font-variant-ligatures: none; font-feature-settings: 'liga' 0; }
 .tb-content p { margin: 0; }
+/* Inline code (Notion-like): colors come from --code-* variables set by the mark (model/textFormatting.ts) */
+.tb-content code { font-size: .88em; color: var(--code-color); background: var(--code-background); padding: .08em .3em; border-radius: .25em; }
+.tb-content mark { color: inherit; }
+.tb-content mark code, .tb-content code:has(mark) { background: transparent; }
 .tb-content ul, .tb-content ol { margin: 0; padding-left: 1.3em; }
 .tb-content li > p { margin: 0; }
 .tb-content p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #a8afb7; float: left; height: 0; pointer-events: none; white-space: nowrap; }

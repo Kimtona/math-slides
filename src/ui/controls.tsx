@@ -22,7 +22,7 @@ export const Sep = () => <div className="tsep" />;
  * Click-to-open popover anchored under a button. Rendered in a portal with fixed positioning
  * so it is never clipped by a scrolling toolbar.
  */
-export function Popover({ button, children, title, className }: { button: ReactNode; children: (close: () => void) => ReactNode; title?: string; className?: string }) {
+export function Popover({ button, children, title, className, onOpen }: { button: ReactNode; children: (close: () => void) => ReactNode; title?: string; className?: string; onOpen?: () => void }) {
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<{ left: number; top: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -46,7 +46,7 @@ export function Popover({ button, children, title, className }: { button: ReactN
   }, [open]);
   return (
     <div className={`pop-wrap ${className ?? ''}`} ref={ref}>
-      <button className={`tbtn${open ? ' active' : ''}`} title={title} onMouseDown={(e) => e.preventDefault()} onClick={() => setOpen(!open)}>
+      <button className={`tbtn${open ? ' active' : ''}`} title={title} aria-expanded={open} onMouseDown={(e) => e.preventDefault()} onClick={() => { if (!open) onOpen?.(); setOpen(!open); }}>
         {button}
       </button>
       {open && createPortal(
@@ -161,6 +161,8 @@ const I = ({ d, children }: { d?: string; children?: ReactNode }) => (
   </svg>
 );
 export const Icons = {
+  highlight: <I d="m14 3 7 7-9 9-7-7zM5 12l-2 6 3 3 6-2M3 21h7" />,
+  code: <I d="m7 6-5 6 5 6m10-12 5 6-5 6M14 4l-4 16" />,
   undo: <I d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />,
   redo: <I d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />,
   text: <I d="M4 7V4h16v3M9 20h6M12 4v16" />,

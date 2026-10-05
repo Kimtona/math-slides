@@ -1,7 +1,8 @@
-import { memo, useMemo, type ReactNode } from 'react';
+import { memo, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '../store/store';
 import type { PMNode } from '../model/types';
 import { renderTex } from '../math/mathjax';
+import { inlineCodeStyle } from '../editor/formattingMarks';
 
 /** Renders math exactly like the editor node views do (same classes & markup). */
 export const MathView = memo(function MathView({ latex, display }: { latex: string; display: boolean }) {
@@ -13,14 +14,20 @@ export const MathView = memo(function MathView({ latex, display }: { latex: stri
   return <Tag className={cls} data-latex={latex} dangerouslySetInnerHTML={{ __html: r.svg }} />;
 });
 
+const codeStyle = Object.fromEntries(inlineCodeStyle.split(';').map((d) => d.split(':').map((x) => x.trim()))
+  .map(([k, v]) => [k.startsWith('--') ? k : k.replace(/-([a-z])/g, (_, c) => c.toUpperCase()), v])) as CSSProperties;
+
 function renderMarks(text: string, marks: PMNode['marks'], key: number): ReactNode {
   let node: ReactNode = text;
-  for (const m of marks ?? []) {
+  // Wrap innermost-first so the first mark ends up outermost, exactly like ProseMirror's DOM.
+  for (const m of [...(marks ?? [])].reverse()) {
     switch (m.type) {
       case 'bold': node = <strong>{node}</strong>; break;
       case 'italic': node = <em>{node}</em>; break;
       case 'underline': node = <u>{node}</u>; break;
       case 'strike': node = <s>{node}</s>; break;
+      case 'highlight': node = <mark style={{ backgroundColor: m.attrs?.color, color: 'inherit' }}>{node}</mark>; break;
+      case 'code': node = <code style={codeStyle}>{node}</code>; break;
       case 'textStyle':
         if (m.attrs?.color) node = <span style={{ color: m.attrs.color }}>{node}</span>;
         break;

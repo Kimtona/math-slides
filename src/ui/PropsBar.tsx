@@ -6,7 +6,8 @@ import { Btn, ColorButton, Icons, NumberField, Popover, Sep, WidthButton } from 
 import { DEFAULT_TEXT_COLOR } from '../model/defaults';
 import { cropOf, isCropped, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
-import { markActive, setTextColor, setTextStyle, toggleList, toggleMark } from './textFormat';
+import { activeTextColor, markActive, setTextStyle, toggleList, toggleMark } from './textFormat';
+import { HighlightButton, TextColorButton } from './TextColorPalette';
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
 
@@ -50,9 +51,9 @@ function TextProps({ el, editing }: { el: TextElement; editing: boolean }) {
       <Btn title="기울임 ⌘I" active={markActive('italic', el, editing)} onClick={() => toggleMark('italic')}><i style={{ fontFamily: 'serif' }}>I</i></Btn>
       <Btn title="밑줄 ⌘U" active={markActive('underline', el, editing)} onClick={() => toggleMark('underline')}><u>U</u></Btn>
       <Btn title="취소선" active={markActive('strike', el, editing)} onClick={() => toggleMark('strike')}><s>S</s></Btn>
-      <ColorButton title="글자 색 (선택한 글자 / 전체)" label={<span className="a-glyph">A</span>}
-        value={(ed?.getAttributes('textStyle').color as string) ?? el.style.color}
-        onChange={(c) => c && setTextColor(c)} />
+      <TextColorButton value={activeTextColor(el, editing)} />
+      <HighlightButton value={activeTextColor(el, editing, 'highlight')} />
+      <Btn title="인라인 코드 (Inline Code)" active={markActive('code', el, editing)} onClick={() => toggleMark('code')}>{Icons.code}</Btn>
       <Sep />
       <Btn title="왼쪽 정렬" active={el.style.align === 'left'} onClick={() => setTextStyle({ align: 'left' })}>{Icons.tAlignL}</Btn>
       <Btn title="가운데 정렬" active={el.style.align === 'center'} onClick={() => setTextStyle({ align: 'center' })}>{Icons.tAlignC}</Btn>
@@ -211,8 +212,10 @@ export function PropsBar() {
         <>
           <Btn title="굵게" onClick={() => toggleMark('bold')}><b>B</b></Btn>
           <NumberField value={(els[0] as TextElement).style.fontSize} min={6} max={300} title="글자 크기" onChange={(v) => setTextStyle({ fontSize: v })} />
-          <ColorButton title="글자 색" label={<span className="a-glyph">A</span>} value={(els[0] as TextElement).style.color}
-            onChange={(c) => c && setTextColor(c)} />
+          <TextColorButton value={(() => {
+            const colors = els.map((el) => activeTextColor(el as TextElement, false));
+            return colors.every((c) => c === colors[0]) ? colors[0] : null;
+          })()} />
         </>
       )}
       {els.length > 0 && (

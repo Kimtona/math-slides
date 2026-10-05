@@ -9,6 +9,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { MathBlock, MathInline } from './mathNodes';
 import type { PMNode } from '../model/types';
 import { MARKDOWN_SIZES } from '../model/typography';
+import { Highlight, InlineCode } from './formattingMarks';
 
 /**
  * Per-line font size (paragraph attribute `fontSize`, px) + Notion-style Markdown shortcuts:
@@ -143,6 +144,8 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } =
     Underline,
     TextStyle,
     Color,
+    Highlight, // priority 102 → wraps the TextStyle color span (see formattingMarks.ts)
+    InlineCode,
     MathInline,
     MathBlock,
     ParagraphFontSize,

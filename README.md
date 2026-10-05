@@ -29,7 +29,10 @@ You can also double-click `MathSlides.command` in Finder to launch the desktop a
 | Image | Drag and drop, `⌘V` (paste a screenshot), or `I`. PNG/JPEG/WebP/GIF/SVG |
 | Image resize | Handle drag = keep aspect ratio · `⌥ Option`+drag = free resize · `⇧ Shift`+drag = **crop** |
 | Crop edit | Double-click the image (or `Enter`): drag = move the image inside the frame, wheel/pinch or blue dots = zoom, white handles = crop frame. `Esc` / `Enter` / outside click = done |
-| Colors | Text color, shape Fill/Border, line color: preset palette (edit the presets in `src/model/colors.ts`) |
+| Object colors | Shape Fill/Border, line color, and slide background: preset palette |
+| Text color | Toolbar **A** → Theme Colors (base colors + shades), Standard Colors, or Other Colors… (visual picker + 3/6-digit HEX). A selected text range gets its own color; with only a caret, or with the box selected, the box's default color changes (block equations and list markers follow). Striped indicator = mixed colors |
+| Highlight | Highlighter icon next to text color → six light colors or None / Remove Highlight. Selected range → that range; caret only → applies to the text you type next; box selected → the whole box |
+| Inline code | **</>** toggles Notion-style inline code (monospace, muted red, light gray background). Combines with text color (overrides the default red), highlight, and emphasis. No code blocks; ⌘E stays PPTX export |
 | Shapes | `R` rectangle, `O` ellipse, `L` line, `A` arrow |
 | Resize | Text corners scale the font. Shapes: `Shift` = keep aspect ratio |
 | Snapping | Edges and centers of the slide and other objects (hold `Alt` to turn it off) |
@@ -128,8 +131,19 @@ src/
 
 ## Known limitations (MVP)
 
+- PPTX: text highlight and the inline-code background are native PowerPoint text highlights; inline code is editable Menlo text. PowerPoint does not reproduce the code padding / rounded corners, and may substitute Menlo on systems without it.
 - No rotation, grouping, or tables. Crop is rectangular only (no mask shapes).
 - Equations in PPTX are pictures, not native PowerPoint equations (OMML).
 - In PPTX, a line containing inline equations becomes several separate text boxes, so editing the text in PowerPoint can disturb the layout.
 - Font size and alignment are set per text box (no per-character sizes).
 - Fonts with Korean glyphs (including NanumSquare) display `\` as `₩` in text. Inside equations this doesn't matter.
+
+## Rich-text validation
+
+Run `npm run typecheck`, `npm run build`, and `npm test` with installed dependencies and a graphical desktop session. The integration test starts Electron with a **temporary user-data directory**, so it never reads or writes your usual autosave/archive. Toolbar clicks and typing use native (DevTools) input events; some setup steps call the app's store directly. OS file dialogs and arXiv responses are supplied at their boundaries; application serialization, metadata parsing, and export generation run normally.
+
+It checks selection retention, palette contents, HEX validation, mixed-color indicators, formatting combinations and undo/redo, HTML serialization, archive/restart recovery, `.mslides` save/open, heading and math shortcuts, TOC navigation, citation deduplication, and PDF/PPTX exports. PPTX assertions inspect editable runs, native highlights, fonts, and hyperlinks. Screenshots and test files are retained in the temporary output directory printed at completion; `MATHSLIDES_TEST_OUTPUT` can select another output directory. PDF/PPTX visual inspection is separate from these automated assertions.
+
+All color palettes (object presets, Theme/Standard text colors, highlights) live in `src/model/colors.ts`; inline-code styling lives in `src/model/textFormatting.ts`. Highlight/code marks live in `src/editor/formattingMarks.ts` and are stored inside the existing ProseMirror document JSON, with no new storage format.
+
+For manual checks in an isolated desktop profile, run `npm test -- --interactive` and press Ctrl-C when finished.
