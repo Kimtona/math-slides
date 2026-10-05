@@ -1,4 +1,4 @@
-import { Editor, Extension, InputRule, Mark, type Extensions } from '@tiptap/core';
+import { Editor, Extension, InputRule, Mark, Node as TipNode, mergeAttributes, type Extensions } from '@tiptap/core';
 import CodeBlock from '@tiptap/extension-code-block';
 import Blockquote from '@tiptap/extension-blockquote';
 import { closeHistory } from '@tiptap/pm/history';
@@ -301,6 +301,103 @@ const SlideBlockquote = Blockquote.extend({
   },
 });
 
+/** Icon presets offered by the Callout icon popover (any emoji can be stored; these are just the quick picks). */
+export const CALLOUT_ICONS = ['💡', 'ℹ️', '⚠️', '✅', '❌', '📌', '🔥', '💬', '⭐', '🚀'];
+export const DEFAULT_CALLOUT_ICON = CALLOUT_ICONS[0];
+
+/**
+ * Callout (semantic block): icon + rich-text content. The icon is a node attribute (`icon`), so it is
+ * stored in the normal document JSON and is never part of the typed text. Content is ordinary blocks
+ * (paragraphs with all marks, math, code…); Enter on an empty last line leaves it (stock behavior).
+ * Created with `/callout` (slash menu). The icon button/popover exist only in the editor node view.
+ */
+const Callout = TipNode.create({
+  name: 'callout',
+  group: 'block',
+  content: 'block+',
+  defining: true,
+  addAttributes() {
+    return {
+      icon: {
+        default: DEFAULT_CALLOUT_ICON,
+        parseHTML: (el) => (el as HTMLElement).getAttribute('data-icon') || DEFAULT_CALLOUT_ICON,
+        renderHTML: (attrs) => ({ 'data-icon': attrs.icon }),
+      },
+    };
+  },
+  parseHTML() { return [{ tag: 'div[data-callout]' }]; },
+  renderHTML({ HTMLAttributes }) { return ['div', mergeAttributes(HTMLAttributes, { 'data-callout': '', class: 'callout' }), 0]; },
+  addNodeView() {
+    return ({ node, editor, getPos }) => {
+      let current = node;
+      const dom = document.createElement('div');
+      dom.className = 'callout';
+      dom.setAttribute('data-callout', '');
+      const icon = document.createElement('span');
+      icon.className = 'callout-icon';
+      icon.contentEditable = 'false';
+      icon.title = '아이콘 변경';
+      const body = document.createElement('div');
+      body.className = 'callout-body';
+      dom.append(icon, body);
+      let pop: HTMLElement | null = null;
+      const closePop = () => { pop?.remove(); pop = null; document.removeEventListener('mousedown', outside, true); };
+      function outside(e: MouseEvent) { if (pop && !pop.contains(e.target as Node) && e.target !== icon) closePop(); }
+      const setIcon = (value: string) => {
+        const pos = getPos();
+        closePop();
+        if (typeof pos !== 'number' || value === current.attrs.icon) return;
+        const tr = editor.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, icon: value });
+        closeHistory(tr); // an icon change is its own undo step
+        editor.view.dispatch(tr);
+        editor.view.focus();
+      };
+      icon.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        if (pop) return closePop();
+        pop = document.createElement('div');
+        pop.className = 'callout-icons';
+        pop.contentEditable = 'false';
+        for (const em of CALLOUT_ICONS) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = em;
+          b.className = em === current.attrs.icon ? 'on' : '';
+          b.addEventListener('mousedown', (ev) => { ev.preventDefault(); ev.stopPropagation(); setIcon(em); });
+          pop.append(b);
+        }
+        dom.append(pop);
+        document.addEventListener('mousedown', outside, true);
+      });
+      const sync = () => { icon.textContent = current.attrs.icon; dom.setAttribute('data-icon', current.attrs.icon); };
+      sync();
+      return {
+        dom,
+        contentDOM: body,
+        update(n: PMNodeType) {
+          if (n.type !== current.type) return false;
+          current = n;
+          sync();
+          return true;
+        },
+        stopEvent: (e: Event) => icon.contains(e.target as Node) || !!pop?.contains(e.target as Node),
+        ignoreMutation: (m: MutationRecord | { type: 'selection'; target: Node }) =>
+          m.type !== 'selection' && (icon.contains(m.target) || m.target === icon || !!pop?.contains(m.target) || m.target === pop || m.target === dom),
+        destroy: closePop,
+      };
+    };
+  },
+});
+
+/** Turn the current line into a Callout (wraps its block), removing the typed trigger (one undo step). */
+export function convertToCallout(editor: Editor, range: { from: number; to: number }) {
+  return editor.chain().focus()
+    .command(({ tr }) => { closeHistory(tr); return true; })
+    .deleteRange(range)
+    .wrapIn('callout', { icon: DEFAULT_CALLOUT_ICON })
+    .run();
+}
+
 /** Turn the current line into a Code Block, removing the typed trigger (one undo step). */
 export function convertToCodeBlock(editor: Editor, range: { from: number; to: number }) {
   return editor.chain().focus()
@@ -331,6 +428,7 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } =
     ParagraphFontSize,
     SlideCodeBlock,
     SlideBlockquote,
+    Callout,
     LinkMark,
     TocSections.configure({ enabled: !!opts.toc }),
   ];

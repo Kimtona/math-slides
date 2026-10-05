@@ -271,6 +271,29 @@ function addQuoteLine(s: Slide, quote: Element, origin: DOMRect) {
   s.addShape('line', { x: IN(r.x + bw / 2), y: IN(r.y), w: 0, h: IN(r.h), line: { color: hex(cs.borderLeftColor), width: PT(bw) }, objectName: 'Quote Line' });
 }
 
+/** Callout → native rounded background shape plus its icon as editable text (emoji font falls back in PowerPoint). */
+function addCallout(s: Slide, callout: Element, origin: DOMRect) {
+  const r = relRect(callout, origin);
+  const cs = getComputedStyle(callout);
+  const radius = Math.min(parseFloat(cs.borderTopLeftRadius) || 0, r.w / 2, r.h / 2);
+  s.addShape('roundRect', { x: IN(r.x), y: IN(r.y), w: IN(r.w), h: IN(r.h), fill: { color: hex(cs.backgroundColor) }, rectRadius: IN(radius), objectName: 'Callout' });
+  const iconEl = callout.querySelector(':scope > .callout-icon');
+  if (!iconEl) return;
+  const ir = relRect(iconEl, origin);
+  const ics = getComputedStyle(iconEl);
+  const fs = parseFloat(ics.fontSize) || 25;
+  s.addText(iconEl.textContent ?? '', {
+    x: IN(ir.x), y: IN(ir.y), w: IN(ir.w + fs * 0.6), h: IN(Math.max(ir.h, fs * 1.2)),
+    margin: 0, valign: 'top', wrap: false, fit: 'none', align: 'left',
+    fontFace: 'Apple Color Emoji', fontSize: PT(fs), objectName: 'Callout Icon',
+  });
+}
+
+/** Content area of a callout: its body column. */
+function calloutContentRect(callout: Element, origin: DOMRect): Rect {
+  return relRect(callout.querySelector(':scope > .callout-body') ?? callout, origin);
+}
+
 /** Text area of a quote: right of its border and padding. */
 function quoteContentRect(quote: Element, origin: DOMRect): Rect {
   const r = relRect(quote, origin);
@@ -288,20 +311,20 @@ function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect
   if (!content) return;
   const blocks = [...content.querySelectorAll('p, .math-block, pre')];
   // A plain box (only paragraphs) becomes one text box with the element's own frame.
-  const plain = !content.querySelector('.math-block, .math-inline, pre, blockquote');
+  const plain = !content.querySelector('.math-block, .math-inline, pre, blockquote, .callout');
   let group: Element[] = [];
-  let groupQuote: Element | null = null;
+  let groupQuote: Element | null = null; // innermost enclosing quote or callout of the current group
   const flush = () => {
-    if (group.length) addTextGroup(s, el, group, content, origin, groupQuote ? quoteContentRect(groupQuote, origin) : boxRect, plain);
+    if (group.length) addTextGroup(s, el, group, content, origin, groupQuote ? (groupQuote.classList.contains('callout') ? calloutContentRect(groupQuote, origin) : quoteContentRect(groupQuote, origin)) : boxRect, plain);
     group = [];
   };
   const drawnQuotes = new Set<Element>();
   for (const b of blocks) {
     // Quote lines (also of enclosing quotes), drawn once per quote.
-    for (let q = b.closest('blockquote'); q && content.contains(q); q = q.parentElement?.closest('blockquote') ?? null) {
-      if (!drawnQuotes.has(q)) { drawnQuotes.add(q); addQuoteLine(s, q, origin); }
+    for (let q = b.closest('blockquote, .callout'); q && content.contains(q); q = q.parentElement?.closest('blockquote, .callout') ?? null) {
+      if (!drawnQuotes.has(q)) { drawnQuotes.add(q); if (q.classList.contains('callout')) addCallout(s, q, origin); else addQuoteLine(s, q, origin); }
     }
-    const quote = b.closest('blockquote');
+    const quote = b.closest('blockquote, .callout');
     if (quote !== groupQuote) { flush(); groupQuote = quote; }
     if (b.tagName === 'PRE') { flush(); addCodeBlock(s, b, origin); }
     else if (b.classList.contains('math-block')) { flush(); addMath(s, b.querySelector('svg'), origin); }

@@ -78,6 +78,11 @@ function renderNode(n: PMNode, key: number, ctx: Ctx): ReactNode {
         </pre>
       );
     }
+    case 'callout': {
+      // Same markup as the editor node view, minus the editor-only icon button/popover behavior.
+      const icon = n.attrs?.icon ?? '💡';
+      return <div key={key} className="callout" data-callout="" data-icon={icon}><span className="callout-icon">{icon}</span><div className="callout-body">{kids()}</div></div>;
+    }
     case 'blockquote': return <blockquote key={key}>{kids()}</blockquote>;
     case 'bulletList': return <ul key={key}>{kids()}</ul>;
     case 'orderedList': return <ol key={key} start={n.attrs?.start ?? 1}>{kids()}</ol>;

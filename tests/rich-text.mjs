@@ -360,6 +360,59 @@ try {
   }
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.slide.editable pre code')).fontSize"), '16px', 'E: static size');
   console.log('PASS code block (/code, multiline, indentation, undo/redo) and quote ("| ", P(A | B), continuation, formatting)');
+  // Callout (/callout at line start): semantic node with an icon attribute; rich content; icon switching; undo/redo.
+  await evaluate(`store.getState().addElements([defaults.newText(64,540,{w:900})],{edit:true})`);
+  await until(() => evaluate('!!active()'), 'Callout text editor');
+  const callouts = async () => (await doc()).content.filter((n) => n.type === 'callout');
+  // The picker listens to mousedown; dispatching it directly keeps the check independent of window size.
+  const pickIcon = async (i, n) => {
+    await evaluate(`document.querySelectorAll('.el.editing .callout-icon')[${i}].dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}))`); await pause();
+    await evaluate(`document.querySelectorAll('.el.editing .callout-icons button')[${n}].dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}))`); await pause();
+  };
+  await send('Input.insertText', {text:'plain /callout mid-line'}); await pause();
+  assert.equal(await evaluate("document.querySelectorAll('.slash-menu').length"), 0, 'no slash menu mid-line');
+  await key('Enter');
+  await send('Input.insertText', {text:'/callout'}); await pause();
+  assert.equal(await evaluate("[...document.querySelectorAll('.slash-item .slash-name')].map(e=>e.textContent).join()"), 'Callout');
+  await key('Enter'); await pause();
+  assert.deepEqual((await doc()).content.map((n) => n.type), ['paragraph', 'callout'], 'semantic callout node');
+  assert.ok(!JSON.stringify(await doc()).includes('/callout') || JSON.stringify((await doc()).content[1]).includes('/callout') === false, '/callout trigger removed');
+  assert.equal((await callouts())[0].attrs.icon, '💡', 'default icon');
+  assert.equal(await evaluate("document.querySelector('.el.editing .callout .callout-icon').textContent"), '💡');
+  const calloutCreated = await doc();
+  await evaluate('active().commands.undo()'); await pause();
+  assert.equal((await doc()).content[1].type, 'paragraph', 'undo callout conversion');
+  assert.equal((await doc()).content[1].content[0].text, '/callout');
+  await evaluate('active().commands.redo()'); await pause();
+  assert.deepEqual(await doc(), calloutCreated, 'redo callout conversion');
+  await send('Input.insertText', {text:'Key idea'}); await key('Enter'); await send('Input.insertText', {text:'second line'}); await pause();
+  assert.deepEqual((await callouts())[0].content.map((p) => p.content[0].text), ['Key idea', 'second line'], 'multi-line content stays inside the callout');
+  assert.ok(!JSON.stringify((await callouts())[0].content).includes('💡'), 'icon is not text content');
+  await evaluate(`(() => { let at = 0; active().state.doc.descendants((n, p) => { if (n.isText && n.text.startsWith('Key')) at = p; }); active().commands.setTextSelection({from: at, to: at + 3}); })()`); await pause();
+  await click('.propsbar button[title="굵게 ⌘B"]'); await choose(highlight, 'Highlight Yellow'); await choose(textColor, 'Standard Purple');
+  assert.deepEqual(marksAt({content:[(await callouts())[0].content[0]]}, 0).map((m) => m.type).sort(), ['bold', 'highlight', 'textStyle'], 'rich marks inside a callout');
+  await pause(600); await pickIcon(0, 2);
+  assert.equal((await callouts())[0].attrs.icon, '⚠️', 'icon changed');
+  assert.equal(await evaluate("document.querySelector('.el.editing .callout .callout-icon').textContent"), '⚠️', 'icon updates immediately');
+  await evaluate('active().commands.undo()'); await pause();
+  assert.equal((await callouts())[0].attrs.icon, '💡', 'undo icon change');
+  await evaluate('active().commands.redo()'); await pause();
+  assert.equal((await callouts())[0].attrs.icon, '⚠️', 'redo icon change');
+  await evaluate("active().commands.focus('end')"); await pause();
+  await key('Enter'); await key('Enter'); await pause(); // Enter on an empty last line leaves the callout
+  assert.equal((await doc()).content.at(-1).type, 'paragraph', 'Enter on an empty last line exits the callout');
+  assert.equal((await callouts())[0].content.length, 2, 'exit leaves no stray empty line inside');
+  await send('Input.insertText', {text:'/callout'}); await pause(); await key('Enter'); await pause();
+  await send('Input.insertText', {text:'Done'}); await pause();
+  await pause(600); await pickIcon(1, 3);
+  assert.deepEqual((await callouts()).map((c) => c.attrs.icon), ['⚠️', '✅'], 'callouts keep their own icons');
+  assert.equal(await evaluate("document.querySelectorAll('.el.editing .slash-menu, .slash-menu').length"), 0, 'no slash menu inside callouts');
+  await evaluate('store.getState().stopEditing()'); await pause();
+  for (const where of ['.slide.editable', '.thumb']) {
+    assert.equal(await evaluate(`[...document.querySelectorAll('${where} .callout .callout-icon')].map(e => e.textContent).join()`), '⚠️,✅', 'icons rendered in ' + where);
+    assert.equal(await evaluate(`document.querySelectorAll('${where} .callout-icons, ${where} .callout button').length`), 0, 'no icon picker in ' + where);
+  }
+  console.log('PASS callout (/callout, default icon, rich marks, multi-line, exit, icon switching, undo/redo, static/thumbnail)');
   // TOC entered in the real editor; generated sections retain their IDs through formatting.
   await evaluate('store.getState().addTocSlide()');
   await evaluate(`store.getState().startEditing(store.getState().deck.slides.find(s=>s.kind==='toc').elements.find(e=>e.role==='toc').id)`);
@@ -396,6 +449,7 @@ try {
   const saved = JSON.parse(await readFile(projectPath,'utf8'));
   assert.deepEqual(saved.deck.slides[0].elements[0].doc, mixed);
   const savedSlide2 = JSON.stringify(saved.deck.slides[1]);
+  assert.ok(savedSlide2.includes('"callout"') && savedSlide2.includes('"icon":"⚠️"') && savedSlide2.includes('"icon":"✅"'), '.mslides keeps callouts and their icons');
   assert.ok(savedSlide2.includes('"codeBlock"') && savedSlide2.includes('"blockquote"'), '.mslides keeps code/quote blocks');
   for (const l of ['python', 'c', 'bash']) assert.ok(savedSlide2.includes(`"language":"${l}"`), '.mslides keeps language ' + l);
   await evaluate(`persist.newProject()`); await pause();
@@ -442,7 +496,13 @@ try {
   assert.ok(!/<a:t>(Plain Text|Python|Bash)<\/a:t>/.test(xml2), 'F: language selector is not exported');
   assert.match(xml2, /name="Quote Line"[\s\S]*?prst="line"/, 'quote line is a native line');
   assert.match(xml2, /<a:t>Clipping<\/a:t>/, 'quote text is editable');
-  assert.equal((xml2.match(/<p:pic>/g) || []).length, 1, 'only the E=mc^2 equation is a picture; code/quote are not rasterized');
+  assert.equal((xml2.match(/<p:pic>/g) || []).length, 1, 'only the E=mc^2 equation is a picture; code/quote/callout are not rasterized');
+  assert.equal((xml2.match(/name="Callout"[\s\S]{0,400}?prst="roundRect"/g) || []).length, 2, 'callout backgrounds are native rounded rectangles');
+  assert.match(xml2, /name="Callout Icon"[\s\S]{0,1200}<a:t>⚠️<\/a:t>/, 'callout icon is editable text');
+  assert.match(xml2, /<a:t>✅<\/a:t>/);
+  assert.match(xml2, /b="1"[\s\S]{0,900}<a:t>Key<\/a:t>/, 'callout text keeps bold as an editable run');
+  assert.match(xml2, /<a:t>second line<\/a:t>/, 'multi-line callout content is editable text');
+  assert.ok(!/callout-icons|Apple Color Emoji.*picker/.test(xml2) && !xml2.includes('아이콘 변경'), 'icon picker is not exported');
   const tocIndex = saved.deck.slides.findIndex(s=>s.kind==='toc')+1;
   const tocRels = await zip.file('ppt/slides/_rels/slide'+tocIndex+'.xml.rels').async('string');
   assert.match(tocRels, /relationships\/slide/);

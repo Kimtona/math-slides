@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/core';
 import { insertMath } from './mathNodes';
-import { convertToCodeBlock } from './extensions';
+import { convertToCallout, convertToCodeBlock } from './extensions';
 
 interface Item {
   title: string;
@@ -11,6 +11,8 @@ interface Item {
   keys: string[];
   /** Only offered when the "/" starts the line (e.g. /code converts the whole line). */
   lineStart?: boolean;
+  /** Hidden inside a Callout (no nested callouts). */
+  noCallout?: boolean;
   run: (editor: Editor, range: { from: number; to: number }) => void;
 }
 
@@ -21,18 +23,20 @@ const ITEMS: Item[] = [
     run: (ed, r) => insertMath(ed, false, r) },
   { title: 'Code block', hint: '코드 블록 — 줄 시작에서 /code', icon: '{ }', keys: ['code', 'codeblock', 'pre'], lineStart: true,
     run: (ed, r) => { convertToCodeBlock(ed, r); } },
+  { title: 'Callout', hint: '콜아웃 — 줄 시작에서 /callout', icon: '💡', keys: ['callout', 'note', 'tip', 'warning'], lineStart: true, noCallout: true,
+    run: (ed, r) => { convertToCallout(ed, r); } },
   { title: 'Bulleted list', hint: '글머리 기호 — "- "', icon: '•', keys: ['bullet', 'list', 'ul'],
     run: (ed, r) => ed.chain().focus().deleteRange(r).toggleBulletList().run() },
   { title: 'Numbered list', hint: '번호 목록 — "1. "', icon: '1.', keys: ['number', 'numbered', 'ordered', 'list', 'ol'],
     run: (ed, r) => ed.chain().focus().deleteRange(r).toggleOrderedList().run() },
 ];
 
-function filter(q: string, lineStart: boolean) {
+function filter(q: string, lineStart: boolean, inCallout = false) {
   const s = q.toLowerCase();
-  return ITEMS.filter((it) => (!it.lineStart || lineStart) && (!s || it.keys.some((k) => k.startsWith(s)) || it.title.toLowerCase().includes(s)));
+  return ITEMS.filter((it) => (!it.lineStart || lineStart) && !(it.noCallout && inCallout) && (!s || it.keys.some((k) => k.startsWith(s)) || it.title.toLowerCase().includes(s)));
 }
 
-interface MenuState { from: number; to: number; query: string; x: number; y: number; lineStart: boolean }
+interface MenuState { from: number; to: number; query: string; x: number; y: number; lineStart: boolean; inCallout: boolean }
 
 /** Notion-like "/" command menu. `keyRef.current` is called from the editor's handleKeyDown. */
 export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { current: ((e: KeyboardEvent) => boolean) | null } }) {
@@ -56,18 +60,19 @@ export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { curren
       const from = $from.pos - m[1].length - 1;
       // Line start = "/" is the first character of the paragraph and that paragraph could become a code block.
       const lineStart = from === $from.start() && editor.can().setNode('codeBlock');
-      if (dismissedAt.current === from || !filter(m[1], lineStart).length) return setMenu(null);
+      const inCallout = editor.isActive('callout');
+      if (dismissedAt.current === from || !filter(m[1], lineStart, inCallout).length) return setMenu(null);
       const c = view.coordsAtPos(from);
       setMenu((prev) => {
         if (!prev || prev.query !== m[1]) setIndex(0);
-        return { from, to: $from.pos, query: m[1], x: c.left, y: c.bottom, lineStart };
+        return { from, to: $from.pos, query: m[1], x: c.left, y: c.bottom, lineStart, inCallout };
       });
     };
     editor.on('transaction', update);
     return () => void editor.off('transaction', update);
   }, [editor]);
 
-  const items = menu ? filter(menu.query, menu.lineStart) : [];
+  const items = menu ? filter(menu.query, menu.lineStart, menu.inCallout) : [];
 
   keyRef.current = (e: KeyboardEvent) => {
     if (!menu || !items.length) return false;
