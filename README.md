@@ -18,6 +18,25 @@ You can also double-click `MathSlides.command` in Finder to launch the desktop a
 
 > For PPTX files to show the same font in PowerPoint, install **NanumSquare** on your Mac ([Naver Hangeul fonts](https://hangeul.naver.com/font)). The editor and PDF already embed the font, so they look right without it.
 
+## Building and installing the macOS app
+
+```bash
+npm run dist:mac
+```
+
+The build is written to `release/`. On Apple Silicon the main outputs are:
+
+- `release/mac-arm64/MathSlides.app`
+- `release/MathSlides-<version>-arm64.dmg` (the filename includes the current `package.json` version)
+
+To install the local build:
+
+1. Open the generated `.dmg`.
+2. Drag `MathSlides.app` into the **Applications** folder.
+3. Launch MathSlides from Applications (optionally keep it in the Dock).
+
+The macOS build is currently unsigned and not notarized, so macOS may show a security warning the first time you open it. `release/` is generated output and is intentionally ignored by Git.
+
 ## How to use it
 
 | Action | How |
