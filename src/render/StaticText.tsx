@@ -3,6 +3,7 @@ import { useStore } from '../store/store';
 import type { PMNode } from '../model/types';
 import { renderTex } from '../math/mathjax';
 import { inlineCodeStyle } from '../editor/formattingMarks';
+import { highlightCode, isSupportedLanguage } from '../editor/codeHighlight';
 
 /** Renders math exactly like the editor node views do (same classes & markup). */
 export const MathView = memo(function MathView({ latex, display }: { latex: string; display: boolean }) {
@@ -64,8 +65,18 @@ function renderNode(n: PMNode, key: number, ctx: Ctx): ReactNode {
     case 'hardBreak': return <br key={key} />;
     case 'codeBlock': {
       // Same DOM as TipTap: <pre><code>; a trailing <br> keeps a final empty line visible.
+      // Syntax colors come from the shared tokenizer; the language selector is editor-only and never rendered here.
       const text = (n.content ?? []).map((c) => c.text ?? '').join('');
-      return <pre key={key}><code>{text}{!text || text.endsWith('\n') ? <br className="ProseMirror-trailingBreak" /> : null}</code></pre>;
+      const lang = isSupportedLanguage(n.attrs?.language) ? n.attrs!.language : null;
+      const fs = n.attrs?.fontSize;
+      return (
+        <pre key={key} style={fs ? { fontSize: fs } : undefined} data-code-size={fs ? '' : undefined}>
+          <code className={lang ? `language-${lang}` : undefined}>
+            {highlightCode(text, lang).map((t, i) => (t.classes.length ? <span key={i} className={t.classes.join(' ')}>{t.text}</span> : t.text))}
+            {!text || text.endsWith('\n') ? <br className="ProseMirror-trailingBreak" /> : null}
+          </code>
+        </pre>
+      );
     }
     case 'blockquote': return <blockquote key={key}>{kids()}</blockquote>;
     case 'bulletList': return <ul key={key}>{kids()}</ul>;

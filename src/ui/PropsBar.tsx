@@ -35,16 +35,20 @@ function TextProps({ el, editing }: { el: TextElement; editing: boolean }) {
   useEditorTick();
   const ed = editing ? getActiveEditor() : null;
   // A line sized with #/##/###/#### has its own size; while the caret is on it, the field edits that line.
-  const lineSize = ed?.getAttributes('paragraph').fontSize as number | undefined;
+  const inCode = !!ed?.isActive('codeBlock');
+  // Inside a Code Block the field shows/edits that block's own size (older blocks without one render at .85em of the box size).
+  const codeSize = inCode ? (ed!.getAttributes('codeBlock').fontSize as number | null) ?? Math.round(el.style.fontSize * 0.85 * 2) / 2 : undefined;
+  const lineSize = inCode ? codeSize : (ed?.getAttributes('paragraph').fontSize as number | undefined);
   const size = lineSize ?? el.style.fontSize;
   const setSize = (v: number) => {
-    if (ed && lineSize) ed.chain().focus().updateAttributes('paragraph', { fontSize: v }).run();
+    if (ed && inCode) ed.chain().focus().updateAttributes('codeBlock', { fontSize: v }).run();
+    else if (ed && lineSize) ed.chain().focus().updateAttributes('paragraph', { fontSize: v }).run();
     else setTextStyle({ fontSize: v });
   };
   return (
     <>
       <Btn title="글자 작게" onClick={() => setSize(Math.max(6, size - 2))}>−</Btn>
-      <NumberField value={size} min={6} max={300} title={lineSize ? '이 줄의 글자 크기 (px)' : '글자 크기 (px)'} onChange={setSize} />
+      <NumberField value={size} min={6} max={300} title={inCode ? '코드 블록 글자 크기 (px)' : lineSize ? '이 줄의 글자 크기 (px)' : '글자 크기 (px)'} onChange={setSize} />
       <Btn title="글자 크게" onClick={() => setSize(size + 2)}>+</Btn>
       <Sep />
       <Btn title="굵게 ⌘B" active={markActive('bold', el, editing)} onClick={() => toggleMark('bold')}><b>B</b></Btn>

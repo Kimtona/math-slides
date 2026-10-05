@@ -267,7 +267,74 @@ try {
   assert.equal(codeNode.content.map((t) => t.text).join(''), 'def policy(state):\n    return actor(state)', 'multiline + indentation kept');
   assert.ok(codeNode.content.every((t) => !t.marks), 'code block holds plain text (separate from the inline code mark)');
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.el.editing pre code')).fontFamily.startsWith('Menlo')"), true);
+  // --- Code Block polish: size, languages, highlighting, Tab / Shift+Tab, undo/redo ---
+  const codeText = async (i = 0) => (await doc()).content.filter((n) => n.type === 'codeBlock')[i].content.map((t) => t.text).join('');
+  const codeAttrs = async (i = 0) => (await doc()).content.filter((n) => n.type === 'codeBlock')[i].attrs;
+  const setLang = async (i, v) => { await pause(600); await evaluate(`(() => { const s = document.querySelectorAll('.el.editing pre .code-lang select')[${i}]; s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event('change', {bubbles: true})); })()`); await pause(); };
+  const tokens = (i, cls) => evaluate(`[...document.querySelectorAll('.el.editing pre')[${i}].querySelectorAll('.${cls}')].map(e => e.textContent)`);
+  assert.deepEqual(await codeAttrs(), {language: null, fontSize: 16}, 'A: new Code Block is 16pt, Plain Text');
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.el.editing pre code')).fontSize"), '16px', 'A: rendered at 16');
+  assert.equal((await doc()).content[0].attrs.fontSize, null, 'A: ordinary paragraphs keep their size');
+  assert.equal(await evaluate("document.querySelectorAll('.el.editing pre [class*=hljs]').length"), 0, 'B: Plain Text has no highlighting');
+  assert.equal(await evaluate("document.querySelector('.propsbar input[title=\"코드 블록 글자 크기 (px)\"]')?.value"), '16', 'A: toolbar shows the Code Block size');
+  await setLang(0, 'python');
+  assert.equal((await codeAttrs()).language, 'python', 'C: language stored on the block');
+  assert.ok((await tokens(0, 'hljs-keyword')).includes('def') && (await tokens(0, 'hljs-keyword')).includes('return'), 'B: Python keywords');
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.el.editing pre .hljs-keyword')).color"), 'rgb(207, 34, 46)');
+  assert.equal(await codeText(), 'def policy(state):\n    return actor(state)', 'highlighting does not change the code text');
+  assert.ok(!JSON.stringify(await doc()).includes('hljs') && !JSON.stringify(await doc()).includes('textStyle'), 'B: no stored highlight/color marks');
+  await evaluate('active().commands.undo()'); await pause();
+  assert.equal((await codeAttrs()).language, null, 'undo language change'); assert.equal(await evaluate("document.querySelectorAll('.el.editing pre [class*=hljs]').length"), 0);
+  await evaluate('active().commands.redo()'); await pause();
+  assert.equal((await codeAttrs()).language, 'python', 'redo language change');
+  await setLang(0, ''); assert.equal((await codeAttrs()).language, null, 'back to Plain Text'); assert.equal(await evaluate("document.querySelectorAll('.el.editing pre [class*=hljs]').length"), 0);
+  await setLang(0, 'python');
+  // D: Tab / Shift+Tab
+  const original = await codeText();
+  await evaluate("active().commands.focus('end')"); await pause(); await key('Tab'); await pause(600);
+  assert.equal(await codeText(), 'def policy(state):\n        return actor(state)', 'D: Tab indents the caret line by 4 spaces (no literal tab)');
+  assert.ok(await evaluate("document.activeElement.closest('.ProseMirror') !== null"), 'D: Tab keeps focus in the editor');
+  await key('Tab', 'Tab', 8); await pause(600);
+  assert.equal(await codeText(), original, 'D: Shift+Tab removes one indent level');
+  await evaluate('active().commands.undo()'); await pause(); assert.equal(await codeText(), 'def policy(state):\n        return actor(state)', 'D: undo Shift+Tab');
+  await evaluate('active().commands.undo()'); await pause(); assert.equal(await codeText(), original, 'D: undo Tab');
+  await evaluate("(() => { let at = 0; active().state.doc.descendants((n, p) => { if (n.type.name === 'codeBlock') at = p; }); active().commands.setTextSelection(at + 3); })()"); await pause();
+  await key('Tab', 'Tab', 8); await pause();
+  assert.equal(await codeText(), original, 'D: Shift+Tab never goes below column 0');
+  await evaluate("(() => { let at = 0, size = 0; active().state.doc.descendants((n, p) => { if (n.type.name === 'codeBlock') { at = p; size = n.content.size; } }); active().commands.setTextSelection({from: at + 1, to: at + 1 + size}); })()"); await pause();
+  await key('Tab'); await pause();
+  assert.equal(await codeText(), '    def policy(state):\n        return actor(state)', 'D: multi-line indent');
+  await key('Tab', 'Tab', 8); await pause();
+  assert.equal(await codeText(), original, 'D: multi-line outdent');
+  await key('Tab', 'Tab', 8); await pause();
+  assert.equal(await codeText(), 'def policy(state):\nreturn actor(state)', 'D: outdent stops at column 0 per line');
+  await pause(600); await key('Tab'); await pause(600);
+  assert.equal(await codeText(), '    def policy(state):\n    return actor(state)'.replace(/\n    r/, '\n    r'), 'D: Tab after outdent');
+  await evaluate('active().commands.undo()'); await pause();
+  assert.equal(await codeText(), 'def policy(state):\nreturn actor(state)', 'D: undo multi-line indent');
+  await evaluate('active().commands.undo()'); await pause();
+  assert.equal(await codeText(), original, 'D: undo multi-line outdent steps');
+  // A: user-adjusted size through the existing toolbar field
+  await pause(600); await click('.propsbar button[title="글자 크게"]'); await pause();
+  assert.equal((await codeAttrs()).fontSize, 18, 'A: toolbar edits the Code Block size');
+  assert.equal(await evaluate('store.getState().deck.slides[1].elements.at(-1).style.fontSize'), 25, 'A: text box size untouched');
+  await evaluate('active().commands.undo()'); await pause();
+  assert.equal((await codeAttrs()).fontSize, 16, 'A: undo size change'); assert.equal(await codeText(), original, 'A: undo of the size change keeps the text');
+  await evaluate("active().commands.focus('end')"); await pause();
   await key('Enter'); await key('Enter'); await key('Enter'); // triple Enter leaves the code block
+  // C: independent languages — C and Bash blocks in the same box
+  await send('Input.insertText', {text:'/code'}); await pause(); await key('Enter'); await pause();
+  await setLang(1, 'c');
+  await send('Input.insertText', {text:'int main(void) {'}); await key('Enter'); await send('Input.insertText', {text:'    return 0; // done'}); await pause();
+  assert.ok((await tokens(1, 'hljs-keyword')).includes('return') && (await tokens(1, 'hljs-number')).includes('0') && (await tokens(1, 'hljs-comment')).join().includes('// done'), 'B: C keyword, number, comment');
+  await key('Enter'); await key('Enter'); await key('Enter');
+  await send('Input.insertText', {text:'/code'}); await pause(); await key('Enter'); await pause();
+  await setLang(2, 'bash');
+  await send('Input.insertText', {text:'echo "hi" # note'}); await pause();
+  assert.ok((await tokens(2, 'hljs-string')).includes('"hi"') && (await tokens(2, 'hljs-comment')).join().includes('# note'), 'B: Bash string, comment');
+  assert.deepEqual([(await codeAttrs(0)).language, (await codeAttrs(1)).language, (await codeAttrs(2)).language], ['python', 'c', 'bash'], 'C: independent languages');
+  assert.deepEqual([(await codeAttrs(1)).fontSize, (await codeAttrs(2)).fontSize], [16, 16], 'A: typed blocks default to 16');
+  await key('Enter'); await key('Enter'); await key('Enter');
   await send('Input.insertText', {text:'|'}); await send('Input.insertText', {text:' '}); await pause();
   assert.equal((await doc()).content.at(-1).type, 'blockquote', '"| " at line start creates a quote');
   assert.ok(!JSON.stringify((await doc()).content.at(-1)).includes('|'), 'quote trigger removed');
@@ -287,6 +354,11 @@ try {
   await evaluate('store.getState().stopEditing()'); await pause();
   assert.equal(await evaluate("!!document.querySelector('.slide.editable pre code') && !!document.querySelector('.slide.editable blockquote')"), true, 'static render');
   assert.equal(await evaluate("!!document.querySelector('.thumb pre') && !!document.querySelector('.thumb blockquote')"), true, 'thumbnail render');
+  for (const where of ['.slide.editable', '.thumb']) {
+    assert.ok(await evaluate(`!!document.querySelector('${where} pre .hljs-keyword')`), 'E: highlighted in ' + where);
+    assert.equal(await evaluate(`document.querySelectorAll('${where} .code-lang, ${where} select').length`), 0, 'E: no language selector in ' + where);
+  }
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.slide.editable pre code')).fontSize"), '16px', 'E: static size');
   console.log('PASS code block (/code, multiline, indentation, undo/redo) and quote ("| ", P(A | B), continuation, formatting)');
   // TOC entered in the real editor; generated sections retain their IDs through formatting.
   await evaluate('store.getState().addTocSlide()');
@@ -325,6 +397,7 @@ try {
   assert.deepEqual(saved.deck.slides[0].elements[0].doc, mixed);
   const savedSlide2 = JSON.stringify(saved.deck.slides[1]);
   assert.ok(savedSlide2.includes('"codeBlock"') && savedSlide2.includes('"blockquote"'), '.mslides keeps code/quote blocks');
+  for (const l of ['python', 'c', 'bash']) assert.ok(savedSlide2.includes(`"language":"${l}"`), '.mslides keeps language ' + l);
   await evaluate(`persist.newProject()`); await pause();
   assert.equal(await evaluate('store.getState().deck.title'), 'Untitled presentation');
   await evaluate(`(async()=>{const archive=await persist.loadArchive(); await persist.restoreArchived(archive.find(a=>a.deck.title==='Formatting validation').id)})()`);
@@ -359,9 +432,14 @@ try {
   assert.ok(!xml.includes('<p:pic>'), 'Formatted text was not rasterized');
   assert.match(await zip.file('ppt/slides/_rels/slide1.xml.rels').async('string'), /https:\/\/arxiv.org\/abs\/1706.03762/);
   const xml2 = await zip.file('ppt/slides/slide2.xml').async('string');
-  assert.match(xml2, /<a:t>    return actor\(state\)<\/a:t>/, 'code line with indentation is editable text');
+  assert.match(xml2, /<a:t>    <\/a:t>[\s\S]{0,900}<a:t>return<\/a:t>/, 'code indentation is kept as editable text');
   assert.match(xml2, /name="Code Block"[\s\S]*?prst="roundRect"/, 'code background is a native rounded rectangle');
   assert.match(xml2, /name="Code"[\s\S]*?typeface="Menlo"/, 'code text uses the monospace font');
+  assert.match(xml2, /sz="1200"[\s\S]{0,700}<a:t>def<\/a:t>/, 'F: 16px code = 12pt');
+  assert.match(xml2, /val="CF222E"[\s\S]{0,700}<a:t>def<\/a:t>/, 'F: Python keyword is its own colored run');
+  assert.match(xml2, /val="0550AE"[\s\S]{0,700}<a:t>0<\/a:t>/, 'F: C number run');
+  assert.match(xml2, /val="6A737D"[\s\S]{0,700}<a:t>\/\/ done<\/a:t>/, 'F: C comment run');
+  assert.ok(!/<a:t>(Plain Text|Python|Bash)<\/a:t>/.test(xml2), 'F: language selector is not exported');
   assert.match(xml2, /name="Quote Line"[\s\S]*?prst="line"/, 'quote line is a native line');
   assert.match(xml2, /<a:t>Clipping<\/a:t>/, 'quote text is editable');
   assert.equal((xml2.match(/<p:pic>/g) || []).length, 1, 'only the E=mc^2 equation is a picture; code/quote are not rasterized');

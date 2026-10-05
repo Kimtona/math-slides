@@ -8,6 +8,8 @@ export const TYPOGRAPHY = {
   h2: 50,
   h3: 30,
   body: 25,
+  /** Default size of a new Code Block (`/code`), independent of the text box size. */
+  code: 16,
 } as const;
 
 /** Markdown prefix → font size: `# ` h1, `## ` h2, `### ` h3, `#### ` body. */

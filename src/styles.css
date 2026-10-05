@@ -160,6 +160,20 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 /* Code Block (Notion-like, restrained): monospace, light gray, small padding/radius. PPTX reads these computed values. */
 .tb-content pre { margin: .25em 0; padding: .55em .8em; background: #F1F1EF; border-radius: .3em; white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; }
 .tb-content pre code { font-family: Menlo, monospace; font-size: .85em; line-height: 1.45; background: none; padding: 0; color: inherit; }
+.tb-content pre[data-code-size] code { font-size: 1em; }
+.tb-content pre { position: relative; }
+/* Code Block language selector — editor-only (never rendered by StaticText, so absent from thumbnails/presenter/PDF/PPTX) */
+.tb-content pre .code-lang { position: absolute; top: 3px; right: 4px; font-family: system-ui, sans-serif; font-size: 11px; line-height: 1; opacity: 0; transition: opacity .12s; user-select: none; z-index: 1; }
+.tb-content pre:hover .code-lang, .tb-content pre:focus-within .code-lang { opacity: .9; }
+.code-lang select { font: inherit; color: #6b7280; background: rgba(255,255,255,.85); border: 1px solid #d9dce0; border-radius: 4px; padding: 1px 2px; cursor: pointer; outline: none; }
+/* Syntax colors: muted, GitHub-light-like. Mirrored for PPTX in src/editor/codeHighlight.ts (CODE_TOKEN_COLORS). */
+.tb-content pre .hljs-comment, .tb-content pre .hljs-quote { color: #6A737D; font-style: italic; }
+.tb-content pre .hljs-keyword, .tb-content pre .hljs-selector-tag, .tb-content pre .hljs-meta .hljs-keyword { color: #CF222E; }
+.tb-content pre .hljs-string, .tb-content pre .hljs-regexp, .tb-content pre .hljs-meta .hljs-string { color: #0A3069; }
+.tb-content pre .hljs-number, .tb-content pre .hljs-literal, .tb-content pre .hljs-symbol { color: #0550AE; }
+.tb-content pre .hljs-title, .tb-content pre .hljs-title.function_, .tb-content pre .hljs-built_in, .tb-content pre .hljs-section { color: #8250DF; }
+.tb-content pre .hljs-type, .tb-content pre .hljs-title.class_ { color: #953800; }
+.tb-content pre .hljs-meta, .tb-content pre .hljs-variable, .tb-content pre .hljs-attr { color: #116329; }
 /* Quote: thin left line, no quotation marks or background box. */
 .tb-content blockquote { margin: .2em 0; padding-left: .75em; border-left: 3px solid #B4BAC1; }
 .tb-content li > p { margin: 0; }

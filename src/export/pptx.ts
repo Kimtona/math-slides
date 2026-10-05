@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import type { Asset, Deck, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
 import { sourceRect } from '../model/imageCrop';
 import { FOOTER_COLOR, FOOTER_FONT_SIZE } from '../model/typography';
+import { tokenColor } from '../editor/codeHighlight';
 import { INLINE_CODE_BACKGROUND, INLINE_CODE_FONT } from '../model/textFormatting';
 
 // Slide units are CSS px on a 1280×720 canvas = 13.333×7.5in (PowerPoint widescreen).
@@ -234,11 +235,25 @@ function addCodeBlock(s: Slide, pre: Element, origin: DOMRect) {
   s.addShape('roundRect', { x: IN(r.x), y: IN(r.y), w: IN(r.w), h: IN(r.h), fill: { color: hex(cs.backgroundColor) }, rectRadius: IN(radius), objectName: 'Code Block' });
   const fs = px(ccs.fontSize);
   const lh = px(ccs.lineHeight) || fs * 1.45;
-  const lines = (code.textContent ?? '').replace(/\n$/, '').split('\n');
   const color = hex(ccs.color);
-  const runs: TextProps[] = lines.map((line, i) => ({
-    text: line, options: { fontFace: INLINE_CODE_FONT, fontSize: PT(fs), color, ...(i < lines.length - 1 ? { breakLine: true } : {}) },
-  }));
+  // Per-token runs from the shared tokenizer's output (spans carrying highlight classes); one paragraph per line.
+  const toks: { text: string; color: string }[] = [];
+  const walk = (n: Node, classes: string[]) => {
+    if (n.nodeType === Node.TEXT_NODE) { if (n.textContent) toks.push({ text: n.textContent, color: hex(tokenColor(classes) ?? ccs.color) }); return; }
+    if (!(n instanceof Element) || n.tagName === 'BR') return;
+    n.childNodes.forEach((c) => walk(c, [...classes, ...n.classList]));
+  };
+  code.childNodes.forEach((c) => walk(c, []));
+  const runs: TextProps[] = [];
+  const base = { fontFace: INLINE_CODE_FONT, fontSize: PT(fs) };
+  const lines: { text: string; color: string }[][] = [[]];
+  for (const t of toks) t.text.split('\n').forEach((part, i) => { if (i) lines.push([]); if (part) lines[lines.length - 1].push({ text: part, color: t.color }); });
+  if (lines.length > 1 && !lines[lines.length - 1].length) lines.pop();
+  lines.forEach((line, i) => {
+    const last = i === lines.length - 1;
+    if (!line.length) runs.push({ text: '', options: { ...base, color, ...(last ? {} : { breakLine: true }) } });
+    line.forEach((t, j) => runs.push({ text: t.text, options: { ...base, color: t.color, ...(!last && j === line.length - 1 ? { breakLine: true } : {}) } }));
+  });
   const pl = px(cs.paddingLeft), pr = px(cs.paddingRight), pt = px(cs.paddingTop), pb = px(cs.paddingBottom);
   s.addText(runs, {
     x: IN(r.x + pl), y: IN(r.y + pt), w: IN(r.w - pl - pr + Math.max(4, r.w * 0.02)), h: IN(Math.max(1, r.h - pt - pb)),

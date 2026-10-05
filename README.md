@@ -32,12 +32,12 @@ You can also double-click `MathSlides.command` in Finder to launch the desktop a
 | Object colors | Shape Fill/Border, line color, and slide background: preset palette |
 | Text color | Toolbar **A** → Theme Colors (base colors + shades), Standard Colors, or Other Colors… (visual picker + 3/6-digit HEX). A selected text range gets its own color; with only a caret, or with the box selected, the box's default color changes (block equations and list markers follow). Striped indicator = mixed colors |
 | Highlight | Highlighter icon next to text color → six light colors or None / Remove Highlight. Selected range → that range; caret only → applies to the text you type next; box selected → the whole box |
-| Inline code | **</>** toggles Notion-style inline code (monospace, muted red, light gray background). Combines with text color (overrides the default red), highlight, and emphasis. No code blocks; ⌘E stays PPTX export |
+| Inline code | **</>** toggles Notion-style inline code (monospace, muted red, light gray background). Combines with text color (overrides the default red), highlight, and emphasis. ⌘E stays PPTX export |
 | Shapes | `R` rectangle, `O` ellipse, `L` line, `A` arrow |
 | Resize | Text corners scale the font. Shapes: `Shift` = keep aspect ratio |
 | Snapping | Edges and centers of the slide and other objects (hold `Alt` to turn it off) |
 | Text sizes | At the start of a line: `# ` 80 · `## ` 50 · `### ` 30 · `#### ` 25 (Backspace at the line start reverts). Sizes live in `src/model/typography.ts` |
-| Code block | Type `/code` at the start of a line and press Enter (slash menu). Multi-line monospace code with indentation kept; Enter adds a line, triple Enter or ↓ at the end leaves the block. Separate from inline code. No syntax highlighting yet |
+| Code block | Type `/code` at the start of a line and press Enter (slash menu). Multi-line monospace code with indentation kept; Enter adds a line, triple Enter or ↓ at the end leaves the block. Separate from inline code. New blocks are 16pt (a property of the block; the font-size field edits it while the caret is inside) and Plain Text. A subtle selector at the block's top-right (editor only) picks Plain Text / Python / C / Bash (no auto-detection); syntax colors are derived from text + language (highlight.js via lowlight), never stored. Tab / Shift+Tab indent / outdent the selected lines by 4 spaces. Languages live in `src/editor/codeHighlight.ts` — add one grammar + list entry to extend |
 | Quote | Type `| ` at the start of a line. Thin left line, no quotation marks; Enter continues the quote, Enter on an empty line leaves it. `P(A | B)` mid-line stays text |
 | Lists | Type `- ` or `1. `, `Tab` / `⇧Tab` to indent |
 | Footer | Slide number `n/total` bottom-left (automatic). Click the bottom-right to type a reference (citation) for that slide |
@@ -133,7 +133,7 @@ src/
 
 ## Known limitations (MVP)
 
-- PPTX: code blocks are a native rounded rectangle plus editable Menlo text; quotes are editable text plus a native line.
+- PPTX: code blocks are a native rounded rectangle plus editable Menlo text with one colored run per syntax token (same tokenizer; the language selector is not exported); quotes are editable text plus a native line.
 - PPTX: text highlight and the inline-code background are native PowerPoint text highlights; inline code is editable Menlo text. PowerPoint does not reproduce the code padding / rounded corners, and may substitute Menlo on systems without it.
 - No rotation, grouping, or tables. Crop is rectangular only (no mask shapes).
 - Equations in PPTX are pictures, not native PowerPoint equations (OMML).

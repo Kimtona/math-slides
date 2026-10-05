@@ -3,7 +3,10 @@ import CodeBlock from '@tiptap/extension-code-block';
 import Blockquote from '@tiptap/extension-blockquote';
 import { closeHistory } from '@tiptap/pm/history';
 import { findWrapping } from '@tiptap/pm/transform';
-import { Plugin } from '@tiptap/pm/state';
+import { Plugin, PluginKey, type EditorState } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import type { Node as PMNodeType } from '@tiptap/pm/model';
+import { CODE_LANGUAGES, highlightCode, isSupportedLanguage } from './codeHighlight';
 import { uid } from '../model/defaults';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -12,7 +15,7 @@ import { Color } from '@tiptap/extension-color';
 import Placeholder from '@tiptap/extension-placeholder';
 import { MathBlock, MathInline } from './mathNodes';
 import type { PMNode } from '../model/types';
-import { MARKDOWN_SIZES } from '../model/typography';
+import { MARKDOWN_SIZES, TYPOGRAPHY } from '../model/typography';
 import { Highlight, InlineCode } from './formattingMarks';
 
 /**
@@ -66,7 +69,7 @@ const ParagraphFontSize = Extension.create({
 export function scaleParagraphSizes(doc: PMNode, k: number): PMNode {
   const walk = (n: PMNode): PMNode => {
     const out: PMNode = { ...n };
-    if (n.type === 'paragraph' && n.attrs?.fontSize) out.attrs = { ...n.attrs, fontSize: Math.max(6, Math.round(n.attrs.fontSize * k * 2) / 2) };
+    if ((n.type === 'paragraph' || n.type === 'codeBlock') && n.attrs?.fontSize) out.attrs = { ...n.attrs, fontSize: Math.max(6, Math.round(n.attrs.fontSize * k * 2) / 2) };
     if (n.content) out.content = n.content.map(walk);
     return out;
   };
@@ -134,14 +137,145 @@ const TocSections = Extension.create<{ enabled: boolean }>({
   },
 });
 
+/** One indentation level inside a Code Block. */
+const CODE_INDENT = '    ';
+
+/** Line-start offsets (within the code block) of the lines touched by the selection, or null outside code. */
+function selectedCodeLines(state: EditorState) {
+  const { $from, $to, empty } = state.selection;
+  if ($from.parent.type.name !== 'codeBlock' || !$from.sameParent($to)) return null;
+  const text = $from.parent.textContent;
+  const starts: number[] = [];
+  let line = text.lastIndexOf('\n', $from.parentOffset - 1) + 1;
+  for (;;) {
+    starts.push(line);
+    const nl = text.indexOf('\n', line);
+    if (nl < 0) break;
+    const next = nl + 1;
+    // A selection ending exactly at the start of a line does not include that line.
+    if (next > $to.parentOffset || (next === $to.parentOffset && !empty)) break;
+    line = next;
+  }
+  return { base: $from.start(), text, starts };
+}
+
 /**
- * Code Block (semantic <pre><code>, plain text: Enter adds a line, whitespace kept, triple Enter or
- * ↓ at the end leaves it). Created with `/code` at the start of a line (slash menu); TipTap's
- * ``` markdown rule is not used. Separate from the inline `code` mark.
+ * Code Block: TipTap's semantic codeBlock (<pre><code>, plain text: Enter adds a line, whitespace
+ * kept, triple Enter or ↓ at the end leaves it). Created with `/code` (slash menu); ``` is not used.
+ * Separate from the inline `code` mark.
+ * - fontSize attribute: px size of the code, set to TYPOGRAPHY.code by `/code` (older blocks: none)
+ * - language attribute (TipTap's): null = Plain Text; drives syntax highlighting (decorations only)
+ * - Tab / Shift+Tab: indent / outdent the selected lines by 4 spaces (only inside code)
  */
 const SlideCodeBlock = CodeBlock.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      fontSize: {
+        default: null,
+        parseHTML: (el) => parseFloat((el as HTMLElement).style.fontSize) || null,
+        renderHTML: (attrs) => (attrs.fontSize ? { style: `font-size: ${attrs.fontSize}px`, 'data-code-size': '' } : {}),
+      },
+    };
+  },
   addInputRules() {
     return [];
+  },
+  addKeyboardShortcuts() {
+    const indent = (dir: 1 | -1) => () => {
+      const { state, view } = this.editor;
+      const lines = selectedCodeLines(state);
+      if (!lines) return false; // outside a code block: Tab keeps its usual behavior
+      const tr = state.tr;
+      for (const at of [...lines.starts].reverse()) {
+        if (dir > 0) tr.insertText(CODE_INDENT, lines.base + at);
+        else {
+          let n = 0;
+          while (n < CODE_INDENT.length && lines.text[at + n] === ' ') n++;
+          if (!n && lines.text[at] === '\t') n = 1;
+          if (n) tr.delete(lines.base + at, lines.base + at + n);
+        }
+      }
+      if (tr.docChanged) view.dispatch(tr);
+      return true; // consumed: never moves focus while in code
+    };
+    return { ...this.parent?.(), Tab: indent(1), 'Shift-Tab': indent(-1) };
+  },
+  addNodeView() {
+    return ({ node, editor, getPos }) => {
+      let current = node;
+      const dom = document.createElement('pre');
+      // Language selector: editor-only UI, outside the editable content.
+      const bar = document.createElement('div');
+      bar.className = 'code-lang';
+      bar.contentEditable = 'false';
+      const select = document.createElement('select');
+      select.title = '코드 언어 (Language)';
+      for (const l of CODE_LANGUAGES) {
+        const o = document.createElement('option');
+        o.value = l.id ?? '';
+        o.textContent = l.label;
+        select.append(o);
+      }
+      bar.append(select);
+      const code = document.createElement('code');
+      dom.append(bar, code);
+      const sync = () => {
+        const lang = isSupportedLanguage(current.attrs.language) ? current.attrs.language : '';
+        select.value = lang;
+        code.className = lang ? `language-${lang}` : '';
+        const fs = current.attrs.fontSize as number | null;
+        dom.style.fontSize = fs ? `${fs}px` : '';
+        if (fs) dom.setAttribute('data-code-size', ''); else dom.removeAttribute('data-code-size');
+      };
+      sync();
+      select.addEventListener('change', () => {
+        const pos = getPos();
+        if (typeof pos !== 'number') return;
+        editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, language: select.value || null }));
+        editor.view.focus();
+      });
+      return {
+        dom,
+        contentDOM: code,
+        update(n: PMNodeType) {
+          if (n.type !== current.type) return false;
+          current = n;
+          sync();
+          return true;
+        },
+        stopEvent: (e: Event) => bar.contains(e.target as Node),
+        ignoreMutation: (m: MutationRecord | { type: 'selection'; target: Node }) =>
+          bar.contains(m.target) || (m.type === 'attributes' && (m.target === dom || m.target === code)),
+      };
+    };
+  },
+  addProseMirrorPlugins() {
+    // Syntax highlighting as decorations derived from (text, language) — nothing is stored.
+    const decorate = (doc: PMNodeType) => {
+      const decos: Decoration[] = [];
+      doc.descendants((n, pos) => {
+        if (n.type.name !== 'codeBlock') return true;
+        let at = pos + 1;
+        for (const t of highlightCode(n.textContent, n.attrs.language)) {
+          if (t.classes.length) decos.push(Decoration.inline(at, at + t.text.length, { class: t.classes.join(' ') }));
+          at += t.text.length;
+        }
+        return false;
+      });
+      return DecorationSet.create(doc, decos);
+    };
+    return [
+      ...(this.parent?.() ?? []),
+      new Plugin({
+        key: new PluginKey('codeHighlight'),
+        state: {
+          init: (_, state) => decorate(state.doc),
+          apply: (tr, old) => (tr.docChanged ? decorate(tr.doc) : old),
+        },
+        props: { decorations(state) { return this.getState(state); } },
+      }),
+    ];
   },
 });
 
@@ -172,7 +306,7 @@ export function convertToCodeBlock(editor: Editor, range: { from: number; to: nu
   return editor.chain().focus()
     .command(({ tr }) => { closeHistory(tr); return true; })
     .deleteRange(range)
-    .setNode('codeBlock')
+    .setNode('codeBlock', { fontSize: TYPOGRAPHY.code, language: null })
     .run();
 }
 
