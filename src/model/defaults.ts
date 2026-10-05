@@ -54,43 +54,48 @@ export function newSlide(): Slide {
   return { id: uid(), background: '#ffffff', elements: [], notes: '', reference: '' };
 }
 
-export function initialDeck(): Deck {
-  const title = newText(96, 250, {
-    w: SLIDE_W - 192,
-    doc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'MathSlides', marks: [{ type: 'bold' }] }] }] },
-    style: { fontSize: 64, align: 'center' },
-  });
-  const sub = newText(96, 350, {
-    w: SLIDE_W - 192,
-    doc: textDoc('빈 곳을 클릭해 텍스트를 쓰고, /math 로 수식을 넣어 보세요'),
-    style: { fontSize: 26, align: 'center', color: '#57606a' },
-  });
-  const s1 = newSlide();
-  s1.elements.push(title, sub);
+// ---------- slide templates (initial state only; the boxes are ordinary text elements) ----------
 
-  const s2 = newSlide();
-  s2.elements.push(
-    newText(64, 48, { w: SLIDE_W - 128, doc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Proximal Policy Optimization', marks: [{ type: 'bold' }] }] }] }, style: { fontSize: 40 } }),
-    newText(64, 150, {
-      w: SLIDE_W - 128,
-      doc: {
-        type: 'doc',
-        content: [
-          { type: 'paragraph', content: [{ type: 'text', text: 'The PPO objective is' }] },
-          { type: 'mathBlock', attrs: { latex: 'L^{\\text{CLIP}}(\\theta)=\\hat{\\mathbb{E}}_t\\left[\\min\\left(r_t(\\theta)\\hat{A}_t,\\ \\operatorname{clip}(r_t(\\theta),1-\\epsilon,1+\\epsilon)\\hat{A}_t\\right)\\right]' } },
-          {
-            type: 'paragraph',
-            content: [
-              { type: 'text', text: 'where ' },
-              { type: 'mathInline', attrs: { latex: 'r_t(\\theta)=\\frac{\\pi_\\theta(a_t\\mid s_t)}{\\pi_{\\theta_\\text{old}}(a_t\\mid s_t)}' } },
-              { type: 'text', text: ' is the probability ratio.' },
-            ],
-          },
-        ],
-      },
-    }),
+export const DEFAULT_TITLE = 'Untitled presentation';
+
+/** Initial texts of template boxes. Editing a box that still shows one of these selects it all. */
+export const TEMPLATE_TEXT = {
+  title: DEFAULT_TITLE,
+  subtitle: '내용은 빈 곳을 클릭해 텍스트를 쓰고, /math 로 수식을 넣어 보세요',
+  contentTitle: '슬라이드 제목',
+  contentBody: '내용을 입력하세요',
+};
+const TEMPLATE_PLACEHOLDERS = new Set(Object.values(TEMPLATE_TEXT));
+export const isTemplatePlaceholder = (text: string) => TEMPLATE_PLACEHOLDERS.has(text.trim());
+
+/** Title Slide: large centered title (h1) and a secondary line (h3) below it. */
+export function newTitleSlide(title = DEFAULT_TITLE): { slide: Slide; titleId: string } {
+  const s = newSlide();
+  const main = newText(96, 210, { w: SLIDE_W - 192, doc: textDoc(title), style: { fontSize: TYPOGRAPHY.h1, align: 'center' } });
+  const sub = newText(96, 350, {
+    w: SLIDE_W - 192, doc: textDoc(TEMPLATE_TEXT.subtitle),
+    style: { fontSize: TYPOGRAPHY.h3, align: 'center', color: presetHex('Dark Gray') },
+  });
+  s.elements.push(main, sub);
+  return { slide: s, titleId: main.id };
+}
+
+/** Content Slide: title (h2) at the upper-left and a body box (h3) right below it. */
+export function newContentSlide(): Slide {
+  const s = newSlide();
+  const x = 64, y = 40, w = SLIDE_W - 128;
+  const titleH = Math.round(TYPOGRAPHY.h2 * 1.35);
+  s.elements.push(
+    newText(x, y, { w, doc: textDoc(TEMPLATE_TEXT.contentTitle), style: { fontSize: TYPOGRAPHY.h2 } }),
+    newText(x, y + titleH + 24, { w, doc: textDoc(TEMPLATE_TEXT.contentBody), style: { fontSize: TYPOGRAPHY.h3 } }),
   );
-  return { version: 1, title: 'Untitled presentation', slides: [s1, s2] };
+  return s;
+}
+
+/** A new presentation: one Title Slide. */
+export function initialDeck(): Deck {
+  const { slide } = newTitleSlide();
+  return { version: 1, title: DEFAULT_TITLE, slides: [slide] };
 }
 
 export { SLIDE_W, SLIDE_H };

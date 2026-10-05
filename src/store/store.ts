@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { produce, type Draft } from 'immer';
 import type { Asset, Deck, ID, Slide, SlideElement } from '../model/types';
-import { initialDeck, newSlide, uid } from '../model/defaults';
+import { initialDeck, isTemplatePlaceholder, newContentSlide, newTitleSlide, uid } from '../model/defaults';
+import { plainText } from '../editor/docUtils';
 import type { Guide } from '../model/geometry';
 import { isDocEmpty, trimTrailingEmpty } from '../editor/docUtils';
 
@@ -162,6 +163,9 @@ export const useStore = create<AppState>()((set, get) => {
       const st = get();
       if (st.editingId === id) return;
       if (st.editingId) st.stopEditing();
+      // A template box still showing its initial text: select it all so typing replaces it.
+      const el = findSlide(get().deck, get().currentSlideId)?.elements.find((e) => e.id === id);
+      if (el?.type === 'text' && caret !== 'math' && isTemplatePlaceholder(plainText(el.doc))) caret = 'all';
       get().beginGesture();
       set({ editingId: id, editingIsNew: isNew, editCaret: caret, selection: [id], mathEdit: null, focusArea: 'canvas' });
     },
@@ -263,7 +267,7 @@ export const useStore = create<AppState>()((set, get) => {
       set({ currentSlideId: id, selection: [] });
     },
     addSlide: (afterId, slide) => {
-      const s = slide ?? newSlide();
+      const s = slide ?? newContentSlide(); // every slide added after the first starts as a Content Slide
       const after = afterId ?? get().currentSlideId;
       if (get().editingId) get().stopEditing();
       if (get().cropEditId) get().exitCrop();
@@ -285,7 +289,7 @@ export const useStore = create<AppState>()((set, get) => {
       if (get().editingId) get().stopEditing();
       if (deck.slides.length <= 1) {
         // Never leave the deck empty: replace the last slide with a blank one.
-        const s = newSlide();
+        const s = newTitleSlide().slide; // the deck's (new) first slide is a Title Slide
         get().commit((d) => { d.slides = [s as any]; });
         set({ currentSlideId: s.id, selection: [] });
         return;

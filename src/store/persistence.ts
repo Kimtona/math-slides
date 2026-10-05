@@ -170,7 +170,6 @@ export async function openProject() {
 export function newProject() {
   if (!confirm('새 프레젠테이션을 만들까요? 현재 내용은 자동 저장본에서 사라집니다 (먼저 ⌘S로 파일 저장 권장).')) return;
   const deck = initialDeck();
-  deck.slides = [deck.slides[0]];
   useStore.getState().loadDeck(deck, {});
   useStore.setState({ fileHandle: null });
 }
