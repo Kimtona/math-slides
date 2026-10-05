@@ -100,6 +100,37 @@ export function ColorButton({ value, onChange, allowNone, noneLabel = '없음', 
   );
 }
 
+/** Practical stroke widths (px on the 1280×720 slide; 1px = 0.75pt in PowerPoint). */
+export const STROKE_WIDTHS = [1, 2, 3, 4, 6, 8, 12];
+
+/** Border / line width: a few presets with a visual preview, plus optional "none". */
+export function WidthButton({ value, onChange, allowNone, title }: {
+  value: number | null; onChange: (w: number | null) => void; allowNone?: boolean; title: string;
+}) {
+  return (
+    <Popover title={title} button={<span className="small-label width-btn">
+      <span className="width-preview" style={{ height: value ? Math.min(value, 8) : 1, opacity: value ? 1 : 0.3 }} />
+      {value ? `${value}px` : '없음'}
+    </span>}>
+      {(close) => (
+        <div className="menu width-menu" aria-label={title}>
+          {allowNone && (
+            <div className={`menu-item${value === null ? ' sel' : ''}`} data-width="none" onClick={() => { onChange(null); close(); }}>
+              <span>없음</span>
+            </div>
+          )}
+          {STROKE_WIDTHS.map((w) => (
+            <div key={w} className={`menu-item${w === value ? ' sel' : ''}`} data-width={w} onClick={() => { onChange(w); close(); }}>
+              <span className="width-row"><span className="width-preview" style={{ height: w }} /></span>
+              <span className="menu-kbd">{w}px</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Popover>
+  );
+}
+
 export function NumberField({ value, onChange, min = 1, max = 400, step = 1, title, width = 44 }: {
   value: number; onChange: (v: number) => void; min?: number; max?: number; step?: number; title?: string; width?: number;
 }) {

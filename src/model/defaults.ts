@@ -35,7 +35,7 @@ export function newText(x: number, y: number, opts: { w?: number; doc?: PMNode; 
 }
 
 export function newShape(shape: ShapeKind, x: number, y: number, w = 240, h = 160): ShapeElement {
-  return { id: uid(), type: 'shape', shape, x, y, w, h, fill: '#dbe6fd', stroke: null, strokeWidth: 2, radius: 16 };
+  return { id: uid(), type: 'shape', shape, x, y, w, h, fill: presetHex('Light Gray'), stroke: null, strokeWidth: 2, radius: 16 };
 }
 
 export function lineBox(l: Pick<LineElement, 'x1' | 'y1' | 'x2' | 'y2'>) {

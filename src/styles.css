@@ -77,6 +77,11 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .menu-kbd { color: var(--muted); font-size: 12px; }
 .menu-caption { grid-column: 1 / -1; color: var(--muted); font-size: 11px; padding: 2px 4px 4px; }
 .align-grid { display: grid; grid-template-columns: repeat(3, 34px); gap: 2px; }
+.width-btn { gap: 6px; }
+.width-btn .width-preview { width: 18px; }
+.width-menu { min-width: 140px; }
+.width-row { display: flex; align-items: center; width: 70px; height: 14px; }
+.width-preview { display: inline-block; width: 100%; background: var(--ink); border-radius: 1px; }
 .palette { width: 164px; }
 .palette-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 4px; }
 .pal { position: relative; width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(0,0,0,.18); cursor: pointer; padding: 0; }

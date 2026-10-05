@@ -50,7 +50,8 @@ export function useShortcuts() {
         if (e.key === 'Backspace' || e.key === 'Delete') return go(() => st.deleteSlide(st.currentSlideId));
         if (mod && k === 'd') return go(() => st.duplicateSlide(st.currentSlideId));
         if (e.key === 'Escape') return go(() => useStore.setState({ focusArea: 'canvas' }));
-        return;
+        // Anything else (T, M, R, ⌘A …) acts on the current slide's canvas.
+        useStore.setState({ focusArea: 'canvas' });
       }
 
       if (e.key === 'PageDown') return go(() => idx < slides.length - 1 && st.goToSlide(slides[idx + 1].id));

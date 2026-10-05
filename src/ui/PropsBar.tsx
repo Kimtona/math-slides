@@ -2,7 +2,8 @@ import { useEffect, useReducer } from 'react';
 import type { ImageElement, LineElement, ShapeElement, SlideElement, TextElement } from '../model/types';
 import { useStore } from '../store/store';
 import { getActiveEditor, onActiveEditorChange } from '../editor/active';
-import { Btn, ColorButton, Icons, NumberField, Popover, Sep } from './controls';
+import { Btn, ColorButton, Icons, NumberField, Popover, Sep, WidthButton } from './controls';
+import { DEFAULT_TEXT_COLOR } from '../model/defaults';
 import { markActive, setTextColor, setTextStyle, toggleList, toggleMark } from './textFormat';
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
@@ -69,9 +70,16 @@ function ShapeProps({ el }: { el: ShapeElement }) {
   const upd = (fn: (d: ShapeElement) => void) => useStore.getState().updateElements([el.id], (d) => fn(d as ShapeElement));
   return (
     <>
-      <ColorButton title="채우기" label={<span className="small-label">채우기</span>} allowNone value={el.fill} onChange={(c) => upd((d) => { d.fill = c; })} />
-      <ColorButton title="테두리" label={<span className="small-label">테두리</span>} allowNone value={el.stroke} onChange={(c) => upd((d) => { d.stroke = c; })} />
-      <NumberField value={el.strokeWidth} min={0.5} max={40} step={0.5} title="테두리 두께" onChange={(v) => upd((d) => { d.strokeWidth = v; })} />
+      <ColorButton title="채우기 (Fill)" label={<span className="small-label">채우기</span>} allowNone noneLabel="투명 (No fill)"
+        value={el.fill} onChange={(c) => upd((d) => { d.fill = c; })} />
+      <ColorButton title="테두리 (Border)" label={<span className="small-label">테두리</span>} allowNone noneLabel="테두리 없음"
+        value={el.stroke} onChange={(c) => upd((d) => { d.stroke = c; })} />
+      <WidthButton title="테두리 두께" allowNone value={el.stroke ? el.strokeWidth : null}
+        onChange={(w) => upd((d) => {
+          if (w === null) { d.stroke = null; return; }
+          d.strokeWidth = w;
+          if (!d.stroke) d.stroke = DEFAULT_TEXT_COLOR; // picking a width on a borderless shape adds a border
+        })} />
       <Sep />
       <Btn title="사각형" active={el.shape === 'rect'} onClick={() => upd((d) => { d.shape = 'rect'; })}>▭</Btn>
       <Btn title="둥근 사각형" active={el.shape === 'roundRect'} onClick={() => upd((d) => { d.shape = 'roundRect'; })}>▢</Btn>
@@ -89,7 +97,7 @@ function LineProps({ el }: { el: LineElement }) {
   return (
     <>
       <ColorButton title="선 색" label={<span className="small-label">선</span>} value={el.stroke} onChange={(c) => c && upd((d) => { d.stroke = c; })} />
-      <NumberField value={el.strokeWidth} min={0.5} max={40} step={0.5} title="선 두께" onChange={(v) => upd((d) => { d.strokeWidth = v; })} />
+      <WidthButton title="선 두께" value={el.strokeWidth} onChange={(w) => w && upd((d) => { d.strokeWidth = w; })} />
       <Btn title="점선" active={el.dashed} onClick={() => upd((d) => { d.dashed = !d.dashed; })}>┄</Btn>
       <Btn title="시작 화살표" active={el.arrowStart} onClick={() => upd((d) => { d.arrowStart = !d.arrowStart; })}>←</Btn>
       <Btn title="끝 화살표" active={el.arrowEnd} onClick={() => upd((d) => { d.arrowEnd = !d.arrowEnd; })}>→</Btn>
