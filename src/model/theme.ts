@@ -33,7 +33,12 @@ export interface ThemeLayout { color: string; fg: string; rects: ThemeRect[] }
 
 type ThemeDeck = Pick<Deck, 'themeColor' | 'titleElementId'>;
 
-const isTitleSlide = (deck: ThemeDeck, slide: Slide) => !!deck.titleElementId && slide.elements.some((e) => e.id === deck.titleElementId);
+/** The slide's main title element: the deck's linked title, or (inserted Title Slides) the first text box. Older decks have no 'title' kind: their first slide is found through the link. */
+function titleElementOf(deck: ThemeDeck, slide: Slide): SlideElement | undefined {
+  const linked = deck.titleElementId ? slide.elements.find((e) => e.id === deck.titleElementId) : undefined;
+  return linked ?? (slide.kind === 'title' ? slide.elements.find((e) => e.type === 'text') : undefined);
+}
+const isTitleSlide = (deck: ThemeDeck, slide: Slide) => !!titleElementOf(deck, slide);
 
 /** Where the theme paints on this slide (null = nothing, e.g. White theme). */
 export function themeLayout(deck: ThemeDeck, slide: Slide): ThemeLayout | null {
@@ -43,7 +48,7 @@ export function themeLayout(deck: ThemeDeck, slide: Slide): ThemeLayout | null {
   const rects: ThemeRect[] = [];
   const footer: ThemeRect = { name: 'Theme Footer Accent', x: 0, y: SLIDE_H - FOOTER_ACCENT_H, w: SLIDE_W, h: FOOTER_ACCENT_H };
   if (isTitleSlide(deck, slide)) {
-    const t = slide.elements.find((e) => e.id === deck.titleElementId)!;
+    const t = titleElementOf(deck, slide)!;
     rects.push({ name: 'Theme Title Band', x: 48, y: Math.max(0, t.y - 24), w: SLIDE_W - 96, h: t.h + 48 });
   } else if (slide.kind !== 'thanks') rects.push({ name: 'Theme Header Band', x: 0, y: 0, w: SLIDE_W, h: HEADER_H });
   rects.push(footer);
@@ -61,7 +66,7 @@ export function themedTextColor(deck: ThemeDeck, slide: Slide, el: SlideElement)
   const layout = themeLayout(deck, slide);
   if (!layout) return null;
   if (slide.kind === 'subtitle') return layout.fg;
-  if (isTitleSlide(deck, slide)) return el.id === deck.titleElementId ? layout.fg : null;
+  if (isTitleSlide(deck, slide)) return el.id === titleElementOf(deck, slide)?.id ? layout.fg : null;
   return layout.rects.some((r) => r.name === 'Theme Header Band') && el.y >= 0 && el.y + el.h <= HEADER_H + 8 ? layout.fg : null;
 }
 

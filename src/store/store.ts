@@ -67,6 +67,7 @@ export interface AppState {
   duplicateSlide: (id: ID) => void;
   deleteSlide: (id: ID) => void;
   moveSlide: (from: number, to: number) => void;
+  addTitleSlide: (afterId?: ID) => void;
   addTocSlide: () => void;
   addThanksSlide: () => void;
 
@@ -356,6 +357,8 @@ export const useStore = create<AppState>()((set, get) => {
       });
     },
 
+    // An additional Title Slide: the canonical template (newTitleSlide), inserted right after `afterId` / the current slide.
+    addTitleSlide: (afterId) => get().addSlide(afterId, newTitleSlide().slide),
     addTocSlide: () => {
       const existing = get().deck.slides.find((x) => x.kind === 'toc');
       if (existing) { get().goToSlide(existing.id); return; }

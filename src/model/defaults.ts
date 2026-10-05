@@ -79,6 +79,7 @@ export const isTemplatePlaceholder = (text: string) => TEMPLATE_PLACEHOLDERS.has
 /** Title Slide: large centered title (h1) and a secondary line (h3) below it. */
 export function newTitleSlide(title = DEFAULT_TITLE): { slide: Slide; titleId: string } {
   const s = newSlide();
+  s.kind = 'title'; // canonical Title Slide: the initial slide and every inserted one
   const main = newText(96, 210, { w: SLIDE_W - 192, doc: textDoc(title), style: { fontSize: TYPOGRAPHY.h1, align: 'center' } });
   const sub = newText(96, 350, {
     w: SLIDE_W - 192, doc: textDoc(TEMPLATE_TEXT.subtitle),

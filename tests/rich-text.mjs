@@ -1162,6 +1162,58 @@ try {
   assert.equal((await evaluate('persist.loadArchive()')).length, (await evaluate('persist.loadArchive()')).length);
   const nowIds = new Set((await evaluate('persist.loadArchive()')).map((a) => a.deck.id));
   assert.ok(oldArchive.every((a) => nowIds.has(a.deck.id)), 'every pre-existing archived presentation (by Deck.id) is still there');
+  // ---- Slide context menu: "제목 슬라이드 추가" inserts a canonical Title Slide ----
+  await evaluate('persist.newProject()'); await pause(400);
+  const slidesInfo = () => evaluate("store.getState().deck.slides.map(s => ({id: s.id, kind: s.kind ?? null, texts: s.elements.map(e => e.type === 'text' ? e.doc.content?.[0]?.content?.[0]?.text : null)}))");
+  const openMenu = async (index) => { await evaluate(`document.querySelectorAll('.thumb-num')[${index}].parentElement.dispatchEvent(new MouseEvent('contextmenu', {bubbles: true, cancelable: true, clientX: 120, clientY: 160}))`); await pause(250); };
+  const menuItems = () => evaluate("[...document.querySelectorAll('.menu.context .menu-item')].map(e => e.firstChild.textContent.trim())");
+  const clickMenu = (label) => evaluate(`[...document.querySelectorAll('.menu.context .menu-item')].find(e => e.textContent.includes(${JSON.stringify(label)})).click()`).then(() => pause(500));
+  await openMenu(0);
+  assert.deepEqual(await menuItems(), ['새 슬라이드', '슬라이드 복제', '제목 슬라이드 추가', '목차 슬라이드 추가', '감사 슬라이드 추가 (맨 끝)', '슬라이드 삭제'], 'context menu order');
+  assert.equal(await evaluate("document.querySelector('.menu.context .menu-item:last-child').classList.contains('danger')"), true, 'delete keeps its danger styling');
+  const firstId = (await slidesInfo())[0].id;
+  await clickMenu('제목 슬라이드 추가');
+  let info = await slidesInfo();
+  assert.equal(info.length, 2, 'one slide inserted'); assert.equal(info[1].kind, 'title', 'a genuine Title Slide (kind "title")'); assert.equal(info[0].kind, 'title', 'the initial slide uses the same canonical template');
+  assert.equal(await evaluate('store.getState().currentSlideId'), info[1].id, 'the new Title Slide is selected');
+  // Same canonical template: identical structure (ids aside) to the initial slide.
+  const shape = (slide) => JSON.stringify({kind: slide.kind, background: slide.background, els: slide.elements.map((e) => ({...e, id: undefined, h: undefined, doc: e.doc.content.map((p) => p.content?.[0]?.text)}))});
+  assert.equal(await evaluate(`(${shape.toString()})(store.getState().deck.slides[1])`), await evaluate(`(${shape.toString()})(store.getState().deck.slides[0])`), 'inserted Title Slide == initial Title Slide template');
+  // Insertion follows the clicked slide, even when it is not the last one.
+  await evaluate("store.getState().addSlide()"); await pause(300);
+  await openMenu(0); await clickMenu('제목 슬라이드 추가'); info = await slidesInfo();
+  assert.deepEqual(info.map((x) => x.kind), ['title', 'title', 'title', null], 'inserted immediately after the selected (first) slide');
+  assert.equal(await evaluate('store.getState().currentSlideId'), info[1].id);
+  // Theme behaves the same as on the initial Title Slide.
+  await evaluate("store.getState().commit((d) => { d.themeColor = '#881337'; })"); await pause(300);
+  const partsOn = async (i) => { await evaluate(`store.getState().goToSlide(store.getState().deck.slides[${i}].id)`); await pause(250); return evaluate("[...document.querySelectorAll('.slide.editable [data-theme-part]')].map(e => e.dataset.themePart)"); };
+  assert.deepEqual(await partsOn(1), await partsOn(0), 'theme band on the inserted Title Slide = initial one');
+  assert.deepEqual(await partsOn(1), ['Theme Title Band', 'Theme Footer Accent']);
+  assert.equal(await evaluate("getComputedStyle(document.querySelector('.slide.editable .el-text')).color"), 'rgb(255, 255, 255)', 'readable title text on the band');
+  // Undo / redo.
+  await evaluate('store.getState().undo(); store.getState().undo()'); await pause(300);
+  assert.equal((await slidesInfo()).length, 3, 'undo removed the inserted Title Slide (after the theme change)');
+  await evaluate('store.getState().redo(); store.getState().redo()'); await pause(300);
+  assert.deepEqual((await slidesInfo()).map((x) => x.kind), ['title', 'title', 'title', null], 'redo restores it');
+  // Other actions keep their behavior.
+  await evaluate("store.getState().goToSlide(store.getState().deck.slides[0].id)"); await pause(200);
+  await openMenu(0); await clickMenu('새 슬라이드'); info = await slidesInfo();
+  assert.equal(info.length, 5); assert.equal(info[1].kind, null, 'New Slide: an ordinary slide right after the clicked one');
+  await openMenu(0); await clickMenu('슬라이드 복제'); info = await slidesInfo();
+  assert.equal(info.length, 6); assert.equal(info[1].kind, null, 'Duplicate of a Title Slide stays an ordinary copy (existing behavior)');
+  await openMenu(0); await clickMenu('목차 슬라이드 추가'); info = await slidesInfo();
+  assert.ok(info.some((x) => x.kind === 'toc'), 'TOC slide added');
+  await openMenu(0); await clickMenu('감사 슬라이드 추가 (맨 끝)'); info = await slidesInfo();
+  assert.equal(info.at(-1).kind, 'thanks', 'Thank You still goes to the end');
+  const countBeforeDelete = info.length;
+  await openMenu(0); await clickMenu('슬라이드 삭제'); info = await slidesInfo();
+  assert.equal(info.length, countBeforeDelete - 1, 'Delete removes the slide');
+  // Persistence: the inserted Title Slide survives a restart.
+  const titleCount = (await slidesInfo()).filter((x) => x.kind === 'title').length;
+  await restart();
+  assert.equal((await slidesInfo()).filter((x) => x.kind === 'title').length, titleCount, 'inserted Title Slides persist across restart');
+  assert.equal(await evaluate('store.getState().deck.slides.filter(s => s.kind === "title").length > 0'), true);
+  console.log('PASS title slide insertion (menu order, canonical template, selection, theme, undo/redo, other actions, persistence)');
   console.log('PASS presentation lifecycle (restore, New, Open, Save, Save As, file association, pristine detection, archive)');
   console.log('OUTPUT', output);
   }

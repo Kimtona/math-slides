@@ -115,7 +115,7 @@ export interface Slide {
   sectionId?: ID;
 }
 
-export type SlideKind = 'toc' | 'subtitle' | 'references' | 'thanks';
+export type SlideKind = 'title' | 'toc' | 'subtitle' | 'references' | 'thanks';
 
 /** One Table of Contents entry. Order = position in Deck.sections. */
 export interface Section {
