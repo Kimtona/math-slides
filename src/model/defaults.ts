@@ -92,6 +92,73 @@ export function newContentSlide(): Slide {
   return s;
 }
 
+// ---------- structural slides ----------
+
+/** Table of Contents: title + a numbered list; each list item is a section (source of truth). */
+export function newTocSlide(): Slide {
+  const s = newSlide();
+  s.kind = 'toc';
+  const x = 64, y = 40, w = SLIDE_W - 128;
+  const titleH = Math.round(TYPOGRAPHY.h2 * 1.35);
+  const list = newText(x, y + titleH + 32, {
+    w,
+    doc: { type: 'doc', content: [{ type: 'orderedList', attrs: { start: 1 }, content: [{ type: 'listItem', attrs: { sectionId: uid() }, content: [{ type: 'paragraph' }] }] }] },
+    style: { fontSize: TYPOGRAPHY.h3, lineHeight: 1.6 },
+  });
+  list.role = 'toc';
+  s.elements.push(newText(x, y, { w, doc: textDoc('목차'), style: { fontSize: TYPOGRAPHY.h2 } }), list);
+  return s;
+}
+
+export const subtitleSlideId = (sectionId: string) => `sub-${sectionId}`;
+
+/** Sub-title slide for one section. Ids derive from the section id so undo/redo stays consistent. */
+export function newSubtitleSlide(sectionId: string): Slide {
+  const id = subtitleSlideId(sectionId);
+  const s: Slide = { ...newSlide(), id, kind: 'subtitle', sectionId };
+  s.elements.push(subtitleElement(id, 'current'));
+  return s;
+}
+
+export function subtitleElement(slideId: string, which: 'current' | 'next'): TextElement {
+  const current = which === 'current';
+  const el = newText(120, current ? 250 : 250 + Math.round(TYPOGRAPHY.h1 * 1.35) + 24, {
+    w: SLIDE_W - 240,
+    style: current ? { fontSize: TYPOGRAPHY.h1 } : { fontSize: TYPOGRAPHY.h3, color: presetHex('Dark Gray') },
+  });
+  el.id = `${slideId}-${which}`;
+  el.role = current ? 'subtitle-current' : 'subtitle-next';
+  return el;
+}
+
+export const REFERENCES_SLIDE_ID = 'references';
+
+/** References slide (system-managed): title (h2) + list of full citations (body). */
+export function newReferencesSlide(): Slide {
+  const s: Slide = { ...newSlide(), id: REFERENCES_SLIDE_ID, kind: 'references' };
+  const x = 64, y = 40, w = SLIDE_W - 128;
+  const title = newText(x, y, { w, doc: textDoc('References'), style: { fontSize: TYPOGRAPHY.h2 } });
+  title.id = `${REFERENCES_SLIDE_ID}-title`;
+  title.role = 'references-title';
+  s.elements.push(title, referencesListElement());
+  return s;
+}
+
+export function referencesListElement(): TextElement {
+  const el = newText(64, 40 + Math.round(TYPOGRAPHY.h2 * 1.35) + 28, { w: SLIDE_W - 128, style: { fontSize: TYPOGRAPHY.body, lineHeight: 1.4 } });
+  el.id = `${REFERENCES_SLIDE_ID}-list`;
+  el.role = 'references-list';
+  return el;
+}
+
+/** Thank You slide: an ordinary, editable closing slide that stays after References. */
+export function newThanksSlide(): Slide {
+  const s = newSlide();
+  s.kind = 'thanks';
+  s.elements.push(newText(96, 290, { w: SLIDE_W - 192, doc: textDoc('Thank you'), style: { fontSize: TYPOGRAPHY.h1, align: 'center' } }));
+  return s;
+}
+
 /** A new presentation: one Title Slide. */
 export function initialDeck(): Deck {
   const { slide, titleId } = newTitleSlide();

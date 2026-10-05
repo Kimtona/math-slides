@@ -140,9 +140,20 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .footer-num, .footer-ref { position: absolute; font-family: var(--slide-font); line-height: 1.3; white-space: pre-wrap; pointer-events: none; }
 .footer-num { white-space: nowrap; }
 .footer-ref { text-align: right; overflow-wrap: break-word; }
-.footer-ref.editable { pointer-events: auto; cursor: text; outline: none; min-width: 1em; border-radius: 3px; }
-.footer-ref.editable:hover, .footer-ref.editable:focus { background: rgba(47,111,235,.07); box-shadow: 0 0 0 4px rgba(47,111,235,.07); }
-.footer-ref.editable:empty::before { content: attr(data-placeholder); color: #c4c9cf; }
+.footer-ref.editable-wrap { pointer-events: auto; border-radius: 3px; }
+.footer-ref.editable-wrap:hover, .footer-ref.editable-wrap:focus-within { background: rgba(47,111,235,.07); box-shadow: 0 0 0 4px rgba(47,111,235,.07); }
+.footer-ref-text { cursor: text; outline: none; display: inline-block; min-width: 2em; }
+.footer-ref-text:empty::before { content: attr(data-placeholder); color: #c4c9cf; }
+/* links look like the surrounding text (presentation style), with a hint on hover in the editor */
+.cite-link, .doc-link, .toc-link { color: inherit; text-decoration: none; }
+.slide.editable .cite-link:hover, .slide.editable .doc-link:hover, .slide.editable .toc-link:hover { text-decoration: underline; cursor: pointer; }
+.cite-link.pending { font-style: italic; opacity: .8; }
+.cite-link.error { color: #cf222e; }
+.cite-chip { white-space: normal; }
+.cite-state { font-style: italic; opacity: .7; }
+.cite-btn { display: none; border: none; background: #fff; color: var(--muted); border-radius: 3px; font-size: 11px; line-height: 1; padding: 1px 3px; margin-left: 2px; cursor: pointer; vertical-align: 1px; }
+.cite-chip:hover .cite-btn, .cite-btn:not(.remove) { display: inline-block; }
+.cite-btn:hover { color: var(--ink); background: #eef1f4; }
 .math-inline { white-space: nowrap; }
 .math-inline svg, .math-block svg { overflow: visible; }
 .math-block { display: block; text-align: center; padding: 0.15em 0; }
@@ -222,3 +233,4 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
   .print-page { break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .print-page:last-child { break-after: auto; page-break-after: auto; }
 }
+.presenter .footer-ref { pointer-events: auto; }

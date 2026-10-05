@@ -9,4 +9,8 @@ export default defineConfig({
       'mathjax-full/js/adaptors/liteAdaptor.js', 'mathjax-full/js/handlers/html.js', 'mathjax-full/js/input/tex/AllPackages.js'],
   },
   build: { chunkSizeWarningLimit: 4000 },
+  // Citation metadata in the browser version (arXiv sends no CORS headers).
+  server: {
+    proxy: { '/arxiv-api': { target: 'https://export.arxiv.org', changeOrigin: true, rewrite: (p) => p.replace(/^\/arxiv-api/, '') } },
+  },
 });

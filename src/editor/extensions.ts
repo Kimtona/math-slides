@@ -1,4 +1,6 @@
-import { Editor, Extension, InputRule, type Extensions } from '@tiptap/core';
+import { Editor, Extension, InputRule, Mark, type Extensions } from '@tiptap/core';
+import { Plugin } from '@tiptap/pm/state';
+import { uid } from '../model/defaults';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextStyle from '@tiptap/extension-text-style';
@@ -66,7 +68,68 @@ export function scaleParagraphSizes(doc: PMNode, k: number): PMNode {
   return walk(doc);
 }
 
-export function makeExtensions(withPlaceholder = true): Extensions {
+/** Hyperlink mark (References entries). External links open in a new window. */
+const LinkMark = Mark.create({
+  name: 'link',
+  inclusive: false,
+  addAttributes() {
+    return { href: { default: null } };
+  },
+  parseHTML() {
+    return [{ tag: 'a[href]', getAttrs: (el) => ({ href: (el as HTMLElement).getAttribute('href') }) }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['a', { ...HTMLAttributes, class: 'doc-link', target: '_blank', rel: 'noopener noreferrer' }, 0];
+  },
+});
+
+/**
+ * Table of Contents entries: each top-level list item carries a stable `sectionId`.
+ * In the TOC box (`toc: true`) a plugin gives every list item a unique id (new items, pasted
+ * duplicates) — ids are assigned inside the editor so they survive typing, undo and paste.
+ */
+const TocSections = Extension.create<{ enabled: boolean }>({
+  name: 'tocSections',
+  addOptions() {
+    return { enabled: false };
+  },
+  addGlobalAttributes() {
+    return [{
+      types: ['listItem'],
+      attributes: {
+        sectionId: {
+          default: null,
+          keepOnSplit: false,
+          parseHTML: (el) => (el as HTMLElement).getAttribute('data-section-id'),
+          renderHTML: (attrs) => (attrs.sectionId ? { 'data-section-id': attrs.sectionId } : {}),
+        },
+      },
+    }];
+  },
+  addProseMirrorPlugins() {
+    if (!this.options.enabled) return [];
+    return [new Plugin({
+      appendTransaction: (trs, _old, state) => {
+        if (!trs.some((t) => t.docChanged)) return null;
+        const seen = new Set<string>();
+        const tr = state.tr;
+        state.doc.descendants((node, pos) => {
+          if (node.type.name !== 'listItem') return true;
+          const id = node.attrs.sectionId as string | null;
+          if (!id || seen.has(id)) {
+            const fresh = uid();
+            tr.setNodeMarkup(pos, undefined, { ...node.attrs, sectionId: fresh });
+            seen.add(fresh);
+          } else seen.add(id);
+          return true;
+        });
+        return tr.docChanged ? tr : null;
+      },
+    })];
+  },
+});
+
+export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } = {}): Extensions {
   const exts: Extensions = [
     StarterKit.configure({
       heading: false,
@@ -83,6 +146,8 @@ export function makeExtensions(withPlaceholder = true): Extensions {
     MathInline,
     MathBlock,
     ParagraphFontSize,
+    LinkMark,
+    TocSections.configure({ enabled: !!opts.toc }),
   ];
   if (withPlaceholder) exts.push(Placeholder.configure({ placeholder: "텍스트 입력, '/' 로 명령 (/math)" }));
   return exts;

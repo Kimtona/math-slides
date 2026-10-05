@@ -17,8 +17,14 @@ function createWindow() {
   if (process.env.ELECTRON_DEV_URL) win.loadURL(process.env.ELECTRON_DEV_URL);
   else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (/^https?:\/\//.test(url)) shell.openExternal(url);
     return { action: 'deny' };
+  });
+  // Links clicked inside the app (citations, References) open in the browser, never in this window.
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url.split('#')[0] === win.webContents.getURL().split('#')[0]) return;
+    e.preventDefault();
+    if (/^https?:\/\//.test(url)) shell.openExternal(url);
   });
 }
 
@@ -36,6 +42,18 @@ ipcMain.handle('print-to-pdf', async (event, suggestedName) => {
   if (canceled || !filePath) return null;
   fs.writeFileSync(filePath, data);
   return filePath;
+});
+
+// Citation metadata (arXiv sends no CORS headers, so the renderer can't fetch it directly).
+// Only the arXiv API host is allowed.
+ipcMain.handle('fetch-text', async (_event, url) => {
+  if (typeof url !== 'string' || !url.startsWith('https://export.arxiv.org/api/')) return { ok: false, status: 0, text: '' };
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    return { ok: r.ok, status: r.status, text: await r.text() };
+  } catch (e) {
+    return { ok: false, status: 0, text: String(e) };
+  }
 });
 
 // Undo/redo and select-all are intentionally not menu accelerators: the app handles

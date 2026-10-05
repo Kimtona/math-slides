@@ -57,6 +57,21 @@ function addMath(s: Slide, svg: SVGSVGElement | null, origin: DOMRect) {
 
 // ---------- text ----------
 
+/** slide id → 1-based slide number, for TOC links (PowerPoint links to the slide part, so it survives reordering in PowerPoint). */
+let slideNumbers: Record<string, number> = {};
+
+/** Hyperlink of the <a> around a text node: internal (#slide-<id>) or external (https://…). */
+function linkOf(node: Node): TextPropsOptions['hyperlink'] | undefined {
+  const a = node.parentElement?.closest('a[href]');
+  const href = a?.getAttribute('href');
+  if (!href) return undefined;
+  if (href.startsWith('#slide-')) {
+    const n = slideNumbers[href.slice('#slide-'.length)];
+    return n ? { slide: n, tooltip: a!.textContent?.trim() } : undefined;
+  }
+  return /^https?:\/\//.test(href) ? { url: href, tooltip: href } : undefined;
+}
+
 function runOptions(textNode: Node, base: TextElement, text: string): TextPropsOptions {
   const parent = textNode.parentElement!;
   const cs = getComputedStyle(parent);
@@ -70,17 +85,21 @@ function runOptions(textNode: Node, base: TextElement, text: string): TextPropsO
   };
   if (parent.closest('u')) o.underline = { style: 'sng' };
   if (parent.closest('s')) o.strike = 'sngStrike';
+  const link = linkOf(textNode);
+  if (link) o.hyperlink = link;
   return o;
 }
 
 function listInfo(p: Element, content: Element, base: TextElement) {
-  const li = p.parentElement?.tagName === 'LI' ? p.parentElement : null;
+  // <li><p> or, for linked TOC entries, <li><a><p>
+  const parent = p.parentElement;
+  const li = parent?.tagName === 'LI' ? parent : parent?.tagName === 'A' && parent.parentElement?.tagName === 'LI' ? parent.parentElement : null;
   if (!li) return null;
   let level = -1;
   for (let n: Element | null = li; n && n !== content; n = n.parentElement) if (n.tagName === 'UL' || n.tagName === 'OL') level++;
   const list = li.parentElement!;
   const indent = PT(base.style.fontSize * 1.3); // matches CSS `padding-left: 1.3em`
-  const first = li.firstElementChild === p;
+  const first = li.querySelector('p') === p;
   const ordered = list.tagName === 'OL';
   return { level: Math.max(0, level), first, ordered, indent, start: Number(list.getAttribute('start') ?? 1), index: [...list.children].indexOf(li) };
 }
@@ -328,7 +347,15 @@ function addFooter(s: Slide, slideDom: Element, origin: DOMRect) {
   if (ref?.textContent?.trim()) {
     const r = relRect(ref, origin);
     const slack = Math.max(6, r.w * 0.03); // grows to the left, like the editor
-    s.addText(ref.textContent, { ...common, x: IN(r.x - slack), y: IN(r.y), w: IN(r.w + slack), h: IN(r.h), align: 'right', wrap: true, objectName: 'Reference' });
+    // Runs keep each citation's hyperlink to its paper.
+    const runs: TextProps[] = [];
+    const walk = (n: Node) => {
+      if (n.nodeType === Node.TEXT_NODE) {
+        if (n.textContent) runs.push({ text: n.textContent, options: { color: hex(FOOTER_COLOR), hyperlink: linkOf(n) } });
+      } else n.childNodes.forEach(walk);
+    };
+    walk(ref);
+    s.addText(runs, { ...common, x: IN(r.x - slack), y: IN(r.y), w: IN(r.w + slack), h: IN(r.h), align: 'right', wrap: true, objectName: 'Reference' });
   }
 }
 
@@ -338,6 +365,7 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
   pptx.title = deck.title;
   pptx.theme = { headFontFace: PPT_FONT, bodyFontFace: PPT_FONT };
 
+  slideNumbers = Object.fromEntries(deck.slides.map((x, i) => [x.id, i + 1]));
   for (const slide of deck.slides) {
     const s = pptx.addSlide();
     s.background = { color: hex(slide.background) };

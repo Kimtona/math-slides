@@ -11,6 +11,7 @@ import { openProject, saveProject } from '../store/persistence';
 import { exportPdf, exportPptx } from '../export/run';
 import { plainText } from '../editor/docUtils';
 import { toggleMark } from './textFormat';
+import { plainSlideCopy } from '../model/structure';
 
 let slideClip: Slide | null = null;
 
@@ -117,7 +118,7 @@ export function useShortcuts() {
       }
       if (st.focusArea === 'navigator' && slideClip) {
         e.preventDefault();
-        const s = structuredClone(slideClip);
+        const s = structuredClone(plainSlideCopy(slideClip));
         s.id = uid();
         s.elements = s.elements.map((x) => ({ ...x, id: uid() }));
         st.addSlide(st.currentSlideId, s);

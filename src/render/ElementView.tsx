@@ -1,5 +1,6 @@
-import { memo, type CSSProperties, type ReactNode } from 'react';
-import type { Asset, LineElement, ShapeElement, Slide, SlideElement, TextElement } from '../model/types';
+import { Fragment, memo, type CSSProperties, type ReactNode } from 'react';
+import { useStore } from '../store/store';
+import type { Asset, Citation, LineElement, ShapeElement, Slide, SlideElement, TextElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { StaticText } from './StaticText';
 import { FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE } from '../model/typography';
@@ -103,12 +104,31 @@ export const footerRefStyle: CSSProperties = {
   maxWidth: SLIDE_W - 2 * FOOTER_MARGIN_X - FOOTER_NUMBER_RESERVE,
 };
 
+/** One footer citation: the short citation linked to the paper (or the URL while unresolved). */
+export function CitationLabel({ c }: { c: Citation }) {
+  if (c.status === 'ok') return <a className="cite-link" href={c.url} target="_blank" rel="noopener noreferrer" title={c.fullCitation}>{c.shortCitation}</a>;
+  return <a className={`cite-link pending ${c.status}`} href={c.url} target="_blank" rel="noopener noreferrer">{c.url}</a>;
+}
+
+/** Footer citations (by id) and manual reference text, separated by "; ". */
+export function footerParts(slide: Slide, registry: Record<string, Citation> | undefined): Citation[] {
+  return (slide.citations ?? []).map((id) => registry?.[id]).filter((c): c is Citation => !!c);
+}
+
 /** Static footer: slide number bottom-left, reference bottom-right (hidden when empty). */
-export function SlideFooter({ index, total, reference }: { index: number; total: number; reference?: string }) {
+export function SlideFooter({ index, total, slide }: { index: number; total: number; slide: Slide }) {
+  const registry = useStore((s) => s.deck.citations);
+  const cites = footerParts(slide, registry);
+  const manual = slide.reference?.trim();
   return (
     <>
       <div className="footer-num" style={footerNumberStyle} data-footer-num>{slideNumberText(index, total)}</div>
-      {reference?.trim() ? <div className="footer-ref" style={footerRefStyle} data-footer-ref>{reference}</div> : null}
+      {cites.length || manual ? (
+        <div className="footer-ref" style={footerRefStyle} data-footer-ref>
+          {cites.map((c, i) => <Fragment key={c.id}>{i > 0 && '; '}<CitationLabel c={c} /></Fragment>)}
+          {manual ? <>{cites.length ? '; ' : ''}{manual}</> : null}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -124,7 +144,7 @@ export const SlideView = memo(function SlideView({ slide, assets, className, ind
           <ElementBody el={el} assets={assets} />
         </div>
       ))}
-      <SlideFooter index={index} total={total} reference={slide.reference} />
+      <SlideFooter index={index} total={total} slide={slide} />
     </div>
   );
 });

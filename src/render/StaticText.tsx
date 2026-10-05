@@ -1,4 +1,5 @@
-import { memo, type ReactNode } from 'react';
+import { memo, useMemo, type ReactNode } from 'react';
+import { useStore } from '../store/store';
 import type { PMNode } from '../model/types';
 import { renderTex } from '../math/mathjax';
 
@@ -23,27 +24,53 @@ function renderMarks(text: string, marks: PMNode['marks'], key: number): ReactNo
       case 'textStyle':
         if (m.attrs?.color) node = <span style={{ color: m.attrs.color }}>{node}</span>;
         break;
+      case 'link':
+        if (m.attrs?.href) node = <a className="doc-link" href={m.attrs.href} target="_blank" rel="noopener noreferrer">{node}</a>;
+        break;
     }
   }
   return <span key={key}>{node}</span>;
 }
 
-function renderNode(n: PMNode, key: number): ReactNode {
-  const kids = () => (n.content ?? []).map(renderNode);
+/** sectionId → Sub-title slide id, for Table of Contents links. */
+type Ctx = Record<string, string>;
+
+function renderParagraph(n: PMNode, key: number, ctx: Ctx, linkHref?: string): ReactNode {
+  const c = n.content ?? [];
+  // ProseMirror adds a trailing <br> to empty paragraphs and after a final hard break.
+  const trailing = !c.length || c[c.length - 1].type === 'hardBreak' ? <br className="ProseMirror-trailingBreak" /> : null;
+  const fs = n.attrs?.fontSize;
+  const inline = c.map((x, i) => renderNode(x, i, ctx));
+  return (
+    <p key={key} style={fs ? { fontSize: fs } : undefined}>
+      {linkHref ? <a className="toc-link" href={linkHref}>{inline}</a> : inline}{trailing}
+    </p>
+  );
+}
+
+function renderNode(n: PMNode, key: number, ctx: Ctx): ReactNode {
+  const kids = () => (n.content ?? []).map((c, i) => renderNode(c, i, ctx));
   switch (n.type) {
     case 'doc': return <>{kids()}</>;
-    case 'paragraph': {
-      const c = n.content ?? [];
-      // ProseMirror adds a trailing <br> to empty paragraphs and after a final hard break.
-      const trailing = !c.length || c[c.length - 1].type === 'hardBreak' ? <br className="ProseMirror-trailingBreak" /> : null;
-      const fs = n.attrs?.fontSize;
-      return <p key={key} style={fs ? { fontSize: fs } : undefined}>{kids()}{trailing}</p>;
-    }
+    case 'paragraph': return renderParagraph(n, key, ctx);
     case 'text': return renderMarks(n.text ?? '', n.marks, key);
     case 'hardBreak': return <br key={key} />;
     case 'bulletList': return <ul key={key}>{kids()}</ul>;
     case 'orderedList': return <ol key={key} start={n.attrs?.start ?? 1}>{kids()}</ol>;
-    case 'listItem': return <li key={key}>{kids()}</li>;
+    case 'listItem': {
+      // TOC entry: its text is an internal link to the Sub-title slide (click to follow; internal link in PDF/PPTX).
+      const target = n.attrs?.sectionId ? ctx[n.attrs.sectionId] : undefined;
+      const [first, ...rest] = n.content ?? [];
+      if (target && first?.type === 'paragraph') {
+        return (
+          <li key={key} data-section-id={n.attrs!.sectionId}>
+            {renderParagraph(first, 0, ctx, `#slide-${target}`)}
+            {rest.map((c, i) => renderNode(c, i + 1, ctx))}
+          </li>
+        );
+      }
+      return <li key={key}>{kids()}</li>;
+    }
     case 'mathInline': {
       // Inline equations can carry marks (e.g. a color applied to a selection that contains them).
       const color = n.marks?.find((m) => m.type === 'textStyle')?.attrs?.color;
@@ -56,5 +83,7 @@ function renderNode(n: PMNode, key: number): ReactNode {
 }
 
 export const StaticText = memo(function StaticText({ doc }: { doc: PMNode }) {
-  return <div className="tb-content">{renderNode(doc, 0)}</div>;
+  const sections = useStore((s) => s.deck.sections);
+  const ctx = useMemo(() => Object.fromEntries((sections ?? []).map((x) => [x.id, x.subtitleSlideId])), [sections]);
+  return <div className="tb-content">{renderNode(doc, 0, ctx)}</div>;
 });

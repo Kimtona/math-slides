@@ -14,7 +14,8 @@ export function PrintRoot() {
   return (
     <div className="print-root" id="print-root">
       {deck.slides.map((s, i) => (
-        <div className="print-page" key={s.id}>
+        // id = target of Table of Contents links (internal PDF links)
+        <div className="print-page" key={s.id} id={`slide-${s.id}`}>
           <SlideView slide={s} assets={assets} index={i} total={deck.slides.length} />
         </div>
       ))}

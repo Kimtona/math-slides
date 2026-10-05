@@ -5,6 +5,10 @@ import { initialDeck, isTemplatePlaceholder, newContentSlide, newTitleSlide, uid
 import { plainText } from '../editor/docUtils';
 import type { Guide } from '../model/geometry';
 import { isDocEmpty, trimTrailingEmpty } from '../editor/docUtils';
+import { isManagedText, plainSlideCopy, reconcileStructure } from '../model/structure';
+import { newThanksSlide, newTocSlide } from '../model/defaults';
+import { flash } from './persistence';
+import type { Citation } from '../model/types';
 
 type Mutator = (d: Draft<Deck>) => void;
 
@@ -63,6 +67,14 @@ export interface AppState {
   duplicateSlide: (id: ID) => void;
   deleteSlide: (id: ID) => void;
   moveSlide: (from: number, to: number) => void;
+  addTocSlide: () => void;
+  addThanksSlide: () => void;
+
+  // citations (footer of a slide)
+  addCitations: (slideId: ID, cites: Citation[]) => void;
+  removeCitation: (slideId: ID, citationId: ID) => void;
+  /** Store fetched metadata everywhere (incl. undo history) without creating an undo step. */
+  applyCitation: (c: Citation) => void;
 
   addAsset: (a: Asset) => void;
 }
@@ -131,14 +143,14 @@ export const useStore = create<AppState>()((set, get) => {
 
     commit: (fn) => {
       const { deck, past, gestureBase } = get();
-      const next = syncTitle(deck, produce(deck, fn));
+      const next = reconcileStructure(deck, syncTitle(deck, produce(deck, fn)));
       if (next === deck) return;
       if (gestureBase) set({ deck: next });
       else set({ deck: next, past: [...past, deck].slice(-HISTORY_LIMIT), future: [] });
     },
     live: (fn) => {
       const { deck } = get();
-      const next = syncTitle(deck, produce(deck, fn));
+      const next = reconcileStructure(deck, syncTitle(deck, produce(deck, fn)));
       if (next !== deck) set({ deck: next });
     },
     beginGesture: () => {
@@ -183,6 +195,11 @@ export const useStore = create<AppState>()((set, get) => {
       if (get().cropEditId) get().exitCrop();
       const st = get();
       if (st.editingId === id) return;
+      const target = findSlide(st.deck, st.currentSlideId)?.elements.find((e) => e.id === id);
+      if (target && isManagedText(target)) {
+        flash((target as { role?: string }).role!.startsWith('subtitle') ? '부제 슬라이드 글자는 목차에서 고치면 자동으로 바뀝니다' : 'References는 인용에서 자동으로 만들어집니다');
+        return;
+      }
       if (st.editingId) st.stopEditing();
       // A template box still showing its initial text: select it all so typing replaces it.
       const el = findSlide(get().deck, get().currentSlideId)?.elements.find((e) => e.id === id);
@@ -200,7 +217,7 @@ export const useStore = create<AppState>()((set, get) => {
         const trimmed = trimTrailingEmpty(el.doc);
         if (trimmed !== el.doc) get().updateElements([el.id], (e) => { (e as any).doc = trimmed; }, true);
       }
-      if (el && el.type === 'text' && isDocEmpty(el.doc)) {
+      if (el && el.type === 'text' && isDocEmpty(el.doc) && el.role !== 'toc') {
         if (editingIsNew && gestureBase) {
           // A box that was created and left empty: leave no trace in history.
           set({ deck: gestureBase, gestureBase: null, selection: [] });
@@ -293,21 +310,28 @@ export const useStore = create<AppState>()((set, get) => {
       if (get().editingId) get().stopEditing();
       if (get().cropEditId) get().exitCrop();
       get().commit((d) => {
-        const i = d.slides.findIndex((x) => x.id === after);
-        d.slides.splice(i + 1, 0, s as any);
+        let i = d.slides.findIndex((x) => x.id === after) + 1;
+        // New slides go before an automatic References slide / Thank You slide at the end.
+        while (i > 0 && (d.slides[i - 1].kind === 'references' || d.slides[i - 1].kind === 'thanks')) i--;
+        d.slides.splice(i, 0, s as any);
       });
       set({ currentSlideId: s.id, selection: [] });
     },
     duplicateSlide: (id) => {
       const src = findSlide(get().deck, id);
       if (!src) return;
-      const copy: Slide = { ...structuredClone(src), id: uid() };
+      const copy: Slide = { ...structuredClone(plainSlideCopy(src)), id: uid() };
       copy.elements = copy.elements.map((e) => ({ ...e, id: uid() }));
       get().addSlide(id, copy);
     },
     deleteSlide: (id) => {
       const { deck } = get();
       if (get().editingId) get().stopEditing();
+      const victim = findSlide(deck, id);
+      if (victim?.kind === 'subtitle') { flash('부제 슬라이드는 목차에서 항목을 지우면 함께 지워집니다'); return; }
+      if (victim?.kind === 'references' && deck.slides.some((x) => x.id !== id && x.citations?.length)) {
+        flash('References 슬라이드는 슬라이드의 인용을 모두 지우면 사라집니다'); return;
+      }
       if (deck.slides.length <= 1) {
         // Never leave the deck empty: replace the last slide with a blank one.
         const { slide: s, titleId } = newTitleSlide(deck.title); // the deck's (new) first slide is a Title Slide
@@ -325,6 +349,52 @@ export const useStore = create<AppState>()((set, get) => {
       get().commit((d) => {
         const [s] = d.slides.splice(from, 1);
         d.slides.splice(to, 0, s);
+      });
+    },
+
+    addTocSlide: () => {
+      const existing = get().deck.slides.find((x) => x.kind === 'toc');
+      if (existing) { get().goToSlide(existing.id); return; }
+      get().addSlide(undefined, newTocSlide());
+    },
+    addThanksSlide: () => {
+      if (get().editingId) get().stopEditing();
+      const s = newThanksSlide();
+      get().commit((d) => { d.slides.push(s as any); });
+      set({ currentSlideId: s.id, selection: [] });
+    },
+
+    addCitations: (slideId, cites) => {
+      if (!cites.length) return;
+      get().commit((d) => {
+        const s = findSlide(d as Deck, slideId);
+        if (!s) return;
+        d.citations = d.citations ?? {};
+        for (const c of cites) {
+          const have = d.citations[c.id];
+          if (!have || have.status === 'error') d.citations[c.id] = c as any;
+          s.citations = s.citations ?? [];
+          if (!s.citations.includes(c.id)) s.citations.push(c.id);
+        }
+      });
+    },
+    removeCitation: (slideId, citationId) => {
+      get().commit((d) => {
+        const s = findSlide(d as Deck, slideId);
+        if (s?.citations) s.citations = s.citations.filter((x) => x !== citationId);
+      });
+    },
+    applyCitation: (c) => {
+      const patch = (deck: Deck): Deck => {
+        if (!deck.citations?.[c.id]) return deck;
+        return reconcileStructure(null, produce(deck, (d) => { d.citations![c.id] = c as any; }));
+      };
+      const st = get();
+      set({
+        deck: patch(st.deck),
+        past: st.past.map(patch),
+        future: st.future.map(patch),
+        gestureBase: st.gestureBase ? patch(st.gestureBase) : null,
       });
     },
 

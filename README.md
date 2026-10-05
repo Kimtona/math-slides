@@ -38,6 +38,8 @@ You can also double-click `MathSlides.command` in Finder to launch the desktop a
 | Footer | Slide number `n/total` bottom-left (automatic). Click the bottom-right to type a reference (citation) for that slide |
 | Templates | New presentation = Title Slide; each added slide = Content Slide (title + body). Template boxes are ordinary text boxes |
 | Title | Editing the Title Slide's main title renames the presentation (default export file name) |
+| Table of Contents | Right-click a slide → 목차 슬라이드 추가. Each numbered item is a section and gets its own Sub-title slide ("Part n. …" 80 + next section 30), kept in sync automatically (rename / insert / delete / reorder). Click an entry to jump to its Sub-title slide (double-click to edit). Contents slides are never touched |
+| Citations | Paste or type an arXiv URL (`/abs/`, `/pdf/`, `.pdf`, `v7`) into the bottom-right reference field → short citation ("Title, Vaswani et al., 2017") linked to the paper. A References slide (full APA-style entries, deduplicated by arXiv id) is maintained automatically before an optional Thank You slide (right-click → 감사 슬라이드 추가) |
 | Undo/redo | `⌘Z` / `⌘⇧Z` (while editing text, these undo within the text) |
 | Copy/paste/duplicate | `⌘C` `⌘V` `⌘X` `⌘D`, arrow keys nudge (`Shift` = 10px) |
 | Z-order | `⌘]` `⌘[` (with `⇧` = to front/back) |
@@ -91,6 +93,8 @@ src/
 - `Slide.reference` (optional) is the per-slide citation. The slide number is never stored; it's computed from the slide's position.
 - `Deck.titleElementId` (optional) explicitly links the Title Slide's main title box to `Deck.title`: editing that box's text updates the title (older files without it don't sync).
 - Per-line font sizes from `#` shortcuts are a paragraph attribute (`fontSize`).
+- Table of Contents: the TOC box's list items carry stable `sectionId`s; `Deck.sections` maps section → Sub-title slide id (`Slide.kind = 'subtitle'`). Citations: `Slide.citations` (ids) + `Deck.citations` (metadata, keyed `arxiv:<id>`). `model/structure.ts` reconciles Sub-title / References slides inside every change, so undo/redo snapshots stay consistent.
+- Links: TOC entries are `#slide-<id>` (internal PDF link / PowerPoint slide jump), citations link to `https://arxiv.org/abs/<id>`. arXiv has no CORS headers: the desktop app fetches via the main process, `npm run dev` via a Vite proxy.
 - Image crop is non-destructive: `ImageElement.crop = {x, y, w, h}` is the visible part of the original as fractions (0–1). It's optional, so files without it open as uncropped. It maps 1:1 to PowerPoint's `srcRect`.
 
 ### 3. How `/math` works

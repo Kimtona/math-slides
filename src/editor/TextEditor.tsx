@@ -13,7 +13,7 @@ import { insertImageFiles } from '../canvas/insert';
 /** In-place rich text editor for the text box being edited. */
 export function TextEditor({ el }: { el: TextElement }) {
   const slashKey = useRef<((e: KeyboardEvent) => boolean) | null>(null);
-  const extensions = useMemo(() => makeExtensions(true), []);
+  const extensions = useMemo(() => makeExtensions(true, { toc: el.role === 'toc' }), [el.role]);
 
   const editor = useEditor({
     extensions,

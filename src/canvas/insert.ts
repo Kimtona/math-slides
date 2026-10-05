@@ -135,6 +135,7 @@ function pasteClip(clip: Clip) {
   const els = clip.elements.map((e) => {
     const c = structuredClone(e) as SlideElement;
     c.id = uid();
+    if (c.type === 'text') delete c.role; // a pasted TOC / Sub-title box is an ordinary text box
     c.x += off; c.y += off;
     if (c.type === 'line') { c.x1 += off; c.y1 += off; c.x2 += off; c.y2 += off; }
     return c;

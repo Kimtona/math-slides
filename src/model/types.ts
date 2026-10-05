@@ -30,10 +30,17 @@ interface ElementBase {
   h: number; // for text: measured from content (auto height)
 }
 
+/**
+ * Text boxes owned by a structural system. 'toc' is the user-edited Table of Contents (source of truth);
+ * the others are generated (Sub-title / References slides) and rewritten automatically.
+ */
+export type TextRole = 'toc' | 'subtitle-current' | 'subtitle-next' | 'references-title' | 'references-list';
+
 export interface TextElement extends ElementBase {
   type: 'text';
   doc: PMNode;
   style: TextStyle;
+  role?: TextRole;
 }
 
 /**
@@ -91,6 +98,36 @@ export interface Slide {
   notes: string;
   /** Citation shown bottom-right in the footer. Optional: older files have none. */
   reference?: string;
+  /** Academic citations shown in the footer (ids into Deck.citations, e.g. "arxiv:1706.03762"). */
+  citations?: ID[];
+  /** Structural slide type. Absent = ordinary slide. */
+  kind?: SlideKind;
+  /** For kind 'subtitle': the TOC section it belongs to. */
+  sectionId?: ID;
+}
+
+export type SlideKind = 'toc' | 'subtitle' | 'references' | 'thanks';
+
+/** One Table of Contents entry. Order = position in Deck.sections. */
+export interface Section {
+  id: ID;
+  title: string;
+  subtitleSlideId: ID;
+}
+
+/** Academic citation metadata, keyed by a stable identifier ("arxiv:<id>", version stripped). */
+export interface Citation {
+  id: ID;
+  type: 'arxiv';
+  sourceId: string;
+  url: string; // canonical paper URL used by every hyperlink
+  status: 'loading' | 'ok' | 'error';
+  title?: string;
+  authors?: string[];
+  year?: number;
+  shortCitation?: string;
+  fullCitation?: string;
+  error?: string;
 }
 
 export interface Deck {
@@ -105,6 +142,10 @@ export interface Deck {
    * Explicit link (not inferred from size/position); absent in older files = no syncing.
    */
   titleElementId?: ID;
+  /** Table of Contents sections (derived from the TOC box; maps section → Sub-title slide). */
+  sections?: Section[];
+  /** Citation metadata registry. */
+  citations?: Record<ID, Citation>;
 }
 
 export interface Asset {

@@ -77,6 +77,10 @@ export function Navigator() {
         <div className="menu context" style={{ left: menu.x, top: menu.y }} onPointerDown={(e) => e.stopPropagation()}>
           <div className="menu-item" onClick={() => { st().addSlide(menu.id); setMenu(null); }}>새 슬라이드 <span className="menu-kbd">↵</span></div>
           <div className="menu-item" onClick={() => { st().duplicateSlide(menu.id); setMenu(null); }}>슬라이드 복제 <span className="menu-kbd">{MOD}D</span></div>
+          <div className="menu-item" onClick={() => { st().addTocSlide(); setMenu(null); }}>
+            {slides.some((x) => x.kind === 'toc') ? '목차 슬라이드로 이동' : '목차 슬라이드 추가'}
+          </div>
+          <div className="menu-item" onClick={() => { st().addThanksSlide(); setMenu(null); }}>감사 슬라이드 추가 (맨 끝)</div>
           <div className="menu-item danger" onClick={() => { st().deleteSlide(menu.id); setMenu(null); }}>슬라이드 삭제 <span className="menu-kbd">⌫</span></div>
         </div>
       )}

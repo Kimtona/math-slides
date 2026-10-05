@@ -1,11 +1,13 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Box, ImageElement, LineElement, SlideElement, TextElement } from '../model/types';
 import { clampFrameToSource, coverFrame, cropFrom, cropOf, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { lineBox } from '../model/defaults';
 import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
 import { currentSlide, useStore } from '../store/store';
-import { ElementBody, elementBoxStyle, footerNumberStyle, footerRefStyle, LineSvg, slideNumberText } from '../render/ElementView';
+import { CitationLabel, ElementBody, elementBoxStyle, footerNumberStyle, footerParts, footerRefStyle, LineSvg, slideNumberText } from '../render/ElementView';
+import { extractCitations, resolveCitation } from '../citations/resolve';
+import { findCitations } from '../citations/providers';
 import { TextEditor } from '../editor/TextEditor';
 import { insertImageFiles, insertTextAt } from './insert';
 import { scaleParagraphSizes } from '../editor/extensions';
@@ -49,6 +51,27 @@ function otherBoxes(exclude: Set<string>): Box[] {
 
 // ---------- element drag ----------
 
+// ---------- links inside text (TOC entries → Sub-title slide, References → paper) ----------
+
+let pendingLink: number | undefined;
+
+/** A click (no drag) on a link in a box that isn't being edited follows it — unless a
+ *  double-click (= edit) follows within 250ms. */
+function followLinkLater(target: Element | null): boolean {
+  const a = target?.closest?.('.slide-content .el a[href]') as HTMLAnchorElement | null;
+  if (!a) return false;
+  const href = a.getAttribute('href')!;
+  clearTimeout(pendingLink);
+  pendingLink = window.setTimeout(() => {
+    if (href.startsWith('#slide-')) {
+      const id = href.slice('#slide-'.length);
+      if (useStore.getState().deck.slides.some((x) => x.id === id)) useStore.getState().goToSlide(id);
+    } else window.open(href, '_blank', 'noopener');
+  }, 250);
+  return true;
+}
+const cancelPendingLink = () => clearTimeout(pendingLink);
+
 function startMove(e: React.PointerEvent, el: SlideElement) {
   const st = useStore.getState();
   let ids = st.selection;
@@ -80,6 +103,7 @@ function startMove(e: React.PointerEvent, el: SlideElement) {
   }, (ev, moved) => {
     const s = useStore.getState();
     useStore.setState({ guides: [] });
+    if (!moved && !e.shiftKey && followLinkLater(e.target as Element)) return;
     if (moved) s.endGesture();
     else if (wasSelected && !e.shiftKey && el.type === 'text' && s.selection.length === 1) {
       // Click on an already-selected text box: start typing where clicked.
@@ -355,6 +379,7 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
     startMove(e, el);
   };
   const onDoubleClick = (e: React.MouseEvent) => {
+    cancelPendingLink();
     if (el.type === 'image') { e.stopPropagation(); useStore.getState().enterCrop(el.id); return; }
     if (el.type !== 'text' || editing) return;
     e.stopPropagation();
@@ -444,32 +469,71 @@ function Guides({ scale }: { scale: number }) {
 
 /**
  * Footer on the editing canvas: fixed slide number (not editable, clicks pass through) and the
- * anchored reference field — click and type, no text box needed. Plain text only.
+ * anchored reference area — linked academic citations (click = open paper, hover = remove/retry)
+ * followed by free text you can click and type. Pasting/typing an arXiv URL turns it into a citation.
  */
 function CanvasFooter({ slideId }: { slideId: string }) {
   const index = useStore((s) => s.deck.slides.findIndex((x) => x.id === slideId));
   const total = useStore((s) => s.deck.slides.length);
-  const reference = useStore((s) => s.deck.slides.find((x) => x.id === slideId)?.reference ?? '');
-  const ref = useRef<HTMLDivElement>(null);
+  const slide = useStore((s) => s.deck.slides.find((x) => x.id === slideId));
+  const registry = useStore((s) => s.deck.citations);
+  const reference = slide?.reference ?? '';
+  const cites = slide ? footerParts(slide, registry) : [];
+  const ref = useRef<HTMLSpanElement>(null);
   // Uncontrolled while focused (keeps the caret); synced from the store otherwise (undo, slide switch).
   useLayoutEffect(() => {
     const node = ref.current;
     if (node && document.activeElement !== node && node.textContent !== reference) node.textContent = reference;
   }, [reference, slideId]);
-  const save = () => {
-    const v = (ref.current?.textContent ?? '').replace(/\s*\n\s*/g, ' ');
+  const save = (extract: boolean) => {
+    const node = ref.current;
+    if (!node) return;
+    let v = (node.textContent ?? '').replace(/\s*\n\s*/g, ' ');
+    if (extract) {
+      const rest = extractCitations(slideId, v);
+      if (rest !== v) { v = rest; node.textContent = rest; }
+    }
     useStore.getState().live((d) => { const sl = d.slides.find((x) => x.id === slideId); if (sl) sl.reference = v; });
   };
+  const stop = (e: React.PointerEvent) => { e.stopPropagation(); const st = useStore.getState(); if (st.editingId) st.stopEditing(); if (st.selection.length) st.select([]); };
   return (
     <>
       <div className="footer-num" style={footerNumberStyle}>{slideNumberText(index, total)}</div>
-      <div ref={ref} className="footer-ref editable" style={footerRefStyle} contentEditable="plaintext-only" suppressContentEditableWarning
-        spellCheck={false} data-placeholder="참고문헌 (클릭해서 입력)" title="참고문헌 / 출처"
-        onPointerDown={(e) => { e.stopPropagation(); const st = useStore.getState(); if (st.editingId) st.stopEditing(); if (st.selection.length) st.select([]); }}
-        onFocus={() => useStore.getState().beginGesture()}
-        onBlur={() => { save(); useStore.getState().endGesture(); }}
-        onInput={save}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); (e.target as HTMLElement).blur(); } }} />
+      <div className="footer-ref editable-wrap" style={footerRefStyle} onPointerDown={stop}>
+        {cites.map((c, i) => (
+          <Fragment key={c.id}>
+            {i > 0 && '; '}
+            <span className="cite-chip">
+              <CitationLabel c={c} />
+              {c.status === 'loading' && <span className="cite-state"> 불러오는 중…</span>}
+              {c.status === 'error' && <button className="cite-btn" title={`메타데이터를 가져오지 못했습니다 (${c.error}). 다시 시도`} onClick={() => resolveCitation(c.id)}>↻</button>}
+              <button className="cite-btn remove" title="이 슬라이드에서 인용 삭제" onClick={() => useStore.getState().removeCitation(slideId, c.id)}>×</button>
+            </span>
+          </Fragment>
+        ))}
+        {cites.length > 0 && reference ? '; ' : ''}
+        <span ref={ref} className="footer-ref-text" contentEditable="plaintext-only" suppressContentEditableWarning
+          spellCheck={false} data-placeholder={cites.length ? '' : '참고문헌 (클릭해서 입력 · arXiv 링크 붙여넣기)'} title="참고문헌 / 출처"
+          onFocus={() => useStore.getState().beginGesture()}
+          onBlur={() => { save(true); useStore.getState().endGesture(); }}
+          onInput={() => save(false)}
+          onPaste={(e) => {
+            const text = e.clipboardData.getData('text/plain');
+            if (!findCitations(text).length) return; // ordinary text: default paste
+            e.preventDefault();
+            const rest = extractCitations(slideId, text);
+            if (rest) document.execCommand('insertText', false, rest);
+            save(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' && e.key !== 'Escape') return;
+            e.preventDefault();
+            // Finish here rather than relying on the blur event (not fired when the window lacks focus).
+            save(true);
+            useStore.getState().endGesture();
+            (e.target as HTMLElement).blur();
+          }} />
+      </div>
     </>
   );
 }
@@ -534,7 +598,7 @@ export function Canvas() {
       onDragLeave={() => setDropping(false)} onDrop={onDrop}>
       <div className="slide-frame" style={{ width: SLIDE_W * scale, height: SLIDE_H * scale }}>
         <div ref={slideRef} className="slide editable" style={{ width: SLIDE_W, height: SLIDE_H, transform: `scale(${scale})`, background: slide.background }}>
-          <div className="slide-content">
+          <div className="slide-content" onClickCapture={(e) => { if ((e.target as Element).closest('.el a[href]')) e.preventDefault(); }}>
             {slide.elements.map((el) => <CanvasElement key={el.id} el={el} editing={editingId === el.id} />)}
             <CanvasFooter slideId={slide.id} />
           </div>

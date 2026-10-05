@@ -49,7 +49,18 @@ export function Presenter() {
   const scale = Math.min(size.w / SLIDE_W, size.h / SLIDE_H);
   const slide = deck.slides[idx];
   return (
-    <div className="presenter" onClick={(e) => setIdx((i) => (e.clientX < size.w * 0.25 ? Math.max(0, i - 1) : Math.min(deck.slides.length - 1, i + 1)))}>
+    <div className="presenter" onClick={(e) => {
+      // Links: TOC entry → its Sub-title slide; citation → paper (opens outside); else next/prev.
+      const a = (e.target as Element).closest('a[href]');
+      if (a) {
+        e.preventDefault();
+        const href = a.getAttribute('href')!;
+        if (href.startsWith('#slide-')) { const i = deck.slides.findIndex((x) => x.id === href.slice(7)); if (i >= 0) setIdx(i); }
+        else window.open(href, '_blank', 'noopener');
+        return;
+      }
+      setIdx((i) => (e.clientX < size.w * 0.25 ? Math.max(0, i - 1) : Math.min(deck.slides.length - 1, i + 1)));
+    }}>
       <div style={{ width: SLIDE_W * scale, height: SLIDE_H * scale, overflow: 'hidden' }}>
         <div style={{ transform: `scale(${scale})`, transformOrigin: '0 0' }}>
           {slide && <SlideView slide={slide} assets={assets} index={idx} total={deck.slides.length} />}
