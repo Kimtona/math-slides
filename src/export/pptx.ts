@@ -289,6 +289,44 @@ function addCallout(s: Slide, callout: Element, origin: DOMRect) {
   });
 }
 
+/** Academic Block → native body shape (rounded, tinted, bordered), native header shape, editable type/title text. */
+function addAcademicBlock(s: Slide, block: Element, origin: DOMRect) {
+  const r = relRect(block, origin);
+  const cs = getComputedStyle(block);
+  const px = (v: string) => parseFloat(v) || 0;
+  const radius = Math.min(px(cs.borderTopLeftRadius), r.w / 2, r.h / 2);
+  const bw = px(cs.borderTopWidth);
+  s.addShape('roundRect', {
+    x: IN(r.x), y: IN(r.y), w: IN(r.w), h: IN(r.h), rectRadius: IN(radius), objectName: 'Block Body',
+    fill: { color: hex(cs.backgroundColor) }, line: bw ? { color: hex(cs.borderTopColor), width: PT(bw) } : undefined,
+  });
+  const head = block.querySelector(':scope > .ablock-head');
+  if (!head) return;
+  const hr = relRect(head, origin);
+  const hcs = getComputedStyle(head);
+  // Rounded top corners only: a rounded header plus a square strip over its lower half (no custom geometry needed).
+  const fill = { color: hex(hcs.backgroundColor) };
+  s.addShape('roundRect', { x: IN(hr.x), y: IN(hr.y), w: IN(hr.w), h: IN(hr.h), fill, rectRadius: IN(Math.min(radius, hr.h / 2)), objectName: 'Block Header' });
+  s.addShape('rect', { x: IN(hr.x), y: IN(hr.y + hr.h / 2), w: IN(hr.w), h: IN(hr.h / 2), fill, objectName: 'Block Header Fill' });
+  const fs = px(hcs.fontSize), color = hex(hcs.color);
+  const runs: TextProps[] = [];
+  head.querySelectorAll(':scope > .ablock-type, :scope > .ablock-sep, :scope > .ablock-title').forEach((e) => {
+    const bold = getComputedStyle(e).fontWeight === '700' || Number(getComputedStyle(e).fontWeight) >= 600;
+    if (e.textContent) runs.push({ text: e.textContent, options: { fontFace: PPT_FONT, fontSize: PT(fs), color, bold } });
+  });
+  const padL = px(hcs.paddingLeft);
+  s.addText(runs, { x: IN(hr.x + padL), y: IN(hr.y), w: IN(hr.w - padL * 2), h: IN(hr.h), margin: 0, valign: 'middle', wrap: true, fit: 'none', align: 'left', fontFace: PPT_FONT, fontSize: PT(fs), color, objectName: 'Block Title' });
+}
+
+/** Content area of an Academic Block body: inside its padding. */
+function blockContentRect(block: Element, origin: DOMRect): Rect {
+  const body = block.querySelector(':scope > .ablock-body') ?? block;
+  const r = relRect(body, origin);
+  const cs = getComputedStyle(body);
+  const l = parseFloat(cs.paddingLeft) || 0, rr = parseFloat(cs.paddingRight) || 0;
+  return { x: r.x + l, y: r.y, w: r.w - l - rr, h: r.h };
+}
+
 /** Content area of a callout: its body column. */
 function calloutContentRect(callout: Element, origin: DOMRect): Rect {
   return relRect(callout.querySelector(':scope > .callout-body') ?? callout, origin);
@@ -311,20 +349,20 @@ function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect
   if (!content) return;
   const blocks = [...content.querySelectorAll('p, .math-block, pre')];
   // A plain box (only paragraphs) becomes one text box with the element's own frame.
-  const plain = !content.querySelector('.math-block, .math-inline, pre, blockquote, .callout');
+  const plain = !content.querySelector('.math-block, .math-inline, pre, blockquote, .callout, .ablock');
   let group: Element[] = [];
   let groupQuote: Element | null = null; // innermost enclosing quote or callout of the current group
   const flush = () => {
-    if (group.length) addTextGroup(s, el, group, content, origin, groupQuote ? (groupQuote.classList.contains('callout') ? calloutContentRect(groupQuote, origin) : quoteContentRect(groupQuote, origin)) : boxRect, plain);
+    if (group.length) addTextGroup(s, el, group, content, origin, groupQuote ? (groupQuote.classList.contains('callout') ? calloutContentRect(groupQuote, origin) : groupQuote.classList.contains('ablock') ? blockContentRect(groupQuote, origin) : quoteContentRect(groupQuote, origin)) : boxRect, plain);
     group = [];
   };
   const drawnQuotes = new Set<Element>();
   for (const b of blocks) {
     // Quote lines (also of enclosing quotes), drawn once per quote.
-    for (let q = b.closest('blockquote, .callout'); q && content.contains(q); q = q.parentElement?.closest('blockquote, .callout') ?? null) {
-      if (!drawnQuotes.has(q)) { drawnQuotes.add(q); if (q.classList.contains('callout')) addCallout(s, q, origin); else addQuoteLine(s, q, origin); }
+    for (let q = b.closest('blockquote, .callout, .ablock'); q && content.contains(q); q = q.parentElement?.closest('blockquote, .callout, .ablock') ?? null) {
+      if (!drawnQuotes.has(q)) { drawnQuotes.add(q); if (q.classList.contains('callout')) addCallout(s, q, origin); else if (q.classList.contains('ablock')) addAcademicBlock(s, q, origin); else addQuoteLine(s, q, origin); }
     }
-    const quote = b.closest('blockquote, .callout');
+    const quote = b.closest('blockquote, .callout, .ablock');
     if (quote !== groupQuote) { flush(); groupQuote = quote; }
     if (b.tagName === 'PRE') { flush(); addCodeBlock(s, b, origin); }
     else if (b.classList.contains('math-block')) { flush(); addMath(s, b.querySelector('svg'), origin); }

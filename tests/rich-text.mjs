@@ -413,6 +413,77 @@ try {
     assert.equal(await evaluate(`document.querySelectorAll('${where} .callout-icons, ${where} .callout button').length`), 0, 'no icon picker in ' + where);
   }
   console.log('PASS callout (/callout, default icon, rich marks, multi-line, exit, icon switching, undo/redo, static/thumbnail)');
+  // Academic Block (/block): one node with type + optional title attributes; semantic color families.
+  await evaluate(`store.getState().addElements([defaults.newText(700,200,{w:520})],{edit:true})`);
+  await until(() => evaluate('!!active()'), 'Academic Block text editor');
+  const blocks = async () => (await doc()).content.filter((n) => n.type === 'academicBlock');
+  const head = (i) => evaluate(`(() => { const h = document.querySelectorAll('.el.editing .ablock')[${i}]; const b = h.querySelector('.ablock-head'); return { family: h.dataset.family, label: h.querySelector('.ablock-type').textContent, bg: getComputedStyle(b).backgroundColor, body: getComputedStyle(h).backgroundColor }; })()`);
+  const pickType = async (i, label) => {
+    await evaluate(`document.querySelectorAll('.el.editing .ablock-type')[${i}].dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}))`); await pause();
+    await evaluate(`[...document.querySelectorAll('.el.editing .ablock-types button')].find((b) => b.textContent === ${JSON.stringify(label)}).dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}))`); await pause();
+  };
+  const setTitle = async (i, v) => { await pause(600); await evaluate(`(() => { const e = document.querySelectorAll('.el.editing .ablock-title-input')[${i}]; e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('input', {bubbles: true})); })()`); await pause(); };
+  await send('Input.insertText', {text:'/block'}); await pause();
+  assert.equal(await evaluate("document.querySelector('.slash-item .slash-name').textContent"), 'Block', '/block lists the Academic Block first');
+  await key('Enter'); await pause();
+  assert.deepEqual((await doc()).content.map((n) => n.type), ['academicBlock'], 'semantic academic block');
+  assert.deepEqual((await blocks())[0].attrs, {type: 'block', title: ''}, 'default type Block, empty title');
+  assert.ok(!JSON.stringify(await doc()).includes('/block'), '/block trigger removed');
+  assert.deepEqual(await evaluate("(() => { const h = document.querySelector('.el.editing .ablock'); return [h.dataset.family, h.querySelector('.ablock-type').textContent]; })()"), ['gray', 'Block']);
+  const blockCreated = await doc();
+  await evaluate('active().commands.undo()'); await pause();
+  assert.equal((await doc()).content[0].type, 'paragraph', 'undo /block conversion'); assert.equal((await doc()).content[0].content[0].text, '/block');
+  await evaluate('active().commands.redo()'); await pause();
+  assert.deepEqual(await doc(), blockCreated, 'redo /block conversion');
+  await send('Input.insertText', {text:'Statement'}); await key('Enter'); await send('Input.insertText', {text:'holds for '}); await pause();
+  await evaluate("active().commands.insertContent({type: 'mathInline', attrs: {latex: 'x^2'}})"); await pause();
+  assert.equal((await blocks())[0].content.length, 2, 'multiple paragraphs');
+  assert.ok(JSON.stringify((await blocks())[0]).includes('"mathInline"'), 'math in the body');
+  await evaluate(`(() => { let at = 0; active().state.doc.descendants((n, p) => { if (n.isText && n.text.startsWith('Statement')) at = p; }); active().commands.setTextSelection({from: at, to: at + 9}); })()`); await pause();
+  await click('.propsbar button[title="굵게 ⌘B"]'); await choose(highlight, 'Highlight Yellow');
+  assert.deepEqual(marksAt({content:[(await blocks())[0].content[0]]}, 0).map((m) => m.type).sort(), ['bold', 'highlight'], 'rich marks in the body');
+  const colors = {};
+  for (const [label, id] of [['Theorem', 'theorem'], ['Definition', 'definition'], ['Example', 'example'], ['Remark', 'remark'], ['Lemma', 'lemma'], ['Proposition', 'proposition'], ['Block', 'block']]) {
+    await pause(600); await pickType(0, label);
+    assert.equal((await blocks())[0].attrs.type, id); colors[id] = await head(0);
+    assert.equal(colors[id].label, label, 'label updates immediately');
+  }
+  const family = Object.fromEntries(Object.entries(colors).map(([k, v]) => [k, v.family]));
+  assert.deepEqual(family, {theorem: 'blue', definition: 'teal', example: 'green', remark: 'amber', lemma: 'blue', proposition: 'blue', block: 'gray'}, 'type → color family');
+  assert.equal(new Set(Object.values(colors).map((c) => c.bg)).size, 5, 'five distinct family colors');
+  assert.deepEqual([colors.lemma.bg, colors.lemma.body], [colors.theorem.bg, colors.theorem.body], 'Lemma shares Theorem colors');
+  assert.deepEqual([colors.proposition.bg, colors.proposition.body], [colors.theorem.bg, colors.theorem.body], 'Proposition shares Theorem colors');
+  assert.equal((await blocks())[0].content.length, 2, 'body survives type changes');
+  await pause(600); await pickType(0, 'Theorem');
+  await evaluate('active().commands.undo()'); await pause();
+  assert.equal((await blocks())[0].attrs.type, 'block', 'undo type change');
+  await evaluate('active().commands.redo()'); await pause();
+  assert.equal((await blocks())[0].attrs.type, 'theorem', 'redo type change');
+  await setTitle(0, 'Policy Gradient Theorem');
+  assert.equal((await blocks())[0].attrs.title, 'Policy Gradient Theorem'); assert.equal((await blocks())[0].attrs.type, 'theorem', 'type and title are separate attributes');
+  await pause(600); await pickType(0, 'Lemma'); await pickType(0, 'Theorem');
+  assert.equal((await blocks())[0].attrs.title, 'Policy Gradient Theorem', 'title survives type changes');
+  await setTitle(0, '');
+  assert.equal(await evaluate("document.querySelector('.el.editing .ablock-sep').hidden"), true, 'empty title: label only');
+  await evaluate('active().commands.undo()'); await pause();
+  assert.equal((await blocks())[0].attrs.title, 'Policy Gradient Theorem', 'undo title edit');
+  await evaluate('active().commands.redo()'); await pause();
+  await evaluate('active().commands.undo()'); await pause();
+  assert.equal(await evaluate("document.querySelector('.el.editing .ablock-title-input').value"), 'Policy Gradient Theorem', 'title input follows undo');
+  await evaluate("active().commands.focus('end')"); await pause();
+  await key('Enter'); await key('Enter'); await pause();
+  assert.equal((await doc()).content.at(-1).type, 'paragraph', 'Enter on an empty last line exits the block');
+  await send('Input.insertText', {text:'/block'}); await pause(); await key('Enter'); await pause();
+  await send('Input.insertText', {text:'Markov property'}); await pause();
+  await pause(600); await pickType(1, 'Definition');
+  assert.deepEqual((await blocks()).map((b) => [b.attrs.type, b.attrs.title]), [['theorem', 'Policy Gradient Theorem'], ['definition', '']]);
+  await evaluate('store.getState().stopEditing()'); await pause();
+  for (const where of ['.slide.editable', '.thumb']) {
+    assert.deepEqual(await evaluate(`[...document.querySelectorAll('${where} .ablock .ablock-head')].map(e => e.textContent)`), ['Theorem — Policy Gradient Theorem', 'Definition'], 'header text in ' + where);
+    assert.deepEqual(await evaluate(`[...document.querySelectorAll('${where} .ablock')].map(e => e.dataset.family)`), ['blue', 'teal']);
+    assert.equal(await evaluate(`document.querySelectorAll('${where} .ablock input, ${where} .ablock-caret, ${where} .ablock-types').length`), 0, 'no editor controls in ' + where);
+  }
+  console.log('PASS academic block (/block, types and color families, title, rich body, math, exit, undo/redo, static/thumbnail)');
   // TOC entered in the real editor; generated sections retain their IDs through formatting.
   await evaluate('store.getState().addTocSlide()');
   await evaluate(`store.getState().startEditing(store.getState().deck.slides.find(s=>s.kind==='toc').elements.find(e=>e.role==='toc').id)`);
@@ -450,6 +521,7 @@ try {
   assert.deepEqual(saved.deck.slides[0].elements[0].doc, mixed);
   const savedSlide2 = JSON.stringify(saved.deck.slides[1]);
   assert.ok(savedSlide2.includes('"callout"') && savedSlide2.includes('"icon":"⚠️"') && savedSlide2.includes('"icon":"✅"'), '.mslides keeps callouts and their icons');
+  assert.ok(savedSlide2.includes('"academicBlock"') && savedSlide2.includes('"type":"theorem"') && savedSlide2.includes('"title":"Policy Gradient Theorem"') && savedSlide2.includes('"type":"definition"'), '.mslides keeps academic block type and title');
   assert.ok(savedSlide2.includes('"codeBlock"') && savedSlide2.includes('"blockquote"'), '.mslides keeps code/quote blocks');
   for (const l of ['python', 'c', 'bash']) assert.ok(savedSlide2.includes(`"language":"${l}"`), '.mslides keeps language ' + l);
   await evaluate(`persist.newProject()`); await pause();
@@ -496,13 +568,20 @@ try {
   assert.ok(!/<a:t>(Plain Text|Python|Bash)<\/a:t>/.test(xml2), 'F: language selector is not exported');
   assert.match(xml2, /name="Quote Line"[\s\S]*?prst="line"/, 'quote line is a native line');
   assert.match(xml2, /<a:t>Clipping<\/a:t>/, 'quote text is editable');
-  assert.equal((xml2.match(/<p:pic>/g) || []).length, 1, 'only the E=mc^2 equation is a picture; code/quote/callout are not rasterized');
+  assert.equal((xml2.match(/<p:pic>/g) || []).length, 2, 'only the two equations (E=mc^2, x^2 in the block) are pictures; code/quote/callout/block are not rasterized');
   assert.equal((xml2.match(/name="Callout"[\s\S]{0,400}?prst="roundRect"/g) || []).length, 2, 'callout backgrounds are native rounded rectangles');
   assert.match(xml2, /name="Callout Icon"[\s\S]{0,1200}<a:t>⚠️<\/a:t>/, 'callout icon is editable text');
   assert.match(xml2, /<a:t>✅<\/a:t>/);
   assert.match(xml2, /b="1"[\s\S]{0,900}<a:t>Key<\/a:t>/, 'callout text keeps bold as an editable run');
   assert.match(xml2, /<a:t>second line<\/a:t>/, 'multi-line callout content is editable text');
   assert.ok(!/callout-icons|Apple Color Emoji.*picker/.test(xml2) && !xml2.includes('아이콘 변경'), 'icon picker is not exported');
+  assert.equal((xml2.match(/name="Block Body"[\s\S]{0,400}?prst="roundRect"/g) || []).length, 2, 'block bodies are native shapes');
+  assert.equal((xml2.match(/name="Block Header"[\s\S]{0,400}?prst="roundRect"/g) || []).length, 2, 'block headers are native shapes');
+  assert.ok(xml2.includes('val="3465A4"') && xml2.includes('val="1F7A7A"') && xml2.includes('val="EEF3FA"') && xml2.includes('val="ECF6F5"'), 'family colors in PPTX');
+  assert.match(xml2, /b="1"[\s\S]{0,700}<a:t>Theorem<\/a:t>/, 'type label is bold editable text');
+  assert.match(xml2, /<a:t> — <\/a:t>[\s\S]{0,700}<a:t>Policy Gradient Theorem<\/a:t>/, 'title is separate editable text');
+  assert.match(xml2, /<a:t>Definition<\/a:t>/); assert.match(xml2, /<a:t>Markov property<\/a:t>/); assert.match(xml2, /<a:t>Statement<\/a:t>/);
+  assert.ok(!xml2.includes('제목 (선택)') && !xml2.includes('▾'), 'selector / title input are not exported');
   const tocIndex = saved.deck.slides.findIndex(s=>s.kind==='toc')+1;
   const tocRels = await zip.file('ppt/slides/_rels/slide'+tocIndex+'.xml.rels').async('string');
   assert.match(tocRels, /relationships\/slide/);

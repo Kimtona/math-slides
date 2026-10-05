@@ -16,6 +16,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { MathBlock, MathInline } from './mathNodes';
 import type { PMNode } from '../model/types';
 import { MARKDOWN_SIZES, TYPOGRAPHY } from '../model/typography';
+import { ACADEMIC_BLOCK_TYPES, DEFAULT_BLOCK_TYPE, blockTypeInfo } from '../model/academicBlocks';
 import { Highlight, InlineCode } from './formattingMarks';
 
 /**
@@ -389,6 +390,127 @@ const Callout = TipNode.create({
   },
 });
 
+/**
+ * Academic Block (semantic block): `type` (Block / Theorem / Definition …) + optional `title` + rich
+ * body. One node type; both values are node attributes in the normal document JSON. The header's type
+ * selector and title input exist only in this editor node view (StaticText renders label + title only).
+ * Related to Callout only by pattern; Enter on an empty last line leaves it (stock behavior).
+ */
+const AcademicBlock = TipNode.create({
+  name: 'academicBlock',
+  group: 'block',
+  content: 'block+',
+  defining: true,
+  addAttributes() {
+    return {
+      type: {
+        default: DEFAULT_BLOCK_TYPE,
+        parseHTML: (el) => (el as HTMLElement).getAttribute('data-type') || DEFAULT_BLOCK_TYPE,
+        renderHTML: (attrs) => ({ 'data-type': attrs.type }),
+      },
+      title: {
+        default: '',
+        parseHTML: (el) => (el as HTMLElement).getAttribute('data-title') || '',
+        renderHTML: (attrs) => (attrs.title ? { 'data-title': attrs.title } : {}),
+      },
+    };
+  },
+  parseHTML() { return [{ tag: 'div[data-academic-block]' }]; },
+  renderHTML({ HTMLAttributes }) { return ['div', mergeAttributes(HTMLAttributes, { 'data-academic-block': '', class: 'ablock' }), 0]; },
+  addNodeView() {
+    return ({ node, editor, getPos }) => {
+      let current = node;
+      const el = (tag: string, cls: string) => { const e = document.createElement(tag); e.className = cls; return e; };
+      const dom = el('div', 'ablock');
+      dom.setAttribute('data-academic-block', '');
+      const head = el('div', 'ablock-head');
+      head.contentEditable = 'false';
+      const label = el('span', 'ablock-type');
+      label.title = '블록 유형 변경';
+      const caret = el('span', 'ablock-caret');
+      caret.textContent = '▾';
+      const sep = el('span', 'ablock-sep');
+      sep.textContent = ' — ';
+      const input = document.createElement('input');
+      input.className = 'ablock-title-input';
+      input.placeholder = '제목 (선택)';
+      input.spellcheck = false;
+      head.append(label, caret, sep, input);
+      const body = el('div', 'ablock-body');
+      dom.append(head, body);
+      let pop: HTMLElement | null = null;
+      function outside(e: MouseEvent) { if (pop && !pop.contains(e.target as Node) && !label.contains(e.target as Node) && e.target !== caret) closePop(); }
+      function closePop() { pop?.remove(); pop = null; document.removeEventListener('mousedown', outside, true); }
+      const setAttrs = (patch: Record<string, unknown>, ownStep: boolean) => {
+        const pos = getPos();
+        if (typeof pos !== 'number') return;
+        const tr = editor.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, ...patch });
+        if (ownStep) closeHistory(tr);
+        editor.view.dispatch(tr);
+      };
+      const openPop = (e: Event) => {
+        e.preventDefault();
+        if (pop) return closePop();
+        pop = el('div', 'ablock-types');
+        pop.contentEditable = 'false';
+        for (const t of ACADEMIC_BLOCK_TYPES) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = t.label;
+          b.setAttribute('data-family', t.family);
+          if (t.id === current.attrs.type) b.className = 'on';
+          b.addEventListener('mousedown', (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            closePop();
+            if (t.id !== current.attrs.type) setAttrs({ type: t.id }, true);
+            editor.view.focus();
+          });
+          pop.append(b);
+        }
+        dom.append(pop);
+        document.addEventListener('mousedown', outside, true);
+      };
+      label.addEventListener('mousedown', openPop);
+      caret.addEventListener('mousedown', openPop);
+      input.addEventListener('input', () => setAttrs({ title: input.value }, false));
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); editor.view.focus(); } });
+      const sync = () => {
+        const info = blockTypeInfo(current.attrs.type);
+        label.textContent = info.label;
+        dom.setAttribute('data-type', info.id);
+        dom.setAttribute('data-family', info.family);
+        const title = (current.attrs.title as string) || '';
+        if (input.value !== title) input.value = title;
+        sep.hidden = !title;
+      };
+      sync();
+      return {
+        dom,
+        contentDOM: body,
+        update(n: PMNodeType) {
+          if (n.type !== current.type) return false;
+          current = n;
+          sync();
+          return true;
+        },
+        stopEvent: (e: Event) => head.contains(e.target as Node) || !!pop?.contains(e.target as Node),
+        ignoreMutation: (m: MutationRecord | { type: 'selection'; target: Node }) =>
+          m.type !== 'selection' && (head.contains(m.target) || m.target === dom || !!pop?.contains(m.target) || m.target === pop),
+        destroy: closePop,
+      };
+    };
+  },
+});
+
+/** Turn the current line into an Academic Block (wraps its block), removing the typed trigger (one undo step). */
+export function convertToAcademicBlock(editor: Editor, range: { from: number; to: number }) {
+  return editor.chain().focus()
+    .command(({ tr }) => { closeHistory(tr); return true; })
+    .deleteRange(range)
+    .wrapIn('academicBlock', { type: DEFAULT_BLOCK_TYPE, title: '' })
+    .run();
+}
+
 /** Turn the current line into a Callout (wraps its block), removing the typed trigger (one undo step). */
 export function convertToCallout(editor: Editor, range: { from: number; to: number }) {
   return editor.chain().focus()
@@ -429,6 +551,7 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } =
     SlideCodeBlock,
     SlideBlockquote,
     Callout,
+    AcademicBlock,
     LinkMark,
     TocSections.configure({ enabled: !!opts.toc }),
   ];

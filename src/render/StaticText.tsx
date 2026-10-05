@@ -3,6 +3,7 @@ import { useStore } from '../store/store';
 import type { PMNode } from '../model/types';
 import { renderTex } from '../math/mathjax';
 import { inlineCodeStyle } from '../editor/formattingMarks';
+import { blockTypeInfo } from '../model/academicBlocks';
 import { highlightCode, isSupportedLanguage } from '../editor/codeHighlight';
 
 /** Renders math exactly like the editor node views do (same classes & markup). */
@@ -82,6 +83,20 @@ function renderNode(n: PMNode, key: number, ctx: Ctx): ReactNode {
       // Same markup as the editor node view, minus the editor-only icon button/popover behavior.
       const icon = n.attrs?.icon ?? '💡';
       return <div key={key} className="callout" data-callout="" data-icon={icon}><span className="callout-icon">{icon}</span><div className="callout-body">{kids()}</div></div>;
+    }
+    case 'academicBlock': {
+      // Same markup as the editor node view minus the editor-only type selector / title input.
+      const info = blockTypeInfo(n.attrs?.type);
+      const title = (n.attrs?.title as string) || '';
+      return (
+        <div key={key} className="ablock" data-academic-block="" data-type={info.id} data-family={info.family}>
+          <div className="ablock-head">
+            <span className="ablock-type">{info.label}</span>
+            {title ? <><span className="ablock-sep"> — </span><span className="ablock-title">{title}</span></> : null}
+          </div>
+          <div className="ablock-body">{kids()}</div>
+        </div>
+      );
     }
     case 'blockquote': return <blockquote key={key}>{kids()}</blockquote>;
     case 'bulletList': return <ul key={key}>{kids()}</ul>;
