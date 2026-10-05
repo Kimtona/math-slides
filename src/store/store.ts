@@ -229,6 +229,10 @@ export const useStore = create<AppState>()((set, get) => {
         });
         set({ selection: [] });
       }
+      if (el && el.type === 'shape' && el.doc && isDocEmpty(el.doc)) {
+        // A shape left without text is exactly a shape without text again.
+        get().updateElements([el.id], (e) => { delete (e as { doc?: unknown }).doc; }, true);
+      }
       get().endGesture();
     },
     setMathEdit: (m) => set({ mathEdit: m }),

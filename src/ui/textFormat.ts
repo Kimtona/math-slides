@@ -5,6 +5,7 @@ import { getActiveEditor } from '../editor/active';
 import { docAllMarked, transformDoc } from '../editor/extensions';
 import type { Mark } from '@tiptap/pm/model';
 import { normalizeTextColor } from '../model/colors';
+import { shapeTextStyle } from '../model/defaults';
 
 /** Capture before a palette input takes focus. Refuse stale targets instead of coloring another box. */
 export function captureTextSelection(): () => boolean {
@@ -68,6 +69,12 @@ export function toggleMark(mark: MarkName) {
  *   per-run colors are cleared, so block equations and list markers, which inherit the box color,
  *   follow too. No per-character marks are added in this case.
  */
+/** The style object a text-like element keeps its defaults in (text box: `style`; shape: `textStyle`). */
+function styleOf(d: any): TextStyle {
+  if (d.type === 'shape') return (d.textStyle ??= { ...shapeTextStyle(d) });
+  return d.style;
+}
+
 export function setTextColor(color: string) {
   const ed = getActiveEditor();
   const st = useStore.getState();
@@ -88,7 +95,7 @@ export function setTextColor(color: string) {
   const ids = st.editingId ? [st.editingId] : selectedTexts().map((t) => t.id);
   st.updateElements(ids, (d) => {
     const t = d as TextElement;
-    t.style.color = color;
+    styleOf(d).color = color;
     if (!st.editingId) t.doc = transformDoc(t.doc as any, (e) => e.chain().unsetColor().run());
   });
 }
@@ -132,7 +139,7 @@ export function toggleList(kind: 'bullet' | 'ordered') {
 export function setTextStyle(partial: Partial<TextStyle>) {
   const st = useStore.getState();
   const ids = st.editingId ? [st.editingId] : selectedTexts().map((t) => t.id);
-  st.updateElements(ids, (d) => Object.assign((d as TextElement).style, partial));
+  st.updateElements(ids, (d) => Object.assign(styleOf(d), partial));
 }
 
 /** Current mark state for toolbar highlighting. */

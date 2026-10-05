@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { TextSelection } from '@tiptap/pm/state';
-import type { TextElement } from '../model/types';
+import type { ShapeElement, TextElement } from '../model/types';
 import type { PMNode } from '../model/types';
 import { currentSlide, useStore } from '../store/store';
 import { makeExtensions } from './extensions';
@@ -11,13 +11,14 @@ import { openMath } from './mathNodes';
 import { insertImageFiles } from '../canvas/insert';
 
 /** In-place rich text editor for the text box being edited. */
-export function TextEditor({ el }: { el: TextElement }) {
+export function TextEditor({ el }: { el: TextElement | ShapeElement }) {
+  const role = el.type === 'text' ? el.role : undefined;
   const slashKey = useRef<((e: KeyboardEvent) => boolean) | null>(null);
-  const extensions = useMemo(() => makeExtensions(true, { toc: el.role === 'toc' }), [el.role]);
+  const extensions = useMemo(() => makeExtensions(true, { toc: role === 'toc' }), [role]);
 
   const editor = useEditor({
     extensions,
-    content: el.doc,
+    content: el.doc ?? { type: 'doc', content: [{ type: 'paragraph' }] },
     editorProps: {
       attributes: { class: 'tb-content', spellcheck: 'false' },
       handleKeyDown: (_view, event) => {
@@ -43,7 +44,7 @@ export function TextEditor({ el }: { el: TextElement }) {
     },
     onUpdate: ({ editor }) => {
       const doc = editor.getJSON() as PMNode;
-      useStore.getState().updateElements([el.id], (e) => { (e as TextElement).doc = doc; }, true);
+      useStore.getState().updateElements([el.id], (e) => { (e as TextElement | ShapeElement).doc = doc; }, true);
     },
   });
 

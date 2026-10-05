@@ -35,6 +35,14 @@ export function newText(x: number, y: number, opts: { w?: number; doc?: PMNode; 
   };
 }
 
+/** Shape text defaults: centered body text; the shape box never grows with it. */
+export const SHAPE_TEXT_PADDING = 12;
+export const shapeTextStyle = (el: Pick<ShapeElement, 'textStyle'>): TextStyle =>
+  el.textStyle ?? { fontSize: TYPOGRAPHY.body, color: DEFAULT_TEXT_COLOR, align: 'center', lineHeight: 1.35, fill: null };
+/** Inset of the text area: padding, plus the inscribed rectangle for ellipses. */
+export const shapeTextInset = (el: Pick<ShapeElement, 'shape' | 'w' | 'h'>) =>
+  ({ x: SHAPE_TEXT_PADDING + (el.shape === 'ellipse' ? el.w * 0.146 : 0), y: SHAPE_TEXT_PADDING + (el.shape === 'ellipse' ? el.h * 0.146 : 0) });
+
 export function newShape(shape: ShapeKind, x: number, y: number, w = 240, h = 160): ShapeElement {
   return { id: uid(), type: 'shape', shape, x, y, w, h, fill: presetHex('Light Gray'), stroke: null, strokeWidth: 2, radius: 16 };
 }

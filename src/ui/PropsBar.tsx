@@ -3,7 +3,7 @@ import type { ImageElement, LineElement, ShapeElement, SlideElement, TextElement
 import { useStore } from '../store/store';
 import { getActiveEditor, onActiveEditorChange } from '../editor/active';
 import { Btn, ColorButton, Icons, NumberField, Popover, Sep, WidthButton } from './controls';
-import { DEFAULT_TEXT_COLOR } from '../model/defaults';
+import { DEFAULT_TEXT_COLOR, emptyDoc, shapeTextStyle } from '../model/defaults';
 import { cropOf, isCropped, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { activeTextColor, markActive, setTextStyle, toggleList, toggleMark } from './textFormat';
@@ -31,7 +31,7 @@ function useEditorTick() {
   }, []);
 }
 
-function TextProps({ el, editing }: { el: TextElement; editing: boolean }) {
+function TextProps({ el, editing, box = true }: { el: TextElement; editing: boolean; box?: boolean }) {
   useEditorTick();
   const ed = editing ? getActiveEditor() : null;
   // A line sized with #/##/###/#### has its own size; while the caret is on it, the field edits that line.
@@ -74,10 +74,13 @@ function TextProps({ el, editing }: { el: TextElement; editing: boolean }) {
           </div>
         )}
       </Popover>
-      <ColorButton title="상자 배경" label={<span className="small-label">배경</span>} allowNone value={el.style.fill} onChange={(c) => setTextStyle({ fill: c })} />
+      {box && <ColorButton title="상자 배경" label={<span className="small-label">배경</span>} allowNone value={el.style.fill} onChange={(c) => setTextStyle({ fill: c })} />}
     </>
   );
 }
+
+/** A shape being text-edited, seen through the text-box toolbar (only its text style/doc are read). */
+const shapeAsText = (el: ShapeElement): TextElement => ({ ...el, type: 'text', doc: el.doc ?? emptyDoc(), style: shapeTextStyle(el) } as unknown as TextElement);
 
 function ShapeProps({ el }: { el: ShapeElement }) {
   const upd = (fn: (d: ShapeElement) => void) => useStore.getState().updateElements([el.id], (d) => fn(d as ShapeElement));
@@ -212,6 +215,7 @@ export function PropsBar() {
         </>
       )}
       {one?.type === 'text' && <TextProps el={one} editing={editingId === one.id} />}
+      {one?.type === 'shape' && editingId === one.id && <><TextProps el={shapeAsText(one)} editing box={false} /><Sep /></>}
       {one?.type === 'shape' && <ShapeProps el={one} />}
       {one?.type === 'line' && <LineProps el={one} />}
       {one?.type === 'image' && <ImageProps el={one} />}

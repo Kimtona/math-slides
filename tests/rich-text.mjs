@@ -639,6 +639,65 @@ try {
   assert.deepEqual(await guidePositions(), [], 'drag guides clear on release');
   await evaluate('store.getState().undo()'); await pause();
   console.log('PASS Shift alignment-guide preview (show/hide, element-derived, de-duplicated, editor-only, text editing safe, Shift-click placement, drag guides)');
+  // Shape text: double-click a shape to edit text that belongs to the shape.
+  await evaluate('store.getState().addSlide()'); await pause();
+  await evaluate(`const A = defaults.newShape('rect', 100, 250, 320, 160); const B = defaults.newShape('ellipse', 600, 250, 240, 160); window.__shapeIds = [A.id, B.id]; store.getState().addElements([A, B]); store.getState().select([])`);
+  const [sA, sB] = await evaluate('window.__shapeIds');
+  const shapeNow = (id) => evaluate(`store.getState().deck.slides.find(s => s.id === store.getState().currentSlideId).elements.find(e => e.id === '${id}')`);
+  const center = (id) => evaluate(`(() => { const r = document.querySelector('.slide.editable [data-el-id="${id}"]').getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()`);
+  const mouse = async (p, clickCount) => { await send('Input.dispatchMouseEvent', {type: 'mousePressed', button: 'left', clickCount, ...p}); await send('Input.dispatchMouseEvent', {type: 'mouseReleased', button: 'left', clickCount, ...p}); };
+  const texts = () => evaluate("store.getState().deck.slides.find(s => s.id === store.getState().currentSlideId).elements.filter(e => e.type === 'text').length");
+  const textsBefore = await texts();
+  const pA = await center(sA);
+  await mouse(pA, 1); await pause();
+  assert.deepEqual(await evaluate('[store.getState().selection, store.getState().editingId]'), [[sA], null], 'single click selects the shape only');
+  await mouse(pA, 1); await mouse(pA, 2); await until(() => evaluate('!!active()'), 'Shape text editor');
+  assert.equal(await evaluate('store.getState().editingId'), sA, 'double-click enters shape text editing');
+  assert.equal(await texts(), textsBefore, 'no separate text element is created');
+  await send('Input.insertText', {text: 'Policy Gradient'}); await key('Enter'); await send('Input.insertText', {text: 'second line'}); await pause();
+  assert.deepEqual((await doc()).content.map((p) => p.content[0].text), ['Policy Gradient', 'second line'], 'multiline shape text');
+  assert.deepEqual((await shapeNow(sA)).doc.content.map((p) => p.content[0].text), ['Policy Gradient', 'second line'], 'text is stored on the shape');
+  await evaluate(`(() => { let at = 0; active().state.doc.descendants((n, p) => { if (n.isText && n.text.startsWith('Policy')) at = p; }); active().commands.setTextSelection({from: at, to: at + 6}); })()`); await pause();
+  await click('.propsbar button[title="굵게 ⌘B"]'); await pause();
+  assert.deepEqual((await shapeNow(sA)).doc.content[0].content[0].marks.map((m) => m.type), ['bold'], 'bold inside the shape text');
+  await evaluate("active().commands.focus('end')"); await send('Input.insertText', {text: '!'}); await pause();
+  await evaluate('active().commands.undo()'); await pause();
+  assert.ok(!JSON.stringify((await shapeNow(sA)).doc).includes('!'), 'undo inside the editor');
+  await key('Escape'); await pause();
+  assert.deepEqual(await evaluate('[store.getState().editingId, store.getState().selection]'), [null, [sA]], 'Escape leaves text editing, shape stays selected');
+  const rel = (id) => evaluate(`(() => { const el = document.querySelector('.slide.editable [data-el-id="${id}"]'); const t = el.querySelector('.shape-text p'); const er = el.getBoundingClientRect(), tr = t.getBoundingClientRect(); const k = er.width / el.offsetWidth; return {dx: (tr.left + tr.width / 2 - er.left - er.width / 2) / k, dy: (tr.top + tr.height / 2 - er.top - er.height / 2) / k, h: t.offsetHeight, align: getComputedStyle(t.closest('.shape-text')).textAlign}; })()`);
+  let r = await rel(sA);
+  assert.ok(Math.abs(r.dx) < 3 && r.align === 'center', 'text centered horizontally'); assert.ok(Math.abs(r.dy) < 20, 'text vertically centered');
+  const shapeLine = r.h;
+  // History: the whole edit is one step; geometry changes are separate.
+  await evaluate('store.getState().undo()'); await pause();
+  assert.equal((await shapeNow(sA)).doc, undefined, 'undo removes the entered text');
+  await evaluate('store.getState().redo()'); await pause();
+  assert.deepEqual((await shapeNow(sA)).doc.content.map((p) => p.content.map((t) => t.text).join('')), ['Policy Gradient', 'second line'], 'redo restores the text');
+  await pause(600);
+  await evaluate(`store.getState().updateElements(['${sA}'], e => { e.x += 60; e.y += 20 })`); await pause(600);
+  r = await rel(sA); assert.ok(Math.abs(r.dx) < 3 && Math.abs(r.dy) < 20, 'text moves with the shape');
+  await evaluate(`store.getState().updateElements(['${sA}'], e => { e.w = 120 })`); await pause();
+  r = await rel(sA);
+  assert.ok(r.h > shapeLine * 1.4, 'text wraps within the narrower shape'); assert.ok(Math.abs(r.dx) < 3);
+  assert.equal((await shapeNow(sA)).h, 160, 'the shape does not grow with its text');
+  await evaluate('store.getState().undo(); store.getState().undo()'); await pause();
+  assert.ok((await shapeNow(sA)).doc, 'text survives geometry undo'); assert.equal((await shapeNow(sA)).w, 320);
+  // Reopen editing; click outside exits; an untouched empty shape stays text-free.
+  const pA2 = await center(sA);
+  await mouse(pA2, 1); await mouse(pA2, 2); await until(() => evaluate('!!active()'), 'Shape text editor (again)');
+  await mouse({x: pA2.x, y: pA2.y + 300 * (await slideRect()).k}, 1); await pause();
+  assert.equal(await evaluate('store.getState().editingId'), null, 'click outside leaves text editing');
+  const pB = await center(sB);
+  await mouse(pB, 1); await mouse(pB, 2); await until(() => evaluate('!!active()'), 'Empty shape editor');
+  await key('Escape'); await pause();
+  assert.equal('doc' in (await shapeNow(sB)), false, 'an empty shape stays a plain shape');
+  await evaluate('store.getState().select([])'); await pause();
+  for (const where of ['.slide.editable', '.thumb']) {
+    assert.equal(await evaluate(`[...document.querySelectorAll('${where} .shape-text')].map(e => e.textContent).join('|')`), 'Policy Gradientsecond line', 'shape text rendered in ' + where + ' (empty shape has none)');
+    assert.equal(await evaluate(`document.querySelectorAll('${where} .shape-text .ProseMirror, ${where} .shape-text textarea').length`), 0, 'no editor UI in ' + where);
+  }
+  console.log('PASS shape text (double-click editing, multiline, bold, centered, wrap, move/resize, Escape/outside, empty shape, undo/redo, static/thumbnail)');
   // TOC entered in the real editor; generated sections retain their IDs through formatting.
   await evaluate('store.getState().addTocSlide()');
   await evaluate(`store.getState().startEditing(store.getState().deck.slides.find(s=>s.kind==='toc').elements.find(e=>e.role==='toc').id)`);
@@ -677,6 +736,10 @@ try {
   const savedSlide2 = JSON.stringify(saved.deck.slides[1]);
   assert.ok(savedSlide2.includes('"callout"') && savedSlide2.includes('"icon":"⚠️"') && savedSlide2.includes('"icon":"✅"'), '.mslides keeps callouts and their icons');
   assert.ok(savedSlide2.includes('"academicBlock"') && savedSlide2.includes('"type":"theorem"') && savedSlide2.includes('"title":"Policy Gradient Theorem"') && savedSlide2.includes('"type":"definition"'), '.mslides keeps academic block type and title');
+  const shapeSlide = saved.deck.slides.find((x) => x.elements.some((e) => e.type === 'shape' && e.doc));
+  const shapeSaved = shapeSlide.elements.filter((e) => e.type === 'shape');
+  assert.deepEqual(shapeSaved.map((e) => !!e.doc), [true, false], '.mslides keeps shape text (empty shape has none)');
+  assert.ok(JSON.stringify(shapeSaved[0].doc).includes('Policy') && JSON.stringify(shapeSaved[0].doc).includes(' Gradient') && JSON.stringify(shapeSaved[0].doc).includes('"bold"'));
   const imageSlide = saved.deck.slides.find((x) => x.elements.some((e) => e.type === 'image'));
   assert.deepEqual(imageSlide.elements.filter((e) => e.type === 'image').map((e) => e.caption), ['Figure 1. Baseline', 'Architecture of the proposed model', ''], '.mslides keeps captions');
   assert.ok(!JSON.stringify(saved).includes('Add a caption'), 'placeholder never persisted');
@@ -740,6 +803,16 @@ try {
   assert.match(xml2, /<a:t> — <\/a:t>[\s\S]{0,700}<a:t>Policy Gradient Theorem<\/a:t>/, 'title is separate editable text');
   assert.match(xml2, /<a:t>Definition<\/a:t>/); assert.match(xml2, /<a:t>Markov property<\/a:t>/); assert.match(xml2, /<a:t>Statement<\/a:t>/);
   assert.ok(!xml2.includes('제목 (선택)') && !xml2.includes('▾'), 'selector / title input are not exported');
+  const shapeXml = await zip.file('ppt/slides/slide' + (saved.deck.slides.indexOf(shapeSlide) + 1) + '.xml').async('string');
+  const spChunks = shapeXml.split('<p:sp>');
+  const textShape = spChunks.find((c) => c.includes('name="Shape Text"'));
+  assert.ok(textShape, 'shape with text is ONE native shape');
+  assert.ok(textShape.includes('prst="rect"') && textShape.includes('val="BFBFBF"'), 'native shape geometry and fill');
+  assert.match(textShape, /anchor="ctr"/); assert.match(textShape, /algn="ctr"/);
+  assert.match(textShape, /b="1"[\s\S]{0,700}<a:t>Policy<\/a:t>/); assert.match(textShape, /<a:t>second line<\/a:t>/);
+  assert.equal(spChunks.filter((c) => c.includes('<a:t>Policy</a:t>') || c.includes('second line')).length, 1, 'the text lives only in the shape, no separate text box over it');
+  assert.ok(!spChunks.find((c) => c.includes('prst="ellipse"'))?.includes('<a:t>'), 'empty shape exports no text');
+  assert.ok(!/ProseMirror|caret/.test(shapeXml), 'no editor UI exported');
   const imgIndex = saved.deck.slides.indexOf(imageSlide) + 1;
   const xmlImg = await zip.file('ppt/slides/slide' + imgIndex + '.xml').async('string');
   const geom = /<a:off x="(\d+)" y="(\d+)"\/>\s*<a:ext cx="(\d+)" cy="(\d+)"\/>/;

@@ -3,6 +3,8 @@ import { useStore } from '../store/store';
 import type { Asset, Citation, LineElement, ShapeElement, Slide, SlideElement, TextElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { StaticText } from './StaticText';
+import { isDocEmpty } from '../editor/docUtils';
+import { shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, TYPOGRAPHY } from '../model/typography';
 
 export function textBoxStyle(el: TextElement): CSSProperties {
@@ -28,6 +30,22 @@ export function ShapeSvg({ el }: { el: ShapeElement }) {
           rx={el.shape === 'roundRect' ? Math.min(el.radius, w / 2, h / 2) : 0} {...common} />
       )}
     </svg>
+  );
+}
+
+/** Shape with its (optional) text; `editor` replaces the static text while the shape's text is being edited. */
+export function ShapeView({ el, editor }: { el: ShapeElement; editor?: ReactNode }) {
+  const hasText = !!el.doc && !isDocEmpty(el.doc);
+  const st = shapeTextStyle(el), inset = shapeTextInset(el);
+  return (
+    <>
+      <ShapeSvg el={el} />
+      {(editor || hasText) && (
+        <div className="shape-text" style={{ padding: `${inset.y}px ${inset.x}px`, fontSize: st.fontSize, color: st.color, textAlign: st.align, lineHeight: st.lineHeight }}>
+          {editor ?? <StaticText doc={el.doc!} />}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -89,7 +107,7 @@ export function ElementBody({ el, assets, caption }: { el: SlideElement; assets:
         </>
       );
     }
-    case 'shape': return <ShapeSvg el={el} />;
+    case 'shape': return <ShapeView el={el} />;
     case 'line': return <LineSvg el={el} />;
   }
 }

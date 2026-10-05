@@ -3,6 +3,8 @@ import JSZip from 'jszip';
 import type { Asset, Deck, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
 import { sourceRect } from '../model/imageCrop';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, TYPOGRAPHY } from '../model/typography';
+import { shapeTextInset, shapeTextStyle } from '../model/defaults';
+import { isDocEmpty } from '../editor/docUtils';
 import { tokenColor } from '../editor/codeHighlight';
 import { INLINE_CODE_BACKGROUND, INLINE_CODE_FONT } from '../model/textFormatting';
 
@@ -374,16 +376,36 @@ function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect
 
 // ---------- shapes, lines, images ----------
 
-function addShape(pptx: PptxGenJS, s: Slide, el: ShapeElement) {
+function addShape(pptx: PptxGenJS, s: Slide, el: ShapeElement, slideDom: Element, origin: DOMRect) {
   const sw = el.stroke ? el.strokeWidth : 0;
   // SVG strokes are drawn inside the element box; PowerPoint centers them on the outline.
   const x = el.x + sw / 2, y = el.y + sw / 2, w = Math.max(1, el.w - sw), h = Math.max(1, el.h - sw);
   const type = el.shape === 'ellipse' ? pptx.ShapeType.ellipse : el.shape === 'roundRect' ? pptx.ShapeType.roundRect : pptx.ShapeType.rect;
-  s.addShape(type, {
+  const geometry = {
     x: IN(x), y: IN(y), w: IN(w), h: IN(h),
     fill: el.fill ? { color: hex(el.fill) } : undefined,
     line: el.stroke ? { color: hex(el.stroke), width: PT(sw) } : undefined,
     rectRadius: el.shape === 'roundRect' ? IN(Math.min(el.radius, w / 2, h / 2)) : undefined,
+  };
+  const dom = el.doc && !isDocEmpty(el.doc) ? slideDom.querySelector(`[data-el-id="${el.id}"]`) : null;
+  const content = dom?.querySelector('.tb-content');
+  if (!dom || !content) { s.addShape(type, geometry); return; }
+  const base = { ...el, type: 'text', doc: el.doc, style: shapeTextStyle(el) } as unknown as TextElement;
+  if (content.querySelector('.math-block, .math-inline, pre, blockquote, .callout, .ablock')) {
+    // Equations / code / blocks inside a shape: native shape, with the content laid out as in a text box on top.
+    s.addShape(type, geometry);
+    addTextElement(s, base, dom, origin);
+    return;
+  }
+  // Plain rich text: ONE native PowerPoint shape that holds its own editable text.
+  const paras = [...content.querySelectorAll('p')];
+  const runs = paras.flatMap((p, i) => paragraphRuns(p, content, base, i === paras.length - 1));
+  const inset = shapeTextInset(el);
+  s.addText(runs, {
+    ...geometry, shape: type, align: base.style.align, valign: 'middle', wrap: true, fit: 'none',
+    margin: [PT(inset.y), PT(inset.x), PT(inset.y), PT(inset.x)],
+    fontFace: PPT_FONT, fontSize: PT(base.style.fontSize), color: hex(base.style.color),
+    lineSpacing: PT(base.style.fontSize * base.style.lineHeight), paraSpaceBefore: 0, paraSpaceAfter: 0, objectName: 'Shape Text',
   });
 }
 
@@ -522,7 +544,7 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
     if (!slideDom) continue;
     const origin = slideDom.getBoundingClientRect();
     for (const el of slide.elements) {
-      if (el.type === 'shape') addShape(pptx, s, el);
+      if (el.type === 'shape') addShape(pptx, s, el, slideDom, origin);
       else if (el.type === 'line') addLine(pptx, s, el);
       else if (el.type === 'image') await addImage(s, el, assets, slideDom, origin);
       else {

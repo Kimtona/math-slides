@@ -5,7 +5,7 @@ import { SLIDE_H, SLIDE_W } from '../model/types';
 import { lineBox } from '../model/defaults';
 import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
 import { currentSlide, useStore } from '../store/store';
-import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerNumberStyle, footerParts, footerRefStyle, LineSvg, slideNumberText } from '../render/ElementView';
+import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerNumberStyle, footerParts, footerRefStyle, LineSvg, ShapeView, slideNumberText } from '../render/ElementView';
 import { extractCitations, resolveCitation } from '../citations/resolve';
 import { findCitations } from '../citations/providers';
 import { TextEditor } from '../editor/TextEditor';
@@ -382,7 +382,7 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
   const onDoubleClick = (e: React.MouseEvent) => {
     cancelPendingLink();
     if (el.type === 'image') { e.stopPropagation(); useStore.getState().enterCrop(el.id); return; }
-    if (el.type !== 'text' || editing) return;
+    if ((el.type !== 'text' && el.type !== 'shape') || editing) return;
     e.stopPropagation();
     useStore.getState().startEditing(el.id, { x: e.clientX, y: e.clientY });
   };
@@ -391,6 +391,7 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
     <div ref={ref} className={`el el-${el.type}${editing ? ' editing' : ''}`} style={elementBoxStyle(el)} data-el-id={el.id}
       onPointerDown={onPointerDown} onDoubleClick={onDoubleClick}>
       {editing && el.type === 'text' ? <TextEditor el={el} />
+        : editing && el.type === 'shape' ? <ShapeView el={el} editor={<TextEditor el={el} />} />
         : el.type === 'line' ? <LineSvg el={el} hit />
         : <ElementBody el={el} assets={assets} caption={el.type === 'image' && selected && el.caption !== undefined ? <CaptionInput el={el} /> : undefined} />}
     </div>

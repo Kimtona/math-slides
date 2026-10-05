@@ -78,6 +78,10 @@ export interface ShapeElement extends ElementBase {
   stroke: string | null;
   strokeWidth: number;
   radius: number; // roundRect corner radius, px
+  /** Optional text inside the shape (same rich-text document as text boxes). Absent / empty = no text. */
+  doc?: PMNode;
+  /** Text defaults (size, color, align, line height); absent = centered body text. */
+  textStyle?: TextStyle;
 }
 
 /** Lines are stored by their endpoints; x/y/w/h is the derived bounding box. */
