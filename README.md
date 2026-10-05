@@ -43,7 +43,7 @@ You can also double-click `MathSlides.command` in Finder to launch the desktop a
 | Z-order | `⌘]` `⌘[` (with `⇧` = to front/back) |
 | Slides | Slide list: `Enter` new, `⌘D` duplicate, `⌫` delete, drag to reorder, right-click menu |
 | Present | `⌘Enter` / `F5` |
-| Save/open | Autosaves to the browser (IndexedDB). `⌘S` saves a `.mslides` file, `⌘O` opens one |
+| Save/open | Autosaves continuously (IndexedDB). Every launch and ∑ → 새 프레젠테이션 starts a fresh presentation; the previous one moves to ∑ → 이전 프레젠테이션 열기 (with its images). `⌘S` saves a `.mslides` file, `⌘O` opens one |
 | Export | `⌘P` PDF, `⌘E` PPTX |
 
 ---

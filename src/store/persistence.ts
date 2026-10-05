@@ -19,18 +19,18 @@ function referencedAssetIds(deck: Deck) {
   return ids;
 }
 
-export async function loadAutosave() {
+/**
+ * App startup = a new presentation (like PowerPoint/Canva). The presentation from the last session
+ * (still in the autosave slot) is moved to "이전 프레젠테이션" first, so nothing is lost;
+ * only then is the slot taken over by the fresh deck.
+ */
+export async function startNewSession() {
   try {
-    const deck = (await get(DECK_KEY)) as Deck | undefined;
-    if (!deck?.slides?.length) return;
-    const assets: Record<string, Asset> = {};
-    await Promise.all([...referencedAssetIds(deck)].map(async (id) => {
-      const a = (await get(assetKey(id))) as Asset | undefined;
-      if (a) assets[id] = a;
-    }));
-    useStore.getState().loadDeck(deck, assets);
+    const last = (await get(DECK_KEY)) as Deck | undefined;
+    if (last?.slides?.length) await archiveDeck(last);
+    await set(DECK_KEY, useStore.getState().deck);
   } catch (e) {
-    console.error('autosave load failed', e);
+    console.error('startup archive failed', e);
   }
 }
 
@@ -180,12 +180,10 @@ export async function openProject() {
 }
 
 // ---------- new presentation vs. restoring an existing one ----------
-// Startup restores the autosaved presentation (loadAutosave). Creating a new presentation must not
-// destroy it: the current presentation is moved to a small archive of previous presentations
-// (IndexedDB, images included) that can be reopened from the ∑ menu.
+// Startup and "새 프레젠테이션" both start a fresh deck. The presentation being replaced is moved
+// to the archive of previous presentations (IndexedDB, images included), reopened from the ∑ menu.
 
 const ARCHIVE_KEY = 'archive:v1';
-const ARCHIVE_LIMIT = 20;
 
 export interface ArchivedPresentation {
   id: string;
@@ -204,15 +202,25 @@ function isPristine(deck: Deck): boolean {
     && deck.slides[0].elements.every((e) => e.type === 'text' && isTemplatePlaceholder(plainText(e.doc)));
 }
 
+/**
+ * Put a presentation into the archive. Its entry is replaced if it is already there (same deck id),
+ * so relaunching or re-archiving never creates duplicates. Untouched template decks are skipped.
+ * Entries are never dropped automatically.
+ */
+async function archiveDeck(deck: Deck) {
+  if (isPristine(deck)) return;
+  const d: Deck = deck.id ? deck : { ...deck, id: crypto.randomUUID() };
+  const rest = (await loadArchive()).filter((a) => a.deck.id !== d.id);
+  await set(ARCHIVE_KEY, [{ id: crypto.randomUUID(), savedAt: Date.now(), deck: d }, ...rest]);
+}
+
 async function archiveCurrent() {
   const st = useStore.getState();
   st.stopEditing();
   st.exitCrop();
-  if (isPristine(st.deck)) return;
-  const entry: ArchivedPresentation = { id: crypto.randomUUID(), savedAt: Date.now(), deck: st.deck };
   // Make sure the archived deck's images are persisted (they normally already are).
   referencedAssetIds(st.deck).forEach((id) => st.assets[id] && saveAsset(st.assets[id]));
-  await set(ARCHIVE_KEY, [entry, ...(await loadArchive())].slice(0, ARCHIVE_LIMIT));
+  await archiveDeck(useStore.getState().deck);
 }
 
 /** Create a genuinely fresh presentation: one Title Slide, default title, empty history. */
