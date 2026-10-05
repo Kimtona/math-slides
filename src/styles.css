@@ -152,6 +152,7 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .img-caption, .img-caption-input { position: absolute; left: 0; top: 100%; width: 100%; box-sizing: border-box; text-align: left; font-weight: 400; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; margin: 0; padding: 0; }
 .img-caption-input { display: block; pointer-events: auto; border: 0; outline: none; background: transparent; resize: none; overflow: hidden; font-family: inherit; cursor: text; }
 .img-caption-input::placeholder { color: #a8afb7; }
+.theme-decor { position: absolute; pointer-events: none; }
 .shape-text { position: absolute; inset: 0; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; overflow: hidden; pointer-events: none; }
 .shape-text .tb-content { width: 100%; pointer-events: auto; }
 .el-img.missing { background: #f1f3f5; color: var(--muted); display: flex; align-items: center; justify-content: center; }

@@ -760,6 +760,53 @@ try {
   await evaluate(`(async()=>{const r=await import('/src/citations/resolve.ts'); r.extractCitations(store.getState().deck.slides[1].id,'https://arxiv.org/abs/1706.03762');})()`);
   assert.equal(await evaluate('Object.keys(store.getState().deck.citations).length'), 1);
   console.log('PASS TOC/Sub-title editor and presenter navigation, citations, References deduplication, Thank You and manual reference');
+  // Presentation Theme Color: presentation-level, derived decorations, readable foregrounds.
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause();
+  const slideIds = await evaluate("({title: store.getState().deck.slides[0].id, content: store.getState().deck.slides[1].id, sub: store.getState().deck.slides.find(s => s.kind === 'subtitle').id})");
+  const goto = async (id) => { await evaluate(`store.getState().goToSlide('${id}')`); await pause(250); };
+  const themeParts = () => evaluate("[...document.querySelectorAll('.slide.editable [data-theme-part]')].map(e => e.dataset.themePart)");
+  const colorOf = (sel) => evaluate(`getComputedStyle(document.querySelector('.slide.editable ${sel}')).color`);
+  const elementsJson = () => evaluate("JSON.stringify(store.getState().deck.slides.map(s => s.elements))");
+  const pickTheme = async (label) => { await click('.propsbar button[title^="Theme:"]'); await click(`button[aria-label="${label}"]`); await pause(300); };
+  assert.equal(await evaluate('store.getState().deck.themeColor'), undefined, 'new presentations have no theme color metadata');
+  await goto(slideIds.content);
+  assert.deepEqual(await themeParts(), [], 'White theme: no decorations');
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.propsbar .color-btn .small-label')].map(e => e.textContent).slice(0, 2)"), ['Theme', '배경색'], 'Theme control sits immediately left of Background Color');
+  assert.equal(await evaluate("!!document.querySelector('.propsbar button[title^=\"Theme:\"]')"), true);
+  const beforeElements = await elementsJson();
+  const blockHeadBg = () => evaluate("getComputedStyle(document.querySelector('.slide.editable .ablock-head')).backgroundColor");
+  const academicBg = await blockHeadBg();
+  const bodySel = '[data-el-id="' + await evaluate("store.getState().deck.slides[1].elements[1].id") + '"]';
+  const titleSel = '[data-el-id="' + await evaluate("store.getState().deck.slides[1].elements[0].id") + '"]';
+  await pickTheme('Rose shade 5'); // #881337, dark red
+  assert.equal(await evaluate('store.getState().deck.themeColor'), '#881337', 'stored on the presentation');
+  assert.equal(await evaluate('store.getState().deck.slides[1].background'), '#ffffff', 'Background Color is independent');
+  assert.deepEqual(await themeParts(), ['Theme Header Band', 'Theme Footer Accent'], 'content slide: header band + footer accent');
+  assert.equal(await colorOf(titleSel), 'rgb(255, 255, 255)', 'dark theme → white title text');
+  assert.equal(await colorOf(bodySel), 'rgb(0, 0, 0)', 'body text is untouched');
+  assert.equal(await elementsJson(), beforeElements, 'theme never rewrites element data');
+  assert.equal(await blockHeadBg(), academicBg, 'Academic Block colors are untouched');
+  await goto(slideIds.title);
+  assert.deepEqual(await themeParts(), ['Theme Title Band', 'Theme Footer Accent'], 'title slide: title band');
+  const titleId = await evaluate('store.getState().deck.titleElementId');
+  assert.equal(await colorOf('[data-el-id="' + titleId + '"]'), 'rgb(22, 163, 74)', 'a user-chosen title color is kept');
+  await goto(slideIds.sub);
+  assert.deepEqual(await themeParts(), ['Theme Section Background'], 'section divider: full theme background');
+  assert.equal(await evaluate("(() => { const r = document.querySelector('.slide.editable [data-theme-part]'); return [r.style.width, r.style.height].join(); })()"), '1280px,720px');
+  assert.equal(await colorOf('[data-el-id="' + slideIds.sub.replace(/^sub-/, 'sub-') + '-current"]'), 'rgb(255, 255, 255)', 'white text on the dark section background');
+  assert.ok(await evaluate("document.querySelectorAll('.thumb [data-theme-part]').length") >= 4, 'thumbnails render the theme');
+  // A light theme flips the foreground to black.
+  await goto(slideIds.content);
+  await pause(600); await pickTheme('Orange shade 1'); // #FFEDD5
+  assert.equal(await colorOf(titleSel), 'rgb(0, 0, 0)', 'light theme → black title text');
+  assert.equal(await elementsJson(), beforeElements);
+  await evaluate('store.getState().undo()'); await pause();
+  assert.equal(await evaluate('store.getState().deck.themeColor'), '#881337', 'undo theme change');
+  await evaluate('store.getState().redo()'); await pause();
+  assert.equal(await evaluate('store.getState().deck.themeColor'), '#FFEDD5', 'redo theme change');
+  await pause(600); await pickTheme('Rose shade 5');
+  assert.equal(await colorOf(titleSel), 'rgb(255, 255, 255)');
+  console.log('PASS theme color (presentation-wide, title/header/section/footer decorations, readable foregrounds, user content untouched, undo/redo, thumbnails)');
   // Test .mslides download and the real openProject path with its file-picker boundary supplied.
   await evaluate('store.getState().stopEditing(); persist.saveProject()');
   const projectPath = path.join(output,'Formatting validation.mslides');
@@ -781,8 +828,10 @@ try {
   for (const l of ['python', 'c', 'bash']) assert.ok(savedSlide2.includes(`"language":"${l}"`), '.mslides keeps language ' + l);
   await evaluate(`persist.newProject()`); await pause();
   assert.equal(await evaluate('store.getState().deck.title'), 'Untitled presentation');
+  assert.equal(await evaluate('store.getState().deck.themeColor'), undefined, 'a new presentation starts without a theme (White)');
   await evaluate(`(async()=>{const archive=await persist.loadArchive(); await persist.restoreArchived(archive.find(a=>a.deck.title==='Formatting validation').id)})()`);
   assert.deepEqual(await evaluate('store.getState().deck'), saved.deck);
+  assert.equal(saved.deck.themeColor, '#881337', 'theme color is saved in the deck');
   await evaluate(`persist.newProject()`);
   await evaluate(`window.showOpenFilePicker=async()=>[{getFile:async()=>new File([${JSON.stringify(JSON.stringify(saved))}],'fixture.mslides',{type:'application/json'})}]; persist.openProject()`);
   assert.deepEqual(await evaluate('store.getState().deck'), saved.deck);
@@ -848,6 +897,17 @@ try {
   assert.equal(spChunks.filter((c) => c.includes('<a:t>Policy</a:t>') || c.includes('second line')).length, 1, 'the text lives only in the shape, no separate text box over it');
   assert.ok(!spChunks.find((c) => c.includes('prst="ellipse"'))?.includes('<a:t>'), 'empty shape exports no text');
   assert.ok(!/ProseMirror|caret/.test(shapeXml), 'no editor UI exported');
+  const themeSlideXml = async (pred) => zip.file('ppt/slides/slide' + (saved.deck.slides.findIndex(pred) + 1) + '.xml').async('string');
+  const titleXml = await themeSlideXml((x) => x.id === saved.deck.slides[0].id);
+  assert.match(titleXml, /name="Theme Title Band"[\s\S]{0,500}prst="rect"[\s\S]{0,200}val="881337"/, 'title band is a native rectangle');
+  assert.ok(titleXml.indexOf('name="Theme Title Band"') < titleXml.indexOf('<a:t>'), 'theme shapes sit under the content');
+  assert.match(titleXml, /name="Theme Footer Accent"/);
+  assert.match(xml2, /name="Theme Header Band"[\s\S]{0,500}val="881337"/, 'header band is native');
+  assert.match(xml2, /val="FFFFFF"[\s\S]{0,500}<a:t>슬라이드 제목<\/a:t>/, 'white editable title text over the dark header');
+  const subXml = await themeSlideXml((x) => x.kind === 'subtitle');
+  assert.match(subXml, /name="Theme Section Background"[\s\S]{0,500}val="881337"/, 'section background is native');
+  assert.match(subXml, /val="FFFFFF"[\s\S]{0,500}<a:t>/, 'white editable section text');
+  assert.ok(!/theme-decor|Theme:/.test(subXml + xml2), 'theme UI is not exported');
   const imgIndex = saved.deck.slides.indexOf(imageSlide) + 1;
   const xmlImg = await zip.file('ppt/slides/slide' + imgIndex + '.xml').async('string');
   const geom = /<a:off x="(\d+)" y="(\d+)"\/>\s*<a:ext cx="(\d+)" cy="(\d+)"\/>/;

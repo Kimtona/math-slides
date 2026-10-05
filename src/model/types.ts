@@ -153,6 +153,8 @@ export interface Deck {
   titleElementId?: ID;
   /** Table of Contents sections (derived from the TOC box; maps section → Sub-title slide). */
   sections?: Section[];
+  /** Presentation theme color (#rrggbb). Absent = White (no theme decorations). */
+  themeColor?: string;
   /** Citation metadata registry. */
   citations?: Record<ID, Citation>;
 }

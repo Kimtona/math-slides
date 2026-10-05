@@ -52,6 +52,15 @@ export function TextColorButton({ value }: { value: string | null }) {
   </Popover>;
 }
 
+/** Presentation Theme Color: the Text Color palette (Theme / Standard / Other colors), stored as Deck.themeColor. */
+export function ThemeColorButton({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  return <Popover title={`Theme: ${value}`} button={
+    <span className="color-btn"><span className="small-label">Theme</span><span className="swatch" style={{ backgroundColor: value }} /></span>
+  }>
+    {(close) => <ColorPalette value={value} close={close} apply={onChange} />}
+  </Popover>;
+}
+
 /** Shape Fill: the Highlight palette (shared HIGHLIGHT_COLORS) applied to a shape's fill; null = no fill. */
 export function ShapeFillButton({ value, onChange }: { value: string | null; onChange: (c: string | null) => void }) {
   return <Popover title={`채우기 (Fill): ${value ?? 'None'}`} button={

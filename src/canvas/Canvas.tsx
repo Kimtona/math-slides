@@ -1,11 +1,12 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Box, ImageElement, LineElement, SlideElement, TextElement } from '../model/types';
+import type { Box, ImageElement, LineElement, Slide, SlideElement, TextElement } from '../model/types';
 import { clampFrameToSource, coverFrame, cropFrom, cropOf, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { lineBox } from '../model/defaults';
+import { themedTextColor } from '../model/theme';
 import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
 import { currentSlide, useStore } from '../store/store';
-import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerNumberStyle, footerParts, footerRefStyle, LineSvg, ShapeView, slideNumberText } from '../render/ElementView';
+import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerParts, LineSvg, ShapeView, slideNumberText, ThemeDecor, useFooterStyles } from '../render/ElementView';
 import { extractCitations, resolveCitation } from '../citations/resolve';
 import { findCitations } from '../citations/providers';
 import { TextEditor } from '../editor/TextEditor';
@@ -345,6 +346,7 @@ function CropOverlay({ el, scale }: { el: ImageElement; scale: number }) {
 const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideElement; editing: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const assets = useStore((s) => s.assets);
+  const fg = useStore((s) => themedTextColor(s.deck, s.deck.slides.find((x) => x.id === s.currentSlideId)!, el));
   const selected = useStore((s) => s.selection.length === 1 && s.selection[0] === el.id && s.cropEditId !== el.id);
 
   // Text boxes are auto-height: measure and store the height (used for selection, snapping, export).
@@ -388,7 +390,7 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
   };
 
   return (
-    <div ref={ref} className={`el el-${el.type}${editing ? ' editing' : ''}`} style={elementBoxStyle(el)} data-el-id={el.id}
+    <div ref={ref} className={`el el-${el.type}${editing ? ' editing' : ''}`} style={elementBoxStyle(el, fg)} data-el-id={el.id}
       onPointerDown={onPointerDown} onDoubleClick={onDoubleClick}>
       {editing && el.type === 'text' ? <TextEditor el={el} />
         : editing && el.type === 'shape' ? <ShapeView el={el} editor={<TextEditor el={el} />} />
@@ -557,6 +559,7 @@ function CanvasFooter({ slideId }: { slideId: string }) {
   const registry = useStore((s) => s.deck.citations);
   const reference = slide?.reference ?? '';
   const cites = slide ? footerParts(slide, registry) : [];
+  const fs = useFooterStyles(slide ?? ({ elements: [] } as unknown as Slide));
   const ref = useRef<HTMLSpanElement>(null);
   // Uncontrolled while focused (keeps the caret); synced from the store otherwise (undo, slide switch).
   useLayoutEffect(() => {
@@ -576,8 +579,8 @@ function CanvasFooter({ slideId }: { slideId: string }) {
   const stop = (e: React.PointerEvent) => { e.stopPropagation(); const st = useStore.getState(); if (st.editingId) st.stopEditing(); if (st.selection.length) st.select([]); };
   return (
     <>
-      <div className="footer-num" style={footerNumberStyle}>{slideNumberText(index, total)}</div>
-      <div className="footer-ref editable-wrap" style={footerRefStyle} onPointerDown={stop}>
+      <div className="footer-num" style={fs.num}>{slideNumberText(index, total)}</div>
+      <div className="footer-ref editable-wrap" style={fs.ref} onPointerDown={stop}>
         {cites.map((c, i) => (
           <Fragment key={c.id}>
             {i > 0 && '; '}
@@ -679,6 +682,7 @@ export function Canvas() {
       <div className="slide-frame" style={{ width: SLIDE_W * scale, height: SLIDE_H * scale }}>
         <div ref={slideRef} className="slide editable" style={{ width: SLIDE_W, height: SLIDE_H, transform: `scale(${scale})`, background: slide.background }}>
           <div className="slide-content" onClickCapture={(e) => { if ((e.target as Element).closest('.el a[href]')) e.preventDefault(); }}>
+            <ThemeDecor slide={slide} />
             {slide.elements.map((el) => <CanvasElement key={el.id} el={el} editing={editingId === el.id} />)}
             <CanvasFooter slideId={slide.id} />
           </div>

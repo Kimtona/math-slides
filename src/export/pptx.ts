@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import type { Asset, Deck, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
 import { sourceRect } from '../model/imageCrop';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, TYPOGRAPHY } from '../model/typography';
+import { themeLayout } from '../model/theme';
 import { shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { isDocEmpty } from '../editor/docUtils';
 import { tokenColor } from '../editor/codeHighlight';
@@ -512,7 +513,7 @@ function addFooter(s: Slide, slideDom: Element, origin: DOMRect) {
   const num = slideDom.querySelector('[data-footer-num]');
   if (num) {
     const r = relRect(num, origin);
-    s.addText(num.textContent ?? '', { ...common, x: IN(r.x), y: IN(r.y), w: IN(r.w + 24), h: IN(r.h), align: 'left', wrap: false, objectName: 'Slide Number' });
+    s.addText(num.textContent ?? '', { ...common, color: hex(getComputedStyle(num).color), x: IN(r.x), y: IN(r.y), w: IN(r.w + 24), h: IN(r.h), align: 'left', wrap: false, objectName: 'Slide Number' });
   }
   const ref = slideDom.querySelector('[data-footer-ref]');
   if (ref?.textContent?.trim()) {
@@ -522,7 +523,7 @@ function addFooter(s: Slide, slideDom: Element, origin: DOMRect) {
     const runs: TextProps[] = [];
     const walk = (n: Node) => {
       if (n.nodeType === Node.TEXT_NODE) {
-        if (n.textContent) runs.push({ text: n.textContent, options: { color: hex(FOOTER_COLOR), hyperlink: linkOf(n) } });
+        if (n.textContent) runs.push({ text: n.textContent, options: { color: hex(getComputedStyle(ref).color), hyperlink: linkOf(n) } });
       } else n.childNodes.forEach(walk);
     };
     walk(ref);
@@ -543,6 +544,9 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
     const slideDom = root.querySelector(`[data-slide-id="${slide.id}"]`);
     if (!slideDom) continue;
     const origin = slideDom.getBoundingClientRect();
+    // Theme decorations (title band / header band / section background / footer accent) as native rectangles under the content.
+    const theme = themeLayout(deck, slide);
+    theme?.rects.forEach((r) => s.addShape('rect', { x: IN(r.x), y: IN(r.y), w: IN(r.w), h: IN(r.h), fill: { color: hex(theme.color) }, line: { color: hex(theme.color), width: 0 }, objectName: r.name }));
     for (const el of slide.elements) {
       if (el.type === 'shape') addShape(pptx, s, el, slideDom, origin);
       else if (el.type === 'line') addLine(pptx, s, el);

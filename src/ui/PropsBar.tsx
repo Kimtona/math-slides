@@ -3,11 +3,12 @@ import type { ImageElement, LineElement, ShapeElement, SlideElement, TextElement
 import { useStore } from '../store/store';
 import { getActiveEditor, onActiveEditorChange } from '../editor/active';
 import { Btn, ColorButton, Icons, NumberField, Popover, Sep, WidthButton } from './controls';
+import { themeColorOf } from '../model/theme';
 import { DEFAULT_TEXT_COLOR, emptyDoc, shapeTextStyle } from '../model/defaults';
 import { cropOf, isCropped, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { activeTextColor, markActive, setTextStyle, toggleList, toggleMark } from './textFormat';
-import { HighlightButton, ShapeFillButton, TextColorButton } from './TextColorPalette';
+import { HighlightButton, ShapeFillButton, TextColorButton, ThemeColorButton } from './TextColorPalette';
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
 
@@ -199,6 +200,7 @@ export function PropsBar() {
   const slide = useStore((s) => s.deck.slides.find((x) => x.id === s.currentSlideId)!);
   const slideIdx = useStore((s) => s.deck.slides.findIndex((x) => x.id === s.currentSlideId));
   const total = useStore((s) => s.deck.slides.length);
+  const deck = useStore((s) => s.deck);
   const els = slide.elements.filter((e) => selection.includes(e.id));
   const one: SlideElement | undefined = els.length === 1 ? els[0] : undefined;
 
@@ -208,6 +210,7 @@ export function PropsBar() {
         <>
           <span className="small-label">슬라이드 {slideIdx + 1} / {total}</span>
           <Sep />
+          <ThemeColorButton value={themeColorOf(deck)} onChange={(c) => useStore.getState().commit((d) => { d.themeColor = c; })} />
           <ColorButton title="슬라이드 배경" label={<span className="small-label">배경색</span>} value={slide.background}
             onChange={(c) => useStore.getState().commit((d) => { d.slides[slideIdx].background = c ?? '#ffffff'; })} />
           <span className="hint">빈 곳 클릭 → 텍스트 · 텍스트에서 <kbd>/math</kbd> → 수식 · 이미지는 끌어다 놓기 / ⌘V</span>

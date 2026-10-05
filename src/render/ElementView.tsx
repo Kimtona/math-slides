@@ -4,6 +4,7 @@ import type { Asset, Citation, LineElement, ShapeElement, Slide, SlideElement, T
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { StaticText } from './StaticText';
 import { isDocEmpty } from '../editor/docUtils';
+import { themeLayout, themedTextColor } from '../model/theme';
 import { shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, TYPOGRAPHY } from '../model/typography';
 
@@ -112,9 +113,25 @@ export function ElementBody({ el, assets, caption }: { el: SlideElement; assets:
   }
 }
 
-export function elementBoxStyle(el: SlideElement): CSSProperties {
+/** Presentation-level theme decorations of a slide (title band / header band / section background / footer accent). Not elements: never selectable. */
+export function ThemeDecor({ slide }: { slide: Slide }) {
+  const themeColor = useStore((s) => s.deck.themeColor);
+  const titleElementId = useStore((s) => s.deck.titleElementId);
+  const layout = themeLayout({ themeColor, titleElementId }, slide);
+  if (!layout) return null;
+  return <>{layout.rects.map((r) => <div key={r.name} className="theme-decor" data-theme-part={r.name} style={{ left: r.x, top: r.y, width: r.w, height: r.h, background: layout.color }} />)}</>;
+}
+
+/** Foreground override for text sitting on a theme-colored area (null = element's own color). */
+export function useThemedColor(slide: Slide, el: SlideElement): string | null {
+  const themeColor = useStore((s) => s.deck.themeColor);
+  const titleElementId = useStore((s) => s.deck.titleElementId);
+  return themedTextColor({ themeColor, titleElementId }, slide, el);
+}
+
+export function elementBoxStyle(el: SlideElement, fg?: string | null): CSSProperties {
   const base: CSSProperties = { left: el.x, top: el.y, width: el.w };
-  if (el.type === 'text') return { ...base, ...textBoxStyle(el), minHeight: el.style.fontSize * el.style.lineHeight };
+  if (el.type === 'text') return { ...base, ...textBoxStyle(el), ...(fg ? { color: fg } : {}), minHeight: el.style.fontSize * el.style.lineHeight };
   return { ...base, height: el.h };
 }
 
@@ -141,21 +158,38 @@ export function footerParts(slide: Slide, registry: Record<string, Citation> | u
   return (slide.citations ?? []).map((id) => registry?.[id]).filter((c): c is Citation => !!c);
 }
 
+/** Footer text color: gray, or the readable foreground on a full-theme section-divider slide. */
+export function useFooterStyles(slide: Slide) {
+  const themeColor = useStore((s) => s.deck.themeColor);
+  const fg = slide.kind === 'subtitle' ? themeLayout({ themeColor }, slide)?.fg : undefined;
+  return fg ? { num: { ...footerNumberStyle, color: fg }, ref: { ...footerRefStyle, color: fg } } : { num: footerNumberStyle, ref: footerRefStyle };
+}
+
 /** Static footer: slide number bottom-left, reference bottom-right (hidden when empty). */
 export function SlideFooter({ index, total, slide }: { index: number; total: number; slide: Slide }) {
   const registry = useStore((s) => s.deck.citations);
   const cites = footerParts(slide, registry);
   const manual = slide.reference?.trim();
+  const fs = useFooterStyles(slide);
   return (
     <>
-      <div className="footer-num" style={footerNumberStyle} data-footer-num>{slideNumberText(index, total)}</div>
+      <div className="footer-num" style={fs.num} data-footer-num>{slideNumberText(index, total)}</div>
       {cites.length || manual ? (
-        <div className="footer-ref" style={footerRefStyle} data-footer-ref>
+        <div className="footer-ref" style={fs.ref} data-footer-ref>
           {cites.map((c, i) => <Fragment key={c.id}>{i > 0 && '; '}<CitationLabel c={c} /></Fragment>)}
           {manual ? <>{cites.length ? '; ' : ''}{manual}</> : null}
         </div>
       ) : null}
     </>
+  );
+}
+
+function StaticElement({ slide, el, assets }: { slide: Slide; el: SlideElement; assets: Record<string, Asset> }) {
+  const fg = useThemedColor(slide, el);
+  return (
+    <div className={`el el-${el.type}`} style={elementBoxStyle(el, fg)} data-el-id={el.id}>
+      <ElementBody el={el} assets={assets} />
+    </div>
   );
 }
 
@@ -165,11 +199,8 @@ export const SlideView = memo(function SlideView({ slide, assets, className, ind
 }) {
   return (
     <div className={`slide ${className ?? ''}`} style={{ width: SLIDE_W, height: SLIDE_H, background: slide.background }} data-slide-id={slide.id}>
-      {slide.elements.map((el) => (
-        <div key={el.id} className={`el el-${el.type}`} style={elementBoxStyle(el)} data-el-id={el.id}>
-          <ElementBody el={el} assets={assets} />
-        </div>
-      ))}
+      <ThemeDecor slide={slide} />
+      {slide.elements.map((el) => <StaticElement key={el.id} slide={slide} el={el} assets={assets} />)}
       <SlideFooter index={index} total={total} slide={slide} />
     </div>
   );
