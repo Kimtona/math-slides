@@ -75,6 +75,7 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .menu-item.sel { color: var(--accent); font-weight: 600; }
 .menu-item.danger { color: #cf222e; }
 .menu-kbd { color: var(--muted); font-size: 12px; }
+.menu-sep { height: 1px; background: var(--line); margin: 4px 2px; }
 .menu-caption { grid-column: 1 / -1; color: var(--muted); font-size: 11px; padding: 2px 4px 4px; }
 .align-grid { display: grid; grid-template-columns: repeat(3, 34px); gap: 2px; }
 .width-btn { gap: 6px; }

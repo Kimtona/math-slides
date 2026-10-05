@@ -1,11 +1,31 @@
 import { useStore } from '../store/store';
 import { Btn, Icons, MenuItem, Popover, Sep } from './controls';
 import { insertLine, insertMathBox, insertShape, insertTextCenter, pickImages } from '../canvas/insert';
-import { newProject, openProject, saveProject } from '../store/persistence';
+import { loadArchive, newProject, openProject, restoreArchived, saveProject, type ArchivedPresentation } from '../store/persistence';
+import { useEffect, useState } from 'react';
 import { exportPdf, exportPptx } from '../export/run';
 
 export const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 export const MOD = isMac ? '⌘' : 'Ctrl+';
+
+/** Presentations set aside by "새 프레젠테이션" — click one to reopen it. */
+function PreviousPresentations() {
+  const [list, setList] = useState<ArchivedPresentation[] | null>(null);
+  useEffect(() => { loadArchive().then(setList); }, []);
+  if (!list?.length) return null;
+  const fmt = (t: number) => new Date(t).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return (
+    <>
+      <div className="menu-caption">이전 프레젠테이션 열기</div>
+      {list.map((a) => (
+        <MenuItem key={a.id} onClick={() => restoreArchived(a.id)} shortcut={fmt(a.savedAt)}>
+          {a.deck.title} <span className="menu-kbd">· {a.deck.slides.length}장</span>
+        </MenuItem>
+      ))}
+      <div className="menu-sep" />
+    </>
+  );
+}
 
 export function Toolbar() {
   const title = useStore((s) => s.deck.title);
@@ -21,6 +41,7 @@ export function Toolbar() {
           {(close) => (
             <div className="menu" onClick={close}>
               <MenuItem onClick={newProject}>새 프레젠테이션</MenuItem>
+              <PreviousPresentations />
               <MenuItem onClick={openProject} shortcut={`${MOD}O`}>열기…</MenuItem>
               <MenuItem onClick={() => saveProject()} shortcut={`${MOD}S`}>저장</MenuItem>
               <MenuItem onClick={() => saveProject(true)} shortcut={`${MOD}⇧S`}>다른 이름으로 저장…</MenuItem>

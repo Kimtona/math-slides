@@ -1,6 +1,7 @@
 import { get, set, del, keys } from 'idb-keyval';
 import type { Asset, Deck } from '../model/types';
-import { initialDeck } from '../model/defaults';
+import { DEFAULT_TITLE, initialDeck, isTemplatePlaceholder } from '../model/defaults';
+import { plainText } from '../editor/docUtils';
 import { useStore } from './store';
 
 // Autosave: the deck JSON and each image asset are stored separately in IndexedDB,
@@ -50,6 +51,7 @@ export function startAutosave() {
     const st = useStore.getState();
     const used = referencedAssetIds(st.deck);
     [...st.past, ...st.future].forEach((d) => referencedAssetIds(d).forEach((i) => used.add(i)));
+    (await loadArchive()).forEach((a) => referencedAssetIds(a.deck).forEach((i) => used.add(i)));
     for (const k of await keys()) {
       const key = String(k);
       if (key.startsWith('asset:') && !used.has(key.slice(6))) await del(key);
@@ -177,10 +179,62 @@ export async function openProject() {
   }
 }
 
-export function newProject() {
-  if (!confirm('새 프레젠테이션을 만들까요? 현재 내용은 자동 저장본에서 사라집니다 (먼저 ⌘S로 파일 저장 권장).')) return;
-  const deck = initialDeck();
-  useStore.getState().loadDeck(deck, {});
+// ---------- new presentation vs. restoring an existing one ----------
+// Startup restores the autosaved presentation (loadAutosave). Creating a new presentation must not
+// destroy it: the current presentation is moved to a small archive of previous presentations
+// (IndexedDB, images included) that can be reopened from the ∑ menu.
+
+const ARCHIVE_KEY = 'archive:v1';
+const ARCHIVE_LIMIT = 20;
+
+export interface ArchivedPresentation {
+  id: string;
+  savedAt: number;
+  deck: Deck;
+}
+
+export async function loadArchive(): Promise<ArchivedPresentation[]> {
+  return ((await get(ARCHIVE_KEY)) as ArchivedPresentation[] | undefined) ?? [];
+}
+
+/** An untouched new presentation (only template text, no references) isn't worth archiving. */
+function isPristine(deck: Deck): boolean {
+  return deck.slides.length === 1 && deck.title === DEFAULT_TITLE && !deck.slides[0].reference?.trim()
+    && !deck.slides[0].notes.trim()
+    && deck.slides[0].elements.every((e) => e.type === 'text' && isTemplatePlaceholder(plainText(e.doc)));
+}
+
+async function archiveCurrent() {
+  const st = useStore.getState();
+  st.stopEditing();
+  st.exitCrop();
+  if (isPristine(st.deck)) return;
+  const entry: ArchivedPresentation = { id: crypto.randomUUID(), savedAt: Date.now(), deck: st.deck };
+  // Make sure the archived deck's images are persisted (they normally already are).
+  referencedAssetIds(st.deck).forEach((id) => st.assets[id] && saveAsset(st.assets[id]));
+  await set(ARCHIVE_KEY, [entry, ...(await loadArchive())].slice(0, ARCHIVE_LIMIT));
+}
+
+/** Create a genuinely fresh presentation: one Title Slide, default title, empty history. */
+export async function newProject() {
+  await archiveCurrent();
+  useStore.getState().loadDeck(initialDeck(), {});
+  useStore.setState({ fileHandle: null });
+  flash('새 프레젠테이션 — 이전 프레젠테이션은 ∑ 메뉴에서 다시 열 수 있습니다');
+}
+
+/** Reopen an archived presentation; the current one is archived in its place (nothing is lost). */
+export async function restoreArchived(id: string) {
+  const entry = (await loadArchive()).find((a) => a.id === id);
+  if (!entry) return;
+  await archiveCurrent();
+  await set(ARCHIVE_KEY, (await loadArchive()).filter((a) => a.id !== id));
+  const assets: Record<string, Asset> = {};
+  await Promise.all([...referencedAssetIds(entry.deck)].map(async (aid) => {
+    const a = (await get(assetKey(aid))) as Asset | undefined;
+    if (a) assets[aid] = a;
+  }));
+  useStore.getState().loadDeck(entry.deck, assets);
   useStore.setState({ fileHandle: null });
 }
 

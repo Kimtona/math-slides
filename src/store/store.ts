@@ -168,6 +168,7 @@ export const useStore = create<AppState>()((set, get) => {
     loadDeck: (deck, assets) => {
       set({
         deck, assets, past: [], future: [], gestureBase: null, selection: [], editingId: null, mathEdit: null, cropEditId: null,
+        editingIsNew: false, editCaret: null, guides: [], focusArea: 'canvas', presenting: false,
         currentSlideId: deck.slides[0].id,
       });
     },
