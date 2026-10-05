@@ -37,6 +37,14 @@ To install the local build:
 
 The macOS build is currently unsigned and not notarized, so macOS may show a security warning the first time you open it. `release/` is generated output and is intentionally ignored by Git.
 
+## Documents and autosave
+
+- **Autosave** is internal (IndexedDB) and never writes your `.mslides` file. It keeps the working presentation, so quitting, reopening the window (Dock) or reloading restores it with the same `Deck.id`.
+- **새 프레젠테이션** creates a new presentation (new `Deck.id`); the previous one is archived under "이전 프레젠테이션" if it contains real changes (blank decks are never archived).
+- **열기** archives the current presentation first, keeps the file's `Deck.id`, and makes that file the current file.
+- **저장** writes the current `.mslides` file (the picker appears only when there is none or it can't be written). The current file is remembered across restarts.
+- **다른 이름으로 저장** creates an independent presentation: a new `Deck.id`, written into the new file; the original file is not touched.
+
 ## How to use it
 
 | Action | How |

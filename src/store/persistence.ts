@@ -1,6 +1,6 @@
 import { get, set, del, keys } from 'idb-keyval';
 import type { Asset, Deck } from '../model/types';
-import { DEFAULT_TITLE, initialDeck, isTemplatePlaceholder } from '../model/defaults';
+import { initialDeck, uid } from '../model/defaults';
 import { plainText } from '../editor/docUtils';
 import { useStore } from './store';
 
@@ -19,20 +19,60 @@ function referencedAssetIds(deck: Deck) {
   return ids;
 }
 
+const FILE_KEY = 'file:v1';
+
+function isValidDeck(d: unknown): d is Deck {
+  const x = d as Deck | undefined;
+  return !!x && Array.isArray(x.slides) && x.slides.length > 0 && x.slides.every((sl) => !!sl && typeof sl.id === 'string' && Array.isArray(sl.elements));
+}
+
+async function loadAssetsFor(deck: Deck): Promise<Record<string, Asset>> {
+  const assets: Record<string, Asset> = {};
+  await Promise.all([...referencedAssetIds(deck)].map(async (id) => {
+    const a = (await get(assetKey(id))) as Asset | undefined;
+    if (a) assets[id] = a;
+  }));
+  return assets;
+}
+
 /**
- * App startup = a new presentation (like PowerPoint/Canva). The presentation from the last session
- * (still in the autosave slot) is moved to "이전 프레젠테이션" first, so nothing is lost;
- * only then is the slot taken over by the fresh deck.
+ * App/renderer startup restores the working presentation from the internal autosave slot — same
+ * Deck.id, nothing archived, no new Untitled presentation. Only when there is nothing valid to restore
+ * does the fresh deck (created with the store) become the working presentation. The explicit .mslides
+ * association (a persisted file handle) is restored when it belongs to the same Deck.id.
+ * An unreadable autosave record is kept under a separate key, never discarded.
  */
-export async function startNewSession() {
+export async function startSession() {
   try {
-    const last = (await get(DECK_KEY)) as Deck | undefined;
-    if (last?.slides?.length) await archiveDeck(last);
+    const last = await get(DECK_KEY);
+    if (isValidDeck(last)) {
+      const deck: Deck = last.id ? last : { ...last, id: uid() };
+      useStore.getState().loadDeck(deck, await loadAssetsFor(deck));
+      const assoc = (await get(FILE_KEY)) as { handle?: any; deckId?: string } | undefined;
+      if (assoc?.handle && assoc.deckId === deck.id) useStore.setState({ fileHandle: assoc.handle });
+      return;
+    }
+    if (last !== undefined) await set(`deck:unreadable:${Date.now()}`, last);
     await set(DECK_KEY, useStore.getState().deck);
   } catch (e) {
-    console.error('startup archive failed', e);
+    console.error('startup restore failed', e);
   }
 }
+
+/** Remember which .mslides file the current presentation belongs to (a File System Access handle). */
+async function rememberFile(handle: any, deckId: string | undefined) {
+  try {
+    if (!handle || !deckId) return void (await del(FILE_KEY));
+    await set(FILE_KEY, { handle, name: handle.name, deckId });
+  } catch (e) {
+    // Not every handle can be stored (e.g. non-native stand-ins); the in-memory association still works.
+    console.warn('file handle not persisted', e);
+    await del(FILE_KEY).catch(() => {});
+  }
+}
+
+/** Immediate internal save of the working deck (crash safety at lifecycle switches). */
+const saveWorking = () => set(DECK_KEY, useStore.getState().deck);
 
 let timer: number | undefined;
 export function startAutosave() {
@@ -46,6 +86,8 @@ export function startAutosave() {
       useStore.setState({ saveState: 'saved' });
     }, 500);
   });
+  // A reload/quit right after an edit must not lose it to the debounce.
+  window.addEventListener('pagehide', () => { clearTimeout(timer); void saveWorking(); });
   // Garbage-collect assets no longer referenced by the deck (or by undo history) once per session.
   setTimeout(async () => {
     const st = useStore.getState();
@@ -70,8 +112,9 @@ interface ProjectFile {
 
 const FILE_TYPES = [{ description: 'MathSlides presentation', accept: { 'application/json': ['.mslides'] } }];
 
-function projectJson(): string {
-  const { deck, assets } = useStore.getState();
+function projectJson(deckId?: string): string {
+  const { assets } = useStore.getState();
+  const deck = deckId ? { ...useStore.getState().deck, id: deckId } : useStore.getState().deck;
   const used = referencedAssetIds(deck);
   const file: ProjectFile = {
     format: 'mathslides', version: 1, deck,
@@ -115,28 +158,56 @@ export async function saveBlob(blob: Blob, suggestedName: string, types?: any[])
   return true;
 }
 
+/** Write permission of a (possibly restored) handle; stand-ins without the permission API count as granted. */
+async function ensureWritable(handle: any) {
+  if (typeof handle.queryPermission !== 'function') return;
+  let p = await handle.queryPermission({ mode: 'readwrite' });
+  if (p !== 'granted' && typeof handle.requestPermission === 'function') p = await handle.requestPermission({ mode: 'readwrite' });
+  if (p !== 'granted') throw new Error('write permission ' + p);
+}
+
+/** Give the current presentation a new identity (Save As): live deck, undo snapshots and the working slot. */
+function adoptIdentity(newId: string) {
+  useStore.setState((s) => ({
+    deck: { ...s.deck, id: newId },
+    past: s.past.map((d) => ({ ...d, id: newId })),
+    future: s.future.map((d) => ({ ...d, id: newId })),
+    gestureBase: s.gestureBase ? { ...s.gestureBase, id: newId } : null,
+  }));
+}
+
+/**
+ * Save writes the current .mslides file (picker only when there is none, or it can't be written);
+ * Save As always asks for a file and makes the result an independent presentation with a NEW Deck.id
+ * (the original file is not touched). Autosave never writes these files.
+ */
 export async function saveProject(saveAs = false) {
   const st = useStore.getState();
-  const blob = new Blob([projectJson()], { type: 'application/json' });
   const w = window as any;
   if (st.fileHandle && !saveAs) {
     try {
+      await ensureWritable(st.fileHandle);
       const ws = await st.fileHandle.createWritable();
-      await ws.write(blob);
+      await ws.write(new Blob([projectJson()], { type: 'application/json' }));
       await ws.close();
       flash('저장됨 — ' + st.fileHandle.name);
       return;
     } catch (e) {
-      console.warn('write to handle failed', e);
+      console.warn('write to handle failed, asking for a file', e);
     }
   }
+  const newId = saveAs ? uid() : undefined;
+  const blob = new Blob([projectJson(newId)], { type: 'application/json' });
   if (w.showSaveFilePicker) {
     try {
       const h = await w.showSaveFilePicker({ suggestedName: safeName(st.deck.title) + '.mslides', types: FILE_TYPES });
       const ws = await h.createWritable();
       await ws.write(blob);
       await ws.close();
+      if (newId) adoptIdentity(newId);
       useStore.setState({ fileHandle: h });
+      await rememberFile(h, useStore.getState().deck.id);
+      await saveWorking();
       flash('저장됨 — ' + h.name);
       return;
     } catch (e: any) {
@@ -170,10 +241,15 @@ export async function openProject() {
   if (!file) return;
   try {
     const data = JSON.parse(await file.text()) as ProjectFile;
-    if (data.format !== 'mathslides' || !data.deck?.slides?.length) throw new Error('not a MathSlides file');
+    if (data.format !== 'mathslides' || !isValidDeck(data.deck)) throw new Error('not a MathSlides file');
+    // Never replace meaningful unsaved work silently: it goes to the archive first (same-id entries are updated).
+    await archiveCurrent();
+    const deck: Deck = data.deck.id ? data.deck : { ...data.deck, id: uid() }; // keep the file's identity
     Object.values(data.assets ?? {}).forEach(saveAsset);
-    useStore.getState().loadDeck(data.deck, data.assets ?? {});
+    useStore.getState().loadDeck(deck, data.assets ?? {});
     useStore.setState({ fileHandle: handle });
+    await rememberFile(handle, deck.id);
+    await saveWorking();
   } catch (e) {
     alert('파일을 열 수 없습니다: ' + (e as Error).message);
   }
@@ -195,11 +271,26 @@ export async function loadArchive(): Promise<ArchivedPresentation[]> {
   return ((await get(ARCHIVE_KEY)) as ArchivedPresentation[] | undefined) ?? [];
 }
 
-/** An untouched new presentation (only template text, no references) isn't worth archiving. */
-function isPristine(deck: Deck): boolean {
-  return deck.slides.length === 1 && deck.title === DEFAULT_TITLE && !deck.slides[0].reference?.trim()
-    && !deck.slides[0].notes.trim()
-    && deck.slides[0].elements.every((e) => e.type === 'text' && isTemplatePlaceholder(plainText(e.doc)));
+/**
+ * Comparable form of a deck: everything that is real user state (title, theme, slides, backgrounds,
+ * notes, references, citations, sections, element data), without ids, measured text heights and the
+ * exact TipTap JSON of text (compared as plain text).
+ */
+function normalized(d: Deck): string {
+  const some = <T extends object | undefined>(v: T) => (v && (Array.isArray(v) ? v.length : Object.keys(v).length) ? v : undefined);
+  return JSON.stringify({
+    title: d.title, themeColor: d.themeColor, sections: some(d.sections), citations: some(d.citations),
+    slides: d.slides.map((s) => ({
+      background: s.background, notes: s.notes, reference: s.reference || '', kind: s.kind, citations: some(s.citations),
+      elements: s.elements.map((e) => (e.type === 'text' ? { ...e, id: undefined, h: undefined, doc: plainText(e.doc) } : { ...e, id: undefined })),
+    })),
+  });
+}
+let freshSignature: string | undefined;
+
+/** A presentation equal to a brand-new default one (untouched) isn't worth archiving. */
+export function isPristine(deck: Deck): boolean {
+  return normalized(deck) === (freshSignature ??= normalized(initialDeck()));
 }
 
 /**
@@ -226,8 +317,10 @@ async function archiveCurrent() {
 /** Create a genuinely fresh presentation: one Title Slide, default title, empty history. */
 export async function newProject() {
   await archiveCurrent();
-  useStore.getState().loadDeck(initialDeck(), {});
+  useStore.getState().loadDeck(initialDeck(), {}); // fresh unique Deck.id, no file association
   useStore.setState({ fileHandle: null });
+  await rememberFile(null, undefined);
+  await saveWorking();
   flash('새 프레젠테이션 — 이전 프레젠테이션은 ∑ 메뉴에서 다시 열 수 있습니다');
 }
 
@@ -244,6 +337,8 @@ export async function restoreArchived(id: string) {
   }));
   useStore.getState().loadDeck(entry.deck, assets);
   useStore.setState({ fileHandle: null });
+  await rememberFile(null, undefined);
+  await saveWorking();
 }
 
 // ---------- tiny toast ----------

@@ -51,7 +51,10 @@ function send(method, params = {}) {
   });
 }
 async function evaluate(expression) {
-  const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+  const r = await Promise.race([
+    send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }),
+    new Promise((_, rej) => setTimeout(() => rej(Error('evaluate timed out: ' + expression.slice(0, 120))), 60000)),
+  ]);
   if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
   return r.result.value;
 }
@@ -79,6 +82,9 @@ async function connect() {
   });
   await send('Runtime.enable');
   await until(() => evaluate(`!!document.querySelector('.propsbar')`), 'App failed to mount');
+  await inject();
+}
+async function inject() {
   await evaluate(`(async () => {
     window.store = (await import('/src/store/store.ts')).useStore;
     window.active = (await import('/src/editor/active.ts')).getActiveEditor;
@@ -89,6 +95,10 @@ async function connect() {
     window.showSaveFilePicker = async ({suggestedName}) => ({name:suggestedName,createWritable:async()=>({
       write:async(blob)=>{testFiles[suggestedName]=[...new Uint8Array(await blob.arrayBuffer())]},close:async()=>{}
     })});
+    // Real (origin-private) file handles for the document-lifecycle checks: storable in IndexedDB, writable, deletable.
+    window.__opfsDir = () => navigator.storage.getDirectory();
+    window.__opfsWrite = async (name, text) => { const h = await (await __opfsDir()).getFileHandle(name, {create: true}); const w = await h.createWritable(); await w.write(text); await w.close(); return h; };
+    window.__opfsRead = async (name) => (await (await (await __opfsDir()).getFileHandle(name)).getFile()).text();
   })()`);
 }
 async function launch() {
@@ -930,11 +940,11 @@ try {
   await evaluate('delete window.showOpenFilePicker; store.setState({fileHandle:null})');
   await until(()=>evaluate("store.getState().saveState === 'saved'"), 'Autosave pending');
   // Close and start the actual desktop process with the same disposable profile.
+  const archiveBeforeRestart = await evaluate('persist.loadArchive().then(a => a.map(x => x.id).join())');
   socket.close(); electron.kill('SIGTERM'); await new Promise(r=>electron.once('exit',r));
   await launch();
-  assert.equal(await evaluate('store.getState().deck.title'), 'Untitled presentation');
-  await evaluate(`(async()=>{const archive=await persist.loadArchive(); await persist.restoreArchived(archive.find(a=>a.deck.title==='Formatting validation').id)})()`);
-  assert.deepEqual(await evaluate('store.getState().deck'), saved.deck);
+  assert.deepEqual(await evaluate('store.getState().deck'), saved.deck, 'restart restores the working presentation (same Deck.id and content)');
+  assert.equal(await evaluate('persist.loadArchive().then(a => a.map(x => x.id).join())'), archiveBeforeRestart, 'restart does not archive anything');
   console.log('PASS autosave, desktop restart, archive reopen, .mslides save/open');
   // Exercise both existing export actions from the fixed toolbar.
   await click('.export-menu > button');
@@ -1028,6 +1038,131 @@ try {
   await evaluate('store.getState().goToSlide(store.getState().deck.slides[0].id); store.setState({presenting:true})'); await pause();
   await screenshot('rich-text-presenter'); await key('Escape');
   console.log('PASS PDF export, editable PPTX colors/highlights/monospace runs and hyperlinks');
+  // ---- Presentation lifecycle: restore on startup, New, Open, Save, Save As, file association ----
+  const deckId = () => evaluate('store.getState().deck.id');
+  const archiveIds = () => evaluate('persist.loadArchive().then(a => a.map(x => x.deck.id))');
+  const archiveSig = () => evaluate('persist.loadArchive().then(a => a.map(x => x.id).join())');
+  const setTitle2 = async (t) => { await evaluate(`store.getState().commit(d => { d.title = ${JSON.stringify(t)}; })`); await pause(); };
+  const settled = () => until(() => evaluate("store.getState().saveState === 'saved'"), 'autosave settled');
+  const restart = async () => { await settled(); await pause(300); socket.close(); electron.kill('SIGTERM'); await new Promise((r) => electron.once('exit', r)); await launch(); };
+  const assoc = () => evaluate(`new Promise((res) => { const o = indexedDB.open('keyval-store'); o.onsuccess = () => { const g = o.result.transaction('keyval').objectStore('keyval').get('file:v1'); g.onsuccess = () => res(g.result ? {name: g.result.name, deckId: g.result.deckId, hasHandle: !!g.result.handle} : null); }; })`);
+  const stubSavePicker = (name) => evaluate(`window.__picks = 0; window.showSaveFilePicker = async () => { __picks++; return await (await __opfsDir()).getFileHandle(${JSON.stringify(name)}, {create: true}); };`);
+  const fileDeck = async (name) => JSON.parse(await evaluate(`__opfsRead(${JSON.stringify(name)})`)).deck;
+  const oldArchive = await evaluate('persist.loadArchive()');
+  assert.ok(oldArchive.length > 0 && oldArchive.every((a) => a.deck.slides.length > 0), 'existing archive records stay readable');
+
+  // Pristine detection: the real persisted state, not UI checks.
+  await evaluate('persist.newProject()'); await pause();
+  assert.equal(await evaluate('persist.isPristine(store.getState().deck)'), true, 'untouched default deck is pristine');
+  const changes = {
+    'Theme Color': "d.themeColor = '#881337'", 'slide background': "d.slides[0].background = '#eeeeee'", 'notes': "d.slides[0].notes = 'n'",
+    'a moved element': 'd.slides[0].elements[0].x += 10', 'a new slide': 'd.slides.push(JSON.parse(JSON.stringify(d.slides[0])))', 'title': "d.title = 'x'",
+    'edited text': "d.slides[0].elements[0].doc = {type: 'doc', content: [{type: 'paragraph', content: [{type: 'text', text: 'hello'}]}]}",
+  };
+  for (const [name, code] of Object.entries(changes)) {
+    assert.equal(await evaluate(`(() => { const d = structuredClone(store.getState().deck); (d => { ${code} })(d); return persist.isPristine(d); })()`), false, name + ' is meaningful, not pristine');
+  }
+  // Re-rendering an untouched deck (measured text heights etc.) keeps it pristine.
+  await pause(500);
+  assert.equal(await evaluate('persist.isPristine(store.getState().deck)'), true, 'still pristine after layout measurements');
+
+  // New Presentation: new identity every time; only meaningful decks are archived.
+  const a0 = await archiveIds(); const id0 = await deckId();
+  await evaluate('persist.newProject()'); await pause(); await evaluate('persist.newProject()'); await pause();
+  assert.deepEqual(await archiveIds(), a0, 'untouched blank presentations never flood the archive');
+  assert.notEqual(await deckId(), id0, 'New Presentation gets a fresh Deck.id even when the previous one was blank');
+  const idA = await deckId();
+  await setTitle2('Lifecycle A'); await evaluate("store.getState().commit(d => { d.themeColor = '#881337'; })");
+  await settled();
+  await evaluate('persist.newProject()'); await pause();
+  const idB = await deckId();
+  assert.notEqual(idB, idA, 'B is a new logical presentation');
+  assert.deepEqual(await archiveIds(), [idA, ...a0], 'meaningful A was archived once, newest first');
+  assert.equal(await evaluate("persist.loadArchive().then(a => a[0].deck.themeColor)"), '#881337', 'a Theme-only/presentation-level change is kept');
+
+  // Restart and renderer reload restore the working presentation; nothing is archived.
+  await setTitle2('Lifecycle B'); await settled();
+  const archiveBefore = await archiveSig();
+  await restart();
+  assert.equal(await deckId(), idB, 'restart restores B with the same Deck.id');
+  assert.equal(await evaluate('store.getState().deck.title'), 'Lifecycle B');
+  assert.equal(await archiveSig(), archiveBefore, 'restart does not touch the archive');
+  await send('Page.reload'); await pause(800); await until(() => evaluate("!!document.querySelector('.propsbar')"), 'reload'); await inject();
+  assert.equal(await deckId(), idB, 'a renderer reload / window recreation keeps the same presentation');
+  assert.equal(await archiveSig(), archiveBefore, 'reload does not archive');
+
+  // Autosave is internal: it updates the working state and never writes a .mslides file.
+  await __ensureNone();
+  async function __ensureNone() {}
+  await stubSavePicker('Lifecycle-C.mslides');
+  const cDeck = await evaluate("(() => { const d = defaults.initialDeck(); d.id = 'C-DECK-ID'; d.title = 'File C'; return d; })()");
+  await evaluate(`__opfsWrite('C.mslides', ${JSON.stringify(JSON.stringify({format: 'mathslides', version: 1, deck: cDeck, assets: {}}))})`);
+  await evaluate("window.showOpenFilePicker = async () => [await (await __opfsDir()).getFileHandle('C.mslides')]");
+  // Open: B (meaningful, unsaved) is preserved first; C keeps its id and becomes the current file.
+  await evaluate('persist.openProject()'); await until(async () => (await deckId()) === 'C-DECK-ID', 'C opened');
+  assert.ok((await archiveIds()).includes(idB), 'B was archived before C replaced it');
+  assert.deepEqual(await assoc(), {name: 'C.mslides', deckId: 'C-DECK-ID', hasHandle: true}, 'the opened file is the persisted current file association');
+  assert.equal(await evaluate('store.getState().fileHandle.name'), 'C.mslides');
+  // Opening it repeatedly never duplicates entries of one logical presentation.
+  await evaluate('persist.openProject()'); await pause(600); await evaluate('persist.openProject()'); await pause(600);
+  assert.equal((await archiveIds()).filter((i) => i === 'C-DECK-ID').length <= 1, true, 'one archive entry per Deck.id');
+  assert.equal((await archiveIds()).filter((i) => i === idB).length, 1);
+  // Autosave does not write the file; explicit Save does, to the same file, without a picker.
+  const cBefore = await evaluate("__opfsRead('C.mslides')");
+  await setTitle2('File C v2'); await settled();
+  assert.equal(await evaluate("__opfsRead('C.mslides')"), cBefore, 'autosave never overwrites the .mslides file');
+  assert.equal(await evaluate('persist.loadArchive().then(() => 1)'), 1);
+  await evaluate('persist.saveProject()'); await pause(500);
+  assert.equal((await fileDeck('C.mslides')).title, 'File C v2', 'Save writes the associated file');
+  assert.equal((await fileDeck('C.mslides')).id, 'C-DECK-ID', 'Save keeps the Deck.id');
+  assert.equal(await evaluate('__picks'), 0, 'Save does not show the picker when a file is associated');
+
+  // Save As: an independent presentation with a new Deck.id; the original file is untouched.
+  const cText = await evaluate("__opfsRead('C.mslides')");
+  await stubSavePicker('D.mslides');
+  await evaluate('persist.saveProject(true)'); await pause(600);
+  const dId = await deckId();
+  assert.notEqual(dId, 'C-DECK-ID', 'Save As gives the current presentation a new Deck.id');
+  assert.equal((await fileDeck('D.mslides')).id, dId, 'the new id is written into D.mslides');
+  assert.equal(await evaluate("__opfsRead('C.mslides')"), cText, 'the original C.mslides is not modified');
+  assert.equal(await evaluate('store.getState().fileHandle.name'), 'D.mslides', 'D is now the current file');
+  assert.equal(await evaluate('store.getState().past.every(d => d.id === store.getState().deck.id)'), true, 'undo snapshots follow the new identity');
+  await setTitle2('File D v2'); await settled();
+  await stubSavePicker('unused.mslides');
+  await evaluate('persist.saveProject()'); await pause(500);
+  assert.equal((await fileDeck('D.mslides')).title, 'File D v2', 'subsequent Save targets D');
+  assert.equal((await fileDeck('C.mslides')).title, 'File C v2', 'C stays as it was');
+  assert.equal(await evaluate('__picks'), 0);
+
+  // The file association survives a restart; Save keeps writing D without asking.
+  await restart();
+  assert.equal(await deckId(), dId, 'D restores as the working presentation');
+  assert.equal(await evaluate('store.getState().fileHandle?.name'), 'D.mslides', 'file association restored after restart');
+  await stubSavePicker('unused.mslides');
+  await setTitle2('File D v3'); await settled();
+  await evaluate('persist.saveProject()'); await pause(500);
+  assert.equal((await fileDeck('D.mslides')).title, 'File D v3', 'Save after restart writes the restored file');
+  assert.equal(await evaluate('__picks'), 0, 'no picker after restart');
+  // An unavailable/invalid handle falls back to the picker and loses nothing.
+  await evaluate("store.setState({fileHandle: {name: 'D.mslides', queryPermission: async () => 'granted', createWritable: async () => { throw new DOMException('file is gone', 'NotFoundError'); }}})");
+  await stubSavePicker('D-recovered.mslides');
+  await setTitle2('File D v4'); await settled();
+  await evaluate('persist.saveProject()'); await pause(600);
+  assert.equal(await evaluate('__picks'), 1, 'stale handle → Save picker');
+  assert.equal((await fileDeck('D-recovered.mslides')).title, 'File D v4', 'data is saved through the fallback');
+  assert.equal(await evaluate('store.getState().fileHandle.name'), 'D-recovered.mslides');
+  // First Save of a never-saved presentation asks for a file once, then reuses it.
+  await evaluate('persist.newProject()'); await pause(); await setTitle2('Never saved'); await stubSavePicker('N.mslides');
+  await evaluate('persist.saveProject()'); await pause(500); await evaluate('persist.saveProject()'); await pause(500);
+  assert.equal(await evaluate('__picks'), 1, 'picker only for the first Save');
+  // Restart / reload never flood the archive with Untitled entries.
+  const finalArchive = await archiveSig();
+  await restart(); await send('Page.reload'); await pause(800); await until(() => evaluate("!!document.querySelector('.propsbar')"), 'reload'); await inject();
+  assert.equal(await archiveSig(), finalArchive, 'restart + reload leave the archive untouched');
+  assert.equal((await evaluate('persist.loadArchive()')).length, (await evaluate('persist.loadArchive()')).length);
+  const nowIds = new Set((await evaluate('persist.loadArchive()')).map((a) => a.deck.id));
+  assert.ok(oldArchive.every((a) => nowIds.has(a.deck.id)), 'every pre-existing archived presentation (by Deck.id) is still there');
+  console.log('PASS presentation lifecycle (restore, New, Open, Save, Save As, file association, pristine detection, archive)');
   console.log('OUTPUT', output);
   }
 } catch (error) {
