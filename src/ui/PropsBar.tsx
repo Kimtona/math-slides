@@ -7,7 +7,7 @@ import { DEFAULT_TEXT_COLOR, emptyDoc, shapeTextStyle } from '../model/defaults'
 import { cropOf, isCropped, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { activeTextColor, markActive, setTextStyle, toggleList, toggleMark } from './textFormat';
-import { HighlightButton, TextColorButton } from './TextColorPalette';
+import { HighlightButton, ShapeFillButton, TextColorButton } from './TextColorPalette';
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
 
@@ -86,8 +86,7 @@ function ShapeProps({ el }: { el: ShapeElement }) {
   const upd = (fn: (d: ShapeElement) => void) => useStore.getState().updateElements([el.id], (d) => fn(d as ShapeElement));
   return (
     <>
-      <ColorButton title="채우기 (Fill)" label={<span className="small-label">채우기</span>} allowNone noneLabel="투명 (No fill)"
-        value={el.fill} onChange={(c) => upd((d) => { d.fill = c; })} />
+      <ShapeFillButton value={el.fill} onChange={(c) => upd((d) => { d.fill = c; })} />
       <ColorButton title="테두리 (Border)" label={<span className="small-label">테두리</span>} allowNone noneLabel="테두리 없음"
         value={el.stroke} onChange={(c) => upd((d) => { d.stroke = c; })} />
       <WidthButton title="테두리 두께" allowNone value={el.stroke ? el.strokeWidth : null}

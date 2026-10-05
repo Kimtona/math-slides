@@ -52,6 +52,23 @@ export function TextColorButton({ value }: { value: string | null }) {
   </Popover>;
 }
 
+/** Shape Fill: the Highlight palette (shared HIGHLIGHT_COLORS) applied to a shape's fill; null = no fill. */
+export function ShapeFillButton({ value, onChange }: { value: string | null; onChange: (c: string | null) => void }) {
+  return <Popover title={`채우기 (Fill): ${value ?? 'None'}`} button={
+    <span className="color-btn"><span className="small-label">채우기</span><span className={`swatch${value ? '' : ' none'}`} style={{ backgroundColor: value ?? undefined }} /></span>
+  }>
+    {(close) => {
+      const apply = (color: string | null) => { onChange(color); close(); };
+      return <div className="highlight-palette" role="dialog" aria-label="Fill" onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') close(); }}>
+        <div className="palette-heading">Fill</div>
+        <div className="highlight-colors">{HIGHLIGHT_COLORS.map((c) =>
+          <Swatch key={c.name} color={c.hex} label={`Fill ${c.name}`} value={value} apply={apply} />)}</div>
+        <button className="palette-other" onClick={() => apply(null)}>None / Remove Fill</button>
+      </div>;
+    }}
+  </Popover>;
+}
+
 export function HighlightButton({ value }: { value: string | null }) {
   const restore = useRef<() => boolean>(() => true);
   return <Popover title={`강조 (Highlight): ${value === null ? 'Mixed' : value || 'None'}`} onOpen={() => { restore.current = captureTextSelection(); }} button={
