@@ -19,7 +19,7 @@ export function plainText(doc: PMNode): string {
       : n.type === 'mathInline' ? `$${n.attrs?.latex ?? ''}$`
       : (n.content ?? []).map(inline).join('');
   const block = (n: PMNode) => {
-    if (n.type === 'paragraph' || n.type === 'codeBlock') blocks.push(inline(n));
+    if (n.type === 'paragraph' || n.type === 'codeBlock' || n.type === 'todoItem') blocks.push(inline(n));
     else if (n.type === 'mathBlock') blocks.push(`$$${n.attrs?.latex ?? ''}$$`);
     else (n.content ?? []).forEach(block);
   };

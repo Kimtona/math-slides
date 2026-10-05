@@ -64,3 +64,10 @@ export function themedTextColor(deck: ThemeDeck, slide: Slide, el: SlideElement)
   if (isTitleSlide(deck, slide)) return el.id === deck.titleElementId ? layout.fg : null;
   return layout.rects.some((r) => r.name === 'Theme Header Band') && el.y >= 0 && el.y + el.h <= HEADER_H + 8 ? layout.fg : null;
 }
+
+export const TODO_FALLBACK_ACCENT = '#2F6FEB';
+/** Checked Todo checkbox fill: the Theme Color when it shows up on white, else the editor accent (never invisible). */
+export function todoAccent(deck: Pick<Deck, 'themeColor'>): string {
+  const c = themeColorOf(deck);
+  return isThemed(deck) && 1.05 / (luminance(c) + 0.05) >= 2.5 ? c : TODO_FALLBACK_ACCENT;
+}

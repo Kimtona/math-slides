@@ -4,7 +4,7 @@ import type { Asset, Citation, LineElement, ShapeElement, Slide, SlideElement, T
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { StaticText } from './StaticText';
 import { isDocEmpty } from '../editor/docUtils';
-import { themeLayout, themedTextColor } from '../model/theme';
+import { themeLayout, themedTextColor, todoAccent } from '../model/theme';
 import { shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, TYPOGRAPHY } from '../model/typography';
 
@@ -197,8 +197,10 @@ function StaticElement({ slide, el, assets }: { slide: Slide; el: SlideElement; 
 export const SlideView = memo(function SlideView({ slide, assets, className, index, total }: {
   slide: Slide; assets: Record<string, Asset>; className?: string; index: number; total: number;
 }) {
+  const themeColor = useStore((s) => s.deck.themeColor);
+  const accent = todoAccent({ themeColor });
   return (
-    <div className={`slide ${className ?? ''}`} style={{ width: SLIDE_W, height: SLIDE_H, background: slide.background }} data-slide-id={slide.id}>
+    <div className={`slide ${className ?? ''}`} style={{ width: SLIDE_W, height: SLIDE_H, background: slide.background, ['--todo-accent' as string]: accent }} data-slide-id={slide.id}>
       <ThemeDecor slide={slide} />
       {slide.elements.map((el) => <StaticElement key={el.id} slide={slide} el={el} assets={assets} />)}
       <SlideFooter index={index} total={total} slide={slide} />

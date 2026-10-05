@@ -3,7 +3,7 @@ import type { Box, ImageElement, LineElement, Slide, SlideElement, TextElement }
 import { clampFrameToSource, coverFrame, cropFrom, cropOf, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { lineBox } from '../model/defaults';
-import { themedTextColor } from '../model/theme';
+import { themedTextColor, todoAccent } from '../model/theme';
 import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
 import { currentSlide, useStore } from '../store/store';
 import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerParts, LineSvg, ShapeView, slideNumberText, ThemeDecor, useFooterStyles } from '../render/ElementView';
@@ -628,6 +628,7 @@ export function Canvas() {
   const slide = useStore((s) => s.deck.slides.find((x) => x.id === s.currentSlideId)!);
   const editingId = useStore((s) => s.editingId);
   const shiftPreview = useShiftPreview();
+  const themeColor = useStore((s) => s.deck.themeColor);
 
   useLayoutEffect(() => {
     const vp = vpRef.current!;
@@ -680,7 +681,7 @@ export function Canvas() {
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDropping(true); } }}
       onDragLeave={() => setDropping(false)} onDrop={onDrop}>
       <div className="slide-frame" style={{ width: SLIDE_W * scale, height: SLIDE_H * scale }}>
-        <div ref={slideRef} className="slide editable" style={{ width: SLIDE_W, height: SLIDE_H, transform: `scale(${scale})`, background: slide.background }}>
+        <div ref={slideRef} className="slide editable" style={{ width: SLIDE_W, height: SLIDE_H, transform: `scale(${scale})`, background: slide.background, ['--todo-accent' as string]: todoAccent({ themeColor }) }}>
           <div className="slide-content" onClickCapture={(e) => { if ((e.target as Element).closest('.el a[href]')) e.preventDefault(); }}>
             <ThemeDecor slide={slide} />
             {slide.elements.map((el) => <CanvasElement key={el.id} el={el} editing={editingId === el.id} />)}

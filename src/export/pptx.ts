@@ -89,7 +89,7 @@ function runOptions(textNode: Node, base: TextElement, text: string): TextPropsO
     lang: /[ㄱ-힝]/.test(text) ? 'ko-KR' : 'en-US',
   };
   if (parent.closest('u')) o.underline = { style: 'sng' };
-  if (parent.closest('s')) o.strike = 'sngStrike';
+  if (parent.closest('s') || parent.closest('.todo[data-checked="true"]')) o.strike = 'sngStrike';
   const highlight = parent.closest('mark');
   if (highlight) o.highlight = hex(getComputedStyle(highlight).backgroundColor);
   else if (parent.closest('code')) o.highlight = hex(INLINE_CODE_BACKGROUND);
@@ -335,6 +335,23 @@ function calloutContentRect(callout: Element, origin: DOMRect): Rect {
   return relRect(callout.querySelector(':scope > .callout-body') ?? callout, origin);
 }
 
+/** Todo → native checkbox: outlined rounded square, or (checked) a filled rounded square holding an editable ✓. */
+function addTodoBox(s: Slide, todo: Element, origin: DOMRect) {
+  const box = todo.querySelector(':scope > .todo-box');
+  if (!box) return;
+  const r = relRect(box, origin), cs = getComputedStyle(box);
+  const checked = todo.getAttribute('data-checked') === 'true';
+  const bw = parseFloat(cs.borderTopWidth) || 2;
+  const radius = Math.min(parseFloat(cs.borderTopLeftRadius) || 0, r.w / 2);
+  const common = { x: IN(r.x), y: IN(r.y), w: IN(r.w), h: IN(r.h), rectRadius: IN(radius), objectName: 'Todo Checkbox' };
+  if (!checked) { s.addShape('roundRect', { ...common, line: { color: hex(cs.borderTopColor), width: PT(bw) } }); return; }
+  s.addText('✓', {
+    ...common, shape: 'roundRect', fill: { color: hex(cs.backgroundColor) }, line: { color: hex(cs.backgroundColor), width: 0 },
+    align: 'center', valign: 'middle', margin: 0, wrap: false, fit: 'none', bold: true,
+    fontFace: 'Segoe UI Symbol', fontSize: PT(r.h * 0.85), color: 'FFFFFF',
+  });
+}
+
 /** Text area of a quote: right of its border and padding. */
 function quoteContentRect(quote: Element, origin: DOMRect): Rect {
   const r = relRect(quote, origin);
@@ -350,22 +367,22 @@ function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect
   }
   const content = dom.querySelector('.tb-content');
   if (!content) return;
-  const blocks = [...content.querySelectorAll('p, .math-block, pre')];
+  const blocks = [...content.querySelectorAll('p, .math-block, pre, .todo-text')];
   // A plain box (only paragraphs) becomes one text box with the element's own frame.
-  const plain = !content.querySelector('.math-block, .math-inline, pre, blockquote, .callout, .ablock');
+  const plain = !content.querySelector('.math-block, .math-inline, pre, blockquote, .callout, .ablock, .todo');
   let group: Element[] = [];
   let groupQuote: Element | null = null; // innermost enclosing quote or callout of the current group
   const flush = () => {
-    if (group.length) addTextGroup(s, el, group, content, origin, groupQuote ? (groupQuote.classList.contains('callout') ? calloutContentRect(groupQuote, origin) : groupQuote.classList.contains('ablock') ? blockContentRect(groupQuote, origin) : quoteContentRect(groupQuote, origin)) : boxRect, plain);
+    if (group.length) addTextGroup(s, el, group, content, origin, groupQuote ? (groupQuote.classList.contains('callout') ? calloutContentRect(groupQuote, origin) : groupQuote.classList.contains('ablock') ? blockContentRect(groupQuote, origin) : groupQuote.classList.contains('todo') ? relRect(groupQuote.querySelector(':scope > .todo-text')!, origin) : quoteContentRect(groupQuote, origin)) : boxRect, plain);
     group = [];
   };
   const drawnQuotes = new Set<Element>();
   for (const b of blocks) {
     // Quote lines (also of enclosing quotes), drawn once per quote.
-    for (let q = b.closest('blockquote, .callout, .ablock'); q && content.contains(q); q = q.parentElement?.closest('blockquote, .callout, .ablock') ?? null) {
-      if (!drawnQuotes.has(q)) { drawnQuotes.add(q); if (q.classList.contains('callout')) addCallout(s, q, origin); else if (q.classList.contains('ablock')) addAcademicBlock(s, q, origin); else addQuoteLine(s, q, origin); }
+    for (let q = b.closest('blockquote, .callout, .ablock, .todo'); q && content.contains(q); q = q.parentElement?.closest('blockquote, .callout, .ablock, .todo') ?? null) {
+      if (!drawnQuotes.has(q)) { drawnQuotes.add(q); if (q.classList.contains('todo')) addTodoBox(s, q, origin); else if (q.classList.contains('callout')) addCallout(s, q, origin); else if (q.classList.contains('ablock')) addAcademicBlock(s, q, origin); else addQuoteLine(s, q, origin); }
     }
-    const quote = b.closest('blockquote, .callout, .ablock');
+    const quote = b.closest('blockquote, .callout, .ablock, .todo');
     if (quote !== groupQuote) { flush(); groupQuote = quote; }
     if (b.tagName === 'PRE') { flush(); addCodeBlock(s, b, origin); }
     else if (b.classList.contains('math-block')) { flush(); addMath(s, b.querySelector('svg'), origin); }
@@ -392,7 +409,7 @@ function addShape(pptx: PptxGenJS, s: Slide, el: ShapeElement, slideDom: Element
   const content = dom?.querySelector('.tb-content');
   if (!dom || !content) { s.addShape(type, geometry); return; }
   const base = { ...el, type: 'text', doc: el.doc, style: shapeTextStyle(el) } as unknown as TextElement;
-  if (content.querySelector('.math-block, .math-inline, pre, blockquote, .callout, .ablock')) {
+  if (content.querySelector('.math-block, .math-inline, pre, blockquote, .callout, .ablock, .todo')) {
     // Equations / code / blocks inside a shape: native shape, with the content laid out as in a text box on top.
     s.addShape(type, geometry);
     addTextElement(s, base, dom, origin);

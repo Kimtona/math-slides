@@ -511,6 +511,96 @@ export function convertToAcademicBlock(editor: Editor, range: { from: number; to
     .run();
 }
 
+/**
+ * Todo (semantic block): a text block with a `checked` attribute — the checkbox is node UI (an editor
+ * node-view button / static markup), never typed text. Created with `/todo`; Enter continues with a new
+ * unchecked Todo, Enter or Backspace-at-start on an empty/first position turns it back into a paragraph.
+ * The checked look (gray + strikethrough) is CSS presentation, so the stored marks stay untouched.
+ */
+const TodoItem = TipNode.create({
+  name: 'todoItem',
+  group: 'block',
+  content: 'inline*',
+  addAttributes() {
+    return {
+      checked: {
+        default: false,
+        parseHTML: (el) => (el as HTMLElement).getAttribute('data-checked') === 'true',
+        renderHTML: (attrs) => ({ 'data-checked': String(!!attrs.checked) }),
+      },
+    };
+  },
+  parseHTML() { return [{ tag: 'div[data-todo]' }]; },
+  renderHTML({ HTMLAttributes }) { return ['div', mergeAttributes(HTMLAttributes, { 'data-todo': '', class: 'todo' }), 0]; },
+  addKeyboardShortcuts() {
+    const inTodo = () => this.editor.isActive('todoItem');
+    return {
+      Enter: () => {
+        if (!inTodo()) return false;
+        const { $from } = this.editor.state.selection;
+        if (!this.editor.state.selection.empty) return false;
+        if ($from.parent.content.size === 0) return this.editor.chain().setNode('paragraph').run();
+        return this.editor.chain().splitBlock({ keepMarks: true }).setNode('todoItem', { checked: false }).run();
+      },
+      Backspace: () => {
+        const { selection } = this.editor.state;
+        if (!inTodo() || !selection.empty || selection.$from.parentOffset !== 0) return false;
+        return this.editor.chain().setNode('paragraph').run();
+      },
+    };
+  },
+  addNodeView() {
+    return ({ node, editor, getPos }) => {
+      let current = node;
+      const dom = document.createElement('div');
+      dom.className = 'todo';
+      dom.setAttribute('data-todo', '');
+      const box = document.createElement('span');
+      box.className = 'todo-box';
+      box.contentEditable = 'false';
+      box.setAttribute('role', 'checkbox');
+      const text = document.createElement('div');
+      text.className = 'todo-text';
+      dom.append(box, text);
+      // mousedown (not click) with preventDefault: toggles without moving the caret or stealing focus.
+      box.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const pos = getPos();
+        if (typeof pos !== 'number') return;
+        const tr = editor.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, checked: !current.attrs.checked });
+        closeHistory(tr); // each toggle is its own undo step
+        editor.view.dispatch(tr);
+      });
+      const sync = () => {
+        dom.setAttribute('data-checked', String(!!current.attrs.checked));
+        box.setAttribute('aria-checked', String(!!current.attrs.checked));
+      };
+      sync();
+      return {
+        dom,
+        contentDOM: text,
+        update(n: PMNodeType) {
+          if (n.type !== current.type) return false;
+          current = n;
+          sync();
+          return true;
+        },
+        stopEvent: (e: Event) => box.contains(e.target as Node),
+        ignoreMutation: (m: MutationRecord | { type: 'selection'; target: Node }) => m.type !== 'selection' && (box.contains(m.target) || m.target === dom),
+      };
+    };
+  },
+});
+
+/** Turn the current line into a Todo (unchecked), removing the typed trigger (one undo step). */
+export function convertToTodo(editor: Editor, range: { from: number; to: number }) {
+  return editor.chain().focus()
+    .command(({ tr }) => { closeHistory(tr); return true; })
+    .deleteRange(range)
+    .setNode('todoItem', { checked: false })
+    .run();
+}
+
 /** Turn the current line into a Callout (wraps its block), removing the typed trigger (one undo step). */
 export function convertToCallout(editor: Editor, range: { from: number; to: number }) {
   return editor.chain().focus()
@@ -552,6 +642,7 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } =
     SlideBlockquote,
     Callout,
     AcademicBlock,
+    TodoItem,
     LinkMark,
     TocSections.configure({ enabled: !!opts.toc }),
   ];

@@ -152,6 +152,15 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .img-caption, .img-caption-input { position: absolute; left: 0; top: 100%; width: 100%; box-sizing: border-box; text-align: left; font-weight: 400; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; pointer-events: none; margin: 0; padding: 0; }
 .img-caption-input { display: block; pointer-events: auto; border: 0; outline: none; background: transparent; resize: none; overflow: hidden; font-family: inherit; cursor: text; }
 .img-caption-input::placeholder { color: #a8afb7; }
+/* Todo: checkbox is node UI; the checked look is presentation only (marks stay untouched) */
+.tb-content .todo { display: flex; align-items: flex-start; gap: .5em; margin: .12em 0; }
+.tb-content .todo-box { flex: none; box-sizing: border-box; width: .85em; height: .85em; margin-top: .26em; border: 2px solid #4B5563; border-radius: .2em; background: transparent; position: relative; user-select: none; }
+.ProseMirror .todo-box { cursor: pointer; }
+.tb-content .todo[data-checked="true"] .todo-box { background: var(--todo-accent, #2F6FEB); border-color: var(--todo-accent, #2F6FEB); }
+.tb-content .todo[data-checked="true"] .todo-box::after { content: ''; position: absolute; left: 28%; top: 6%; width: 28%; height: 56%; border: solid #fff; border-width: 0 .13em .13em 0; transform: rotate(45deg); }
+.tb-content .todo-text { flex: 1; min-width: 0; }
+.tb-content .todo[data-checked="true"] .todo-text, .tb-content .todo[data-checked="true"] .todo-text * { color: #9CA3AF !important; }
+.tb-content .todo[data-checked="true"] .todo-text { text-decoration: line-through; }
 .theme-decor { position: absolute; pointer-events: none; }
 .shape-text { position: absolute; inset: 0; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; overflow: hidden; pointer-events: none; }
 .shape-text .tb-content { width: 100%; pointer-events: auto; }

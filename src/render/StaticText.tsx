@@ -98,6 +98,16 @@ function renderNode(n: PMNode, key: number, ctx: Ctx): ReactNode {
         </div>
       );
     }
+    case 'todoItem': {
+      const c = n.content ?? [];
+      const empty = !c.length || c[c.length - 1].type === 'hardBreak';
+      return (
+        <div key={key} className="todo" data-todo="" data-checked={String(!!n.attrs?.checked)}>
+          <span className="todo-box" />
+          <div className="todo-text">{c.map((x, i) => renderNode(x, i, ctx))}{empty ? <br className="ProseMirror-trailingBreak" /> : null}</div>
+        </div>
+      );
+    }
     case 'blockquote': return <blockquote key={key}>{kids()}</blockquote>;
     case 'bulletList': return <ul key={key}>{kids()}</ul>;
     case 'orderedList': return <ol key={key} start={n.attrs?.start ?? 1}>{kids()}</ol>;

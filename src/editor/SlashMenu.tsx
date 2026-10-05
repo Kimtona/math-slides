@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/core';
 import { insertMath } from './mathNodes';
 import { pickImages } from '../canvas/insert';
-import { convertToAcademicBlock, convertToCallout, convertToCodeBlock } from './extensions';
+import { convertToAcademicBlock, convertToCallout, convertToCodeBlock, convertToTodo } from './extensions';
 
 interface Item {
   title: string;
@@ -30,6 +30,8 @@ const ITEMS: Item[] = [
     run: (ed, r) => { convertToAcademicBlock(ed, r); } },
   { title: 'Image', hint: '이미지 — 줄 시작에서 /image (툴바 이미지와 동일)', icon: '🖼', keys: ['image', 'img', 'picture', 'photo'], lineStart: true,
     run: (ed, r) => { ed.chain().focus().deleteRange(r).run(); pickImages(); } },
+  { title: 'Todo', hint: '체크박스 — 줄 시작에서 /todo', icon: '☐', keys: ['todo', 'task', 'checkbox', 'check'], lineStart: true,
+    run: (ed, r) => { convertToTodo(ed, r); } },
   { title: 'Bulleted list', hint: '글머리 기호 — "- "', icon: '•', keys: ['bullet', 'list', 'ul'],
     run: (ed, r) => ed.chain().focus().deleteRange(r).toggleBulletList().run() },
   { title: 'Numbered list', hint: '번호 목록 — "1. "', icon: '1.', keys: ['number', 'numbered', 'ordered', 'list', 'ol'],
