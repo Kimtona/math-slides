@@ -9,6 +9,8 @@ cd ~/math-slides
 npm install          # first time only
 
 npm run app          # desktop app (Electron): one-click PDF export with a save dialog
+npm run dist:mac     # packaged macOS build (electron-builder): release/mac-arm64/MathSlides.app + MathSlides-<version>-arm64.dmg (unsigned)
+npm run dist:win     # Windows NSIS installer (.exe) — run on Windows (not validated yet)
 npm run dev          # browser: open http://localhost:5173 (use Chrome)
 ```
 

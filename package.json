@@ -10,7 +10,9 @@
     "typecheck": "tsc -b",
     "test": "node tests/rich-text.mjs",
     "app": "vite build && electron .",
-    "app:dev": "concurrently -k \"vite --port 5173 --strictPort\" \"wait-on tcp:5173 && cross-env ELECTRON_DEV_URL=http://localhost:5173 electron .\""
+    "app:dev": "concurrently -k \"vite --port 5173 --strictPort\" \"wait-on tcp:5173 && cross-env ELECTRON_DEV_URL=http://localhost:5173 electron .\"",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win"
   },
   "dependencies": {
     "@tiptap/core": "^2.27.3",
@@ -42,11 +44,58 @@
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
     "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.9.3",
     "vite": "^8.3.2",
     "wait-on": "^9.5.1"
   },
   "allowScripts": {
     "electron@44.5.1": true
+  },
+  "author": "MathSlides",
+  "description": "MathSlides — a lightweight WYSIWYG academic presentation editor",
+  "build": {
+    "appId": "com.mathslides.app",
+    "productName": "MathSlides",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "package.json",
+      "!node_modules/**"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
