@@ -118,7 +118,7 @@ export function startAutosave() {
     const st = useStore.getState();
     const used = referencedAssetIds(st.deck);
     [...st.past, ...st.future].forEach((d) => referencedAssetIds(d).forEach((i) => used.add(i)));
-    (await loadArchive()).forEach((a) => referencedAssetIds(a.deck).forEach((i) => used.add(i)));
+    [...(await loadRecovery()), ...(await legacyArchive())].forEach((a) => referencedAssetIds(a.deck).forEach((i) => used.add(i)));
     for (const k of await keys()) {
       const key = String(k);
       if (key.startsWith('asset:') && !used.has(key.slice(6))) await del(key);
@@ -272,14 +272,14 @@ export async function openProject() {
 }
 
 /**
- * The one Open path (in-app 열기… and files opened by the OS): validates the file, archives meaningful current work,
+ * The one Open path (in-app 열기… and files opened by the OS): validates the file, keeps meaningful current work in the recovery slot,
  * keeps the file's Deck.id, and makes the file the current one. Throws on an invalid file (nothing is changed then).
  */
 export async function openFromText(text: string, handle: any) {
   const data = JSON.parse(text) as ProjectFile;
   if (data?.format !== 'mathslides' || !isValidDeck(data.deck)) throw new Error('not a MathSlides file');
-  // Never replace meaningful unsaved work silently: it goes to the archive first (same-id entries are updated).
-  await archiveCurrent();
+  // Never replace meaningful unsaved work silently: it goes to the recovery slot first (same-id entries are updated).
+  await displaceCurrent();
   const deck: Deck = data.deck.id ? data.deck : { ...data.deck, id: uid() }; // keep the file's identity
   Object.values(data.assets ?? {}).forEach(saveAsset);
   useStore.getState().loadDeck(deck, data.assets ?? {});
@@ -310,20 +310,40 @@ export async function startNativeOpen() {
   for (const f of await n.openReady()) await openNativeFile(f);
 }
 
-// ---------- new presentation vs. restoring an existing one ----------
-// Startup and "새 프레젠테이션" both start a fresh deck. The presentation being replaced is moved
-// to the archive of previous presentations (IndexedDB, images included), reopened from the ∑ menu.
+// ---------- displaced work (recovery) ----------
+// Autosave (deck:v1) is the only record of the working presentation. When New / Open / an OS-opened file is about
+// to replace meaningful work, that deck is first copied into a small recovery stack (IndexedDB, images stay in the
+// asset store). The stack is bounded, newest first, one entry per Deck.id, and is not a document list: the ∑ menu
+// offers at most "직전 작업 복구", which swaps the newest entry with the current work.
+// The former unbounded "previous presentations" archive (archive:v1) is no longer written or shown; its records are
+// left untouched in storage (and their images kept) until they can be exported or removed with the user's consent.
 
-const ARCHIVE_KEY = 'archive:v1';
+const RECOVERY_KEY = 'recovery:v1';
+const LEGACY_ARCHIVE_KEY = 'archive:v1';
+export const RECOVERY_LIMIT = 3;
 
-export interface ArchivedPresentation {
-  id: string;
+export interface RecoveredPresentation {
   savedAt: number;
   deck: Deck;
 }
 
-export async function loadArchive(): Promise<ArchivedPresentation[]> {
-  return ((await get(ARCHIVE_KEY)) as ArchivedPresentation[] | undefined) ?? [];
+/** Valid recovery entries only: malformed data is ignored (and never overwritten by a read). */
+export async function loadRecovery(): Promise<RecoveredPresentation[]> {
+  try {
+    const v = await get(RECOVERY_KEY);
+    return Array.isArray(v) ? v.filter((r): r is RecoveredPresentation => !!r && typeof r.savedAt === 'number' && isValidDeck(r.deck)) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function legacyArchive(): Promise<{ deck: Deck }[]> {
+  try {
+    const v = await get(LEGACY_ARCHIVE_KEY);
+    return Array.isArray(v) ? v.filter((r) => !!r && isValidDeck(r.deck)) : [];
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -349,50 +369,45 @@ export function isPristine(deck: Deck): boolean {
 }
 
 /**
- * Put a presentation into the archive. Its entry is replaced if it is already there (same deck id),
- * so relaunching or re-archiving never creates duplicates. Untouched template decks are skipped.
- * Entries are never dropped automatically.
+ * Put a presentation at the front of the recovery stack. Its entry is replaced if it is already there (same deck id),
+ * untouched template decks are skipped, and the stack never holds more than RECOVERY_LIMIT entries.
  */
-async function archiveDeck(deck: Deck) {
+async function recoverDeck(deck: Deck, limit = RECOVERY_LIMIT) {
   if (isPristine(deck)) return;
   const d: Deck = deck.id ? deck : { ...deck, id: crypto.randomUUID() };
-  const rest = (await loadArchive()).filter((a) => a.deck.id !== d.id);
-  await set(ARCHIVE_KEY, [{ id: crypto.randomUUID(), savedAt: Date.now(), deck: d }, ...rest]);
+  const rest = (await loadRecovery()).filter((a) => a.deck.id !== d.id);
+  await set(RECOVERY_KEY, [{ savedAt: Date.now(), deck: d }, ...rest].slice(0, limit));
 }
 
-async function archiveCurrent() {
+async function displaceCurrent(limit = RECOVERY_LIMIT) {
   const st = useStore.getState();
   st.stopEditing();
   st.exitCrop();
-  // Make sure the archived deck's images are persisted (they normally already are).
+  // Make sure the displaced deck's images are persisted (they normally already are).
   referencedAssetIds(st.deck).forEach((id) => st.assets[id] && saveAsset(st.assets[id]));
-  await archiveDeck(useStore.getState().deck);
+  await recoverDeck(useStore.getState().deck, limit);
 }
 
 /** Create a genuinely fresh presentation: one Title Slide, default title, empty history. */
 export async function newProject() {
-  await archiveCurrent();
+  await displaceCurrent();
   useStore.getState().loadDeck(initialDeck(), {}); // fresh unique Deck.id, no file association
   useStore.setState({ fileHandle: null });
   await rememberFile(null, undefined);
   await saveWorking();
 }
 
-/** Reopen an archived presentation; the current one is archived in its place (nothing is lost). */
-export async function restoreArchived(id: string) {
-  const entry = (await loadArchive()).find((a) => a.id === id);
+/** Bring back the most recently displaced work; the current work takes its place in the stack (nothing is lost). */
+export async function restoreRecovered() {
+  const entry = (await loadRecovery())[0];
   if (!entry) return;
-  await archiveCurrent();
-  await set(ARCHIVE_KEY, (await loadArchive()).filter((a) => a.id !== id));
-  const assets: Record<string, Asset> = {};
-  await Promise.all([...referencedAssetIds(entry.deck)].map(async (aid) => {
-    const a = (await get(assetKey(aid))) as Asset | undefined;
-    if (a) assets[aid] = a;
-  }));
-  useStore.getState().loadDeck(entry.deck, assets);
+  // Both decks are in the stack (one slot over the limit) until the swap has completed, so a crash cannot lose either.
+  await displaceCurrent(RECOVERY_LIMIT + 1);
+  useStore.getState().loadDeck(entry.deck, await loadAssetsFor(entry.deck));
   useStore.setState({ fileHandle: null });
   await rememberFile(null, undefined);
   await saveWorking();
+  await set(RECOVERY_KEY, (await loadRecovery()).filter((a) => a.deck.id !== entry.deck.id).slice(0, RECOVERY_LIMIT));
 }
 
 // ---------- tiny toast ----------

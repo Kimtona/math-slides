@@ -141,7 +141,7 @@ export interface Citation {
 
 export interface Deck {
   version: 1;
-  /** Stable identity of the presentation (archive entries are updated, not duplicated). Optional for older files. */
+  /** Stable identity of the presentation (recovery entries are updated, not duplicated). Optional for older files. */
   id?: ID;
   /** Presentation/project title (export default file name). */
   title: string;

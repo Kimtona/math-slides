@@ -938,7 +938,8 @@ try {
   await evaluate(`persist.newProject()`); await pause();
   assert.equal(await evaluate('store.getState().deck.title'), 'Untitled presentation');
   assert.equal(await evaluate('store.getState().deck.themeColor'), undefined, 'a new presentation starts without a theme (White)');
-  await evaluate(`(async()=>{const archive=await persist.loadArchive(); await persist.restoreArchived(archive.find(a=>a.deck.title==='Formatting validation').id)})()`);
+  assert.equal(await evaluate('persist.loadRecovery().then(r => r[0].deck.title)'), 'Formatting validation', 'New kept the displaced work in the recovery slot');
+  await evaluate('persist.restoreRecovered()');
   assert.deepEqual(await evaluate('store.getState().deck'), saved.deck);
   assert.equal(saved.deck.themeColor, '#881337', 'theme color is saved in the deck');
   await evaluate(`persist.newProject()`);
@@ -947,12 +948,12 @@ try {
   await evaluate('delete window.showOpenFilePicker; store.setState({fileHandle:null})');
   await until(()=>evaluate("store.getState().saveState === 'saved'"), 'Autosave pending');
   // Close and start the actual desktop process with the same disposable profile.
-  const archiveBeforeRestart = await evaluate('persist.loadArchive().then(a => a.map(x => x.id).join())');
+  const archiveBeforeRestart = await evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())");
   socket.close(); electron.kill('SIGTERM'); await new Promise(r=>electron.once('exit',r));
   await launch();
   assert.deepEqual(await evaluate('store.getState().deck'), saved.deck, 'restart restores the working presentation (same Deck.id and content)');
-  assert.equal(await evaluate('persist.loadArchive().then(a => a.map(x => x.id).join())'), archiveBeforeRestart, 'restart does not archive anything');
-  console.log('PASS autosave, desktop restart, archive reopen, .mslides save/open');
+  assert.equal(await evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())"), archiveBeforeRestart, 'restart does not displace anything');
+  console.log('PASS autosave, desktop restart, recovery swap, .mslides save/open');
   // Exercise both existing export actions from the fixed toolbar.
   await click('.export-menu > button');
   await click('.pop .menu-item:first-child');
@@ -1047,16 +1048,20 @@ try {
   console.log('PASS PDF export, editable PPTX colors/highlights/monospace runs and hyperlinks');
   // ---- Presentation lifecycle: restore on startup, New, Open, Save, Save As, file association ----
   const deckId = () => evaluate('store.getState().deck.id');
-  const archiveIds = () => evaluate('persist.loadArchive().then(a => a.map(x => x.deck.id))');
-  const archiveSig = () => evaluate('persist.loadArchive().then(a => a.map(x => x.id).join())');
+  const archiveIds = () => evaluate('persist.loadRecovery().then(a => a.map(x => x.deck.id))');
+  const idb = (key) => evaluate(`new Promise((res) => { const o = indexedDB.open('keyval-store'); o.onsuccess = () => { const g = o.result.transaction('keyval').objectStore('keyval').get(${JSON.stringify(key)}); g.onsuccess = () => res(g.result === undefined ? null : g.result); }; })`);
+  const idbPut = (key, value) => evaluate(`new Promise((res) => { const o = indexedDB.open('keyval-store'); o.onsuccess = () => { const t = o.result.transaction('keyval', 'readwrite'); t.objectStore('keyval').put(${JSON.stringify(value)}, ${JSON.stringify(key)}); t.oncomplete = () => res(1); }; })`);
+  const archiveSig = () => evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())");
   const setTitle2 = async (t) => { await evaluate(`store.getState().commit(d => { d.title = ${JSON.stringify(t)}; })`); await pause(); };
   const settled = () => until(() => evaluate("store.getState().saveState === 'saved'"), 'autosave settled');
   const restart = async (opts) => { await settled(); await pause(300); socket.close(); electron.kill('SIGTERM'); await new Promise((r) => electron.once('exit', r)); await launch(opts); };
   const assoc = () => evaluate(`new Promise((res) => { const o = indexedDB.open('keyval-store'); o.onsuccess = () => { const g = o.result.transaction('keyval').objectStore('keyval').get('file:v1'); g.onsuccess = () => res(g.result ? {name: g.result.name, deckId: g.result.deckId, hasHandle: !!g.result.handle} : null); }; })`);
   const stubSavePicker = (name) => evaluate(`window.__picks = 0; window.showSaveFilePicker = async () => { __picks++; return await (await __opfsDir()).getFileHandle(${JSON.stringify(name)}, {create: true}); };`);
   const fileDeck = async (name) => JSON.parse(await evaluate(`__opfsRead(${JSON.stringify(name)})`)).deck;
-  const oldArchive = await evaluate('persist.loadArchive()');
-  assert.ok(oldArchive.length > 0 && oldArchive.every((a) => a.deck.slides.length > 0), 'existing archive records stay readable');
+  // A legacy archive:v1 (the former unbounded "previous presentations") is no longer shown, written or deleted.
+  const legacyDeck = await evaluate("(() => { const d = defaults.initialDeck(); d.id = 'LEGACY-1'; d.title = 'Legacy work'; return d; })()");
+  await idbPut('archive:v1', [{ id: 'legacy-entry', savedAt: 1, deck: legacyDeck }]);
+  const legacyBefore = JSON.stringify(await idb('archive:v1'));
 
   // Pristine detection: the real persisted state, not UI checks.
   await evaluate('persist.newProject()'); await pause();
@@ -1084,8 +1089,9 @@ try {
   await evaluate('persist.newProject()'); await pause();
   const idB = await deckId();
   assert.notEqual(idB, idA, 'B is a new logical presentation');
-  assert.deepEqual(await archiveIds(), [idA, ...a0], 'meaningful A was archived once, newest first');
-  assert.equal(await evaluate("persist.loadArchive().then(a => a[0].deck.themeColor)"), '#881337', 'a Theme-only/presentation-level change is kept');
+  assert.deepEqual((await archiveIds()).slice(0, 1), [idA], 'meaningful A was kept once, newest first');
+  assert.equal((await archiveIds()).filter((i) => i === idA).length, 1);
+  assert.equal(await evaluate("persist.loadRecovery().then(a => a[0].deck.themeColor)"), '#881337', 'a Theme-only/presentation-level change is kept');
 
   // Restart and renderer reload restore the working presentation; nothing is archived.
   await setTitle2('Lifecycle B'); await settled();
@@ -1118,7 +1124,6 @@ try {
   const cBefore = await evaluate("__opfsRead('C.mslides')");
   await setTitle2('File C v2'); await settled();
   assert.equal(await evaluate("__opfsRead('C.mslides')"), cBefore, 'autosave never overwrites the .mslides file');
-  assert.equal(await evaluate('persist.loadArchive().then(() => 1)'), 1);
   await evaluate('persist.saveProject()'); await pause(500);
   assert.equal((await fileDeck('C.mslides')).title, 'File C v2', 'Save writes the associated file');
   assert.equal((await fileDeck('C.mslides')).id, 'C-DECK-ID', 'Save keeps the Deck.id');
@@ -1166,9 +1171,30 @@ try {
   const finalArchive = await archiveSig();
   await restart(); await send('Page.reload'); await pause(800); await until(() => evaluate("!!document.querySelector('.propsbar')"), 'reload'); await inject();
   assert.equal(await archiveSig(), finalArchive, 'restart + reload leave the archive untouched');
-  assert.equal((await evaluate('persist.loadArchive()')).length, (await evaluate('persist.loadArchive()')).length);
-  const nowIds = new Set((await evaluate('persist.loadArchive()')).map((a) => a.deck.id));
-  assert.ok(oldArchive.every((a) => nowIds.has(a.deck.id)), 'every pre-existing archived presentation (by Deck.id) is still there');
+  assert.equal(JSON.stringify(await idb('archive:v1')), legacyBefore, 'the legacy archive is left untouched (not grown, not deleted)');
+  assert.ok((await archiveIds()).length <= 3, 'recovery storage stays bounded');
+  // Internal autosave exists and is separate from the explicit file; the ∑ menu has no presentation list.
+  assert.equal((await idb('deck:v1')).id, await deckId(), 'deck:v1 holds the working presentation');
+  await click('.logo'); await pause(300);
+  const menuText = await evaluate("document.querySelector('.menu').textContent");
+  assert.ok(!menuText.includes('이전 프레젠테이션') && !menuText.includes('Legacy work') && !menuText.includes('Untitled presentation ·'), 'no previous-presentation entries in the ∑ menu');
+  assert.ok(menuText.includes('직전 작업 복구'), 'the single recovery item appears while displaced work exists');
+  await key('Escape'); await pause(200);
+  // Bounded: many displacements keep at most 3 entries, newest first, one per Deck.id.
+  for (let i = 0; i < 6; i++) { await evaluate('persist.newProject()'); await pause(150); await setTitle2('Churn ' + i); }
+  await evaluate('persist.newProject()'); await pause(300);
+  const churn = await evaluate('persist.loadRecovery().then(a => a.map(x => x.deck.title))');
+  assert.deepEqual(churn, ['Churn 5', 'Churn 4', 'Churn 3'], 'recovery keeps only the 3 newest displaced presentations');
+  // Restore swaps with the current work; malformed recovery data fails safely.
+  await setTitle2('Current before swap'); await evaluate('persist.restoreRecovered()'); await pause(500);
+  assert.equal(await evaluate('store.getState().deck.title'), 'Churn 5');
+  assert.equal((await archiveIds()).length, 3, 'swap stays bounded and drops no other displaced work');
+  assert.ok((await evaluate('persist.loadRecovery().then(a => a.map(x => x.deck.title))')).includes('Current before swap'), 'current work took its place in the stack');
+  await idbPut('recovery:v1', [{ savedAt: 'x', deck: 5 }, null, { savedAt: 1, deck: { slides: [] } }]);
+  assert.deepEqual(await archiveIds(), [], 'malformed recovery entries are ignored');
+  await evaluate('persist.newProject()'); await pause(300); await evaluate('persist.restoreRecovered()'); await pause(300);
+  assert.ok(await deckId(), 'restoring with nothing valid is a no-op');
+  await idbPut('recovery:v1', 'garbage'); assert.deepEqual(await archiveIds(), [], 'non-array recovery data is ignored');
   // ---- Slide context menu: "제목 슬라이드 추가" inserts a canonical Title Slide ----
   await evaluate('persist.newProject()'); await pause(400);
   const slidesInfo = () => evaluate("store.getState().deck.slides.map(s => ({id: s.id, kind: s.kind ?? null, texts: s.elements.map(e => e.type === 'text' ? e.doc.content?.[0]?.content?.[0]?.text : null)}))");
@@ -1290,7 +1316,7 @@ try {
   assert.equal(await evaluate("document.querySelectorAll('.toast').length"), 0, 'New Presentation shows no success toast');
   assert.notEqual(await deckId(), 'NATIVE-F');
   console.log('PASS .mslides opened by the OS (cold launch, queued early request, running app, invalid files, write-back, association, New without toast)');
-  console.log('PASS presentation lifecycle (restore, New, Open, Save, Save As, file association, pristine detection, archive)');
+  console.log('PASS presentation lifecycle (restore, New, Open, Save, Save As, file association, pristine detection, recovery slot)');
   console.log('OUTPUT', output);
   }
 } catch (error) {

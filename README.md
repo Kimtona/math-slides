@@ -40,8 +40,8 @@ The macOS build is currently unsigned and not notarized, so macOS may show a sec
 ## Documents and autosave
 
 - **Autosave** is internal (IndexedDB) and never writes your `.mslides` file. It keeps the working presentation, so quitting, reopening the window (Dock) or reloading restores it with the same `Deck.id`.
-- **새 프레젠테이션** creates a new presentation (new `Deck.id`); the previous one is archived under "이전 프레젠테이션" if it contains real changes (blank decks are never archived).
-- **열기** archives the current presentation first, keeps the file's `Deck.id`, and makes that file the current file.
+- **새 프레젠테이션** creates a new presentation (new `Deck.id`); the previous one is kept in a small internal recovery slot if it contains real changes (blank decks are not kept).
+- **열기** keeps the current presentation in the recovery slot first, keeps the file's `Deck.id`, and makes that file the current file.
 - **저장** writes the current `.mslides` file (the picker appears only when there is none or it can't be written). The current file is remembered across restarts.
 - **다른 이름으로 저장** creates an independent presentation: a new `Deck.id`, written into the new file; the original file is not touched.
 
@@ -88,7 +88,7 @@ The macOS build is currently unsigned and not notarized, so macOS may show a sec
 | Z-order | `⌘]` `⌘[` (with `⇧` = to front/back) |
 | Slides | Slide list: `Enter` new, `⌘D` duplicate, `⌫` delete, drag to reorder, right-click menu |
 | Present | `⌘Enter` / `F5` |
-| Save/open | Autosaves continuously (IndexedDB). Every launch and ∑ → 새 프레젠테이션 starts a fresh presentation; the previous one moves to ∑ → 이전 프레젠테이션 열기 (with its images). `⌘S` saves a `.mslides` file, `⌘O` opens one |
+| Save/open | Autosaves continuously (IndexedDB). Every launch and ∑ → 새 프레젠테이션 starts a fresh presentation; a launch restores the working presentation; New/Open keep displaced work in a recovery slot (at most 3, shown only as ∑ → 직전 작업 복구). `⌘S` saves a `.mslides` file, `⌘O` opens one |
 | Export | `⌘P` PDF, `⌘E` PPTX |
 
 ---
@@ -181,9 +181,9 @@ src/
 
 ## Rich-text validation
 
-Run `npm run typecheck`, `npm run build`, and `npm test` with installed dependencies and a graphical desktop session. The integration test starts Electron with a **temporary user-data directory**, so it never reads or writes your usual autosave/archive. Toolbar clicks and typing use native (DevTools) input events; some setup steps call the app's store directly. OS file dialogs and arXiv responses are supplied at their boundaries; application serialization, metadata parsing, and export generation run normally.
+Run `npm run typecheck`, `npm run build`, and `npm test` with installed dependencies and a graphical desktop session. The integration test starts Electron with a **temporary user-data directory**, so it never reads or writes your usual autosave/recovery data. Toolbar clicks and typing use native (DevTools) input events; some setup steps call the app's store directly. OS file dialogs and arXiv responses are supplied at their boundaries; application serialization, metadata parsing, and export generation run normally.
 
-It checks selection retention, palette contents, HEX validation, mixed-color indicators, formatting combinations and undo/redo, HTML serialization, archive/restart recovery, `.mslides` save/open, heading and math shortcuts, TOC navigation, citation deduplication, and PDF/PPTX exports. PPTX assertions inspect editable runs, native highlights, fonts, and hyperlinks. Screenshots and test files are retained in the temporary output directory printed at completion; `MATHSLIDES_TEST_OUTPUT` can select another output directory. PDF/PPTX visual inspection is separate from these automated assertions.
+It checks selection retention, palette contents, HEX validation, mixed-color indicators, formatting combinations and undo/redo, HTML serialization, autosave/restart/recovery, `.mslides` save/open, heading and math shortcuts, TOC navigation, citation deduplication, and PDF/PPTX exports. PPTX assertions inspect editable runs, native highlights, fonts, and hyperlinks. Screenshots and test files are retained in the temporary output directory printed at completion; `MATHSLIDES_TEST_OUTPUT` can select another output directory. PDF/PPTX visual inspection is separate from these automated assertions.
 
 All color palettes (object presets, Theme/Standard text colors, highlights) live in `src/model/colors.ts`; inline-code styling lives in `src/model/textFormatting.ts`. Highlight/code marks live in `src/editor/formattingMarks.ts` and are stored inside the existing ProseMirror document JSON, with no new storage format.
 
