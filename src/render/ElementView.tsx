@@ -1,0 +1,95 @@
+import { memo, type CSSProperties, type ReactNode } from 'react';
+import type { Asset, LineElement, ShapeElement, Slide, SlideElement, TextElement } from '../model/types';
+import { SLIDE_H, SLIDE_W } from '../model/types';
+import { StaticText } from './StaticText';
+
+export function textBoxStyle(el: TextElement): CSSProperties {
+  return {
+    fontSize: el.style.fontSize,
+    color: el.style.color,
+    textAlign: el.style.align,
+    lineHeight: el.style.lineHeight,
+    background: el.style.fill ?? undefined,
+  };
+}
+
+export function ShapeSvg({ el }: { el: ShapeElement }) {
+  const sw = el.stroke ? el.strokeWidth : 0;
+  const common = { fill: el.fill ?? 'none', stroke: el.stroke ?? 'none', strokeWidth: sw };
+  const w = Math.max(el.w - sw, 0), h = Math.max(el.h - sw, 0);
+  return (
+    <svg className="shape-svg" width={el.w} height={el.h} viewBox={`0 0 ${el.w} ${el.h}`}>
+      {el.shape === 'ellipse' ? (
+        <ellipse cx={el.w / 2} cy={el.h / 2} rx={w / 2} ry={h / 2} {...common} />
+      ) : (
+        <rect x={sw / 2} y={sw / 2} width={w} height={h}
+          rx={el.shape === 'roundRect' ? Math.min(el.radius, w / 2, h / 2) : 0} {...common} />
+      )}
+    </svg>
+  );
+}
+
+export const LINE_PAD = 24;
+
+export function arrowSize(sw: number) {
+  return { len: Math.max(10, sw * 3.6), half: Math.max(5, sw * 1.8) };
+}
+
+/** Line rendered in an SVG whose origin is the line's bounding box minus LINE_PAD. */
+export function LineSvg({ el, hit }: { el: LineElement; hit?: boolean }) {
+  const ox = el.x - LINE_PAD, oy = el.y - LINE_PAD;
+  let x1 = el.x1 - ox, y1 = el.y1 - oy, x2 = el.x2 - ox, y2 = el.y2 - oy;
+  const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+  const ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+  const { len: al, half } = arrowSize(el.strokeWidth);
+  const heads: ReactNode[] = [];
+  const head = (tx: number, ty: number, dx: number, dy: number, k: string) => {
+    const bx = tx - dx * al, by = ty - dy * al;
+    heads.push(<polygon key={k} fill={el.stroke}
+      points={`${tx},${ty} ${bx - dy * half},${by + dx * half} ${bx + dy * half},${by - dx * half}`} />);
+  };
+  const [sx1, sy1, sx2, sy2] = [x1, y1, x2, y2];
+  if (el.arrowEnd) { head(sx2, sy2, ux, uy, 'e'); x2 -= ux * al * 0.8; y2 -= uy * al * 0.8; }
+  if (el.arrowStart) { head(sx1, sy1, -ux, -uy, 's'); x1 += ux * al * 0.8; y1 += uy * al * 0.8; }
+  return (
+    <svg className="line-svg" width={el.w + 2 * LINE_PAD} height={el.h + 2 * LINE_PAD}
+      style={{ left: -LINE_PAD, top: -LINE_PAD }}>
+      {hit && <line className="line-hit" x1={sx1} y1={sy1} x2={sx2} y2={sy2} stroke="transparent" strokeWidth={Math.max(16, el.strokeWidth + 12)} />}
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={el.stroke} strokeWidth={el.strokeWidth}
+        strokeDasharray={el.dashed ? `${el.strokeWidth * 3} ${el.strokeWidth * 2}` : undefined} />
+      {heads}
+    </svg>
+  );
+}
+
+/** The visual content of an element, without positioning. */
+export function ElementBody({ el, assets }: { el: SlideElement; assets: Record<string, Asset> }) {
+  switch (el.type) {
+    case 'text': return <StaticText doc={el.doc} />;
+    case 'image': {
+      const a = assets[el.assetId];
+      return a ? <img className="el-img" src={a.dataUrl} draggable={false} alt="" /> : <div className="el-img missing">image</div>;
+    }
+    case 'shape': return <ShapeSvg el={el} />;
+    case 'line': return <LineSvg el={el} />;
+  }
+}
+
+export function elementBoxStyle(el: SlideElement): CSSProperties {
+  const base: CSSProperties = { left: el.x, top: el.y, width: el.w };
+  if (el.type === 'text') return { ...base, ...textBoxStyle(el), minHeight: el.style.fontSize * el.style.lineHeight };
+  return { ...base, height: el.h };
+}
+
+/** Static, non-interactive slide at 1280×720 (thumbnails, presenter, print, export measurement). */
+export const SlideView = memo(function SlideView({ slide, assets, className }: { slide: Slide; assets: Record<string, Asset>; className?: string }) {
+  return (
+    <div className={`slide ${className ?? ''}`} style={{ width: SLIDE_W, height: SLIDE_H, background: slide.background }} data-slide-id={slide.id}>
+      {slide.elements.map((el) => (
+        <div key={el.id} className={`el el-${el.type}`} style={elementBoxStyle(el)} data-el-id={el.id}>
+          <ElementBody el={el} assets={assets} />
+        </div>
+      ))}
+    </div>
+  );
+});

@@ -1,0 +1,322 @@
+import PptxGenJS from 'pptxgenjs';
+import JSZip from 'jszip';
+import type { Asset, Deck, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
+
+// Slide units are CSS px on a 1280×720 canvas = 13.333×7.5in (PowerPoint widescreen).
+const IN = (px: number) => px / 96;
+const PT = (px: number) => px * 0.75;
+export const PPT_FONT = 'NanumSquare';
+
+type Slide = PptxGenJS.Slide;
+type TextProps = PptxGenJS.TextProps;
+type TextPropsOptions = PptxGenJS.TextPropsOptions;
+
+/** Any CSS color → "RRGGBB". */
+function hex(c: string): string {
+  c = c.trim();
+  if (c.startsWith('#')) {
+    let h = c.slice(1);
+    if (h.length === 3) h = h.split('').map((x) => x + x).join('');
+    return h.slice(0, 6).toUpperCase();
+  }
+  const m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/.exec(c);
+  if (m) return [m[1], m[2], m[3]].map((v) => Math.round(+v).toString(16).padStart(2, '0')).join('').toUpperCase();
+  return '000000';
+}
+
+const b64 = (s: string) => btoa(unescape(encodeURIComponent(s)));
+
+interface Rect { x: number; y: number; w: number; h: number }
+
+function relRect(el: Element, origin: DOMRect): Rect {
+  const r = el.getBoundingClientRect();
+  return { x: r.left - origin.left, y: r.top - origin.top, w: r.width, h: r.height };
+}
+
+/** Self-contained SVG of an equation, colored and sized for a picture shape. */
+function mathSvgData(svg: SVGSVGElement, rect: Rect): string {
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  const color = '#' + hex(getComputedStyle(svg).color);
+  // Large intrinsic size so the PNG fallback that PowerPoint keeps alongside the SVG is sharp too.
+  clone.setAttribute('width', String(Math.max(1, Math.round(rect.w * 4))));
+  clone.setAttribute('height', String(Math.max(1, Math.round(rect.h * 4))));
+  clone.removeAttribute('style');
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  const str = new XMLSerializer().serializeToString(clone).replace(/currentColor/g, color);
+  return 'data:image/svg+xml;base64,' + b64(str);
+}
+
+function addMath(s: Slide, svg: SVGSVGElement | null, origin: DOMRect) {
+  if (!svg) return;
+  const r = relRect(svg, origin);
+  if (r.w < 0.5 || r.h < 0.5) return;
+  s.addImage({ data: mathSvgData(svg, r), x: IN(r.x), y: IN(r.y), w: IN(r.w), h: IN(r.h), altText: svg.closest('[data-latex]')?.getAttribute('data-latex') ?? 'equation' });
+}
+
+// ---------- text ----------
+
+function runOptions(textNode: Node, base: TextElement, text: string): TextPropsOptions {
+  const parent = textNode.parentElement!;
+  const cs = getComputedStyle(parent);
+  const o: TextPropsOptions = {
+    fontFace: PPT_FONT,
+    fontSize: PT(parseFloat(cs.fontSize) || base.style.fontSize),
+    color: hex(cs.color),
+    bold: parseInt(cs.fontWeight) >= 600,
+    italic: cs.fontStyle === 'italic',
+    lang: /[ㄱ-힝]/.test(text) ? 'ko-KR' : 'en-US',
+  };
+  if (parent.closest('u')) o.underline = { style: 'sng' };
+  if (parent.closest('s')) o.strike = 'sngStrike';
+  return o;
+}
+
+function listInfo(p: Element, content: Element, base: TextElement) {
+  const li = p.parentElement?.tagName === 'LI' ? p.parentElement : null;
+  if (!li) return null;
+  let level = -1;
+  for (let n: Element | null = li; n && n !== content; n = n.parentElement) if (n.tagName === 'UL' || n.tagName === 'OL') level++;
+  const list = li.parentElement!;
+  const indent = PT(base.style.fontSize * 1.3); // matches CSS `padding-left: 1.3em`
+  const first = li.firstElementChild === p;
+  const ordered = list.tagName === 'OL';
+  return { level: Math.max(0, level), first, ordered, indent, start: Number(list.getAttribute('start') ?? 1), index: [...list.children].indexOf(li) };
+}
+
+/** Text runs of one paragraph (<p>), with paragraph-level options on the first run. */
+function paragraphRuns(p: Element, content: Element, base: TextElement, last: boolean): TextProps[] {
+  const runs: TextProps[] = [];
+  let soft = false;
+  const walk = (n: Node) => {
+    if (n.nodeType === Node.TEXT_NODE) {
+      const text = n.textContent ?? '';
+      if (!text) return;
+      runs.push({ text, options: { ...runOptions(n, base, text), ...(soft ? { softBreakBefore: true } : {}) } });
+      soft = false;
+    } else if (n instanceof HTMLBRElement) {
+      if (!n.classList.contains('ProseMirror-trailingBreak')) soft = true;
+    } else n.childNodes.forEach(walk);
+  };
+  walk(p);
+  if (soft) runs.push({ text: '', options: { softBreakBefore: true, fontSize: PT(base.style.fontSize) } });
+  if (!runs.length) runs.push({ text: '', options: { fontSize: PT(base.style.fontSize), fontFace: PPT_FONT } });
+
+  const li = listInfo(p, content, base);
+  if (li) {
+    runs[0].options!.indentLevel = li.level;
+    runs[0].options!.bullet = li.first
+      ? li.ordered ? { type: 'number', indent: li.indent, numberStartAt: li.start } : { indent: li.indent }
+      : false;
+  }
+  if (!last) runs[runs.length - 1].options!.breakLine = true;
+  return runs;
+}
+
+function boxOptions(base: TextElement, r: Rect): PptxGenJS.TextPropsOptions {
+  // A little extra width so PowerPoint's slightly different text metrics don't cause an extra wrap.
+  const slack = Math.max(4, r.w * 0.02);
+  let { x, w } = r;
+  if (base.style.align === 'left') w += slack;
+  else if (base.style.align === 'center') { x -= slack / 2; w += slack; }
+  else { x -= slack; w += slack; }
+  return {
+    x: IN(x), y: IN(r.y), w: IN(w), h: IN(r.h),
+    margin: 0, valign: 'top', wrap: true, fit: 'none',
+    fontFace: PPT_FONT, fontSize: PT(base.style.fontSize), color: hex(base.style.color),
+    align: base.style.align, lineSpacing: PT(base.style.fontSize * base.style.lineHeight),
+    paraSpaceBefore: 0, paraSpaceAfter: 0,
+  };
+}
+
+/** Consecutive plain paragraphs → one editable PowerPoint text box. */
+function addTextGroup(s: Slide, base: TextElement, paras: Element[], content: Element, origin: DOMRect, boxRect: Rect, isWholeBox: boolean) {
+  const first = relRect(paras[0], origin), lastR = relRect(paras[paras.length - 1], origin);
+  const top = isWholeBox ? boxRect.y : first.y;
+  const bottom = isWholeBox ? boxRect.y + boxRect.h : lastR.y + lastR.h;
+  const runs = paras.flatMap((p, i) => paragraphRuns(p, content, base, i === paras.length - 1));
+  s.addText(runs, boxOptions(base, { x: boxRect.x, y: top, w: boxRect.w, h: Math.max(bottom - top, 1) }));
+}
+
+/**
+ * A paragraph containing inline equations. PowerPoint can't put pictures inside a text run,
+ * so each line is split at the equations: text pieces become small text boxes, equations
+ * become SVG pictures, all at the positions measured in the browser.
+ */
+function addFragments(s: Slide, base: TextElement, p: Element, content: Element, origin: DOMRect) {
+  const li = listInfo(p, content, base);
+  if (li?.first) {
+    const pr = relRect(p, origin);
+    const marker = li.ordered ? `${li.start + li.index}.` : '•';
+    const fs = base.style.fontSize;
+    s.addText(marker, {
+      x: IN(pr.x - fs * 1.3), y: IN(pr.y), w: IN(fs * 1.3), h: IN(fs * base.style.lineHeight),
+      margin: 0, valign: 'top', wrap: false, fontFace: PPT_FONT, fontSize: PT(fs), color: hex(base.style.color),
+    });
+  }
+  const range = document.createRange();
+  const flushText = (node: Text, start: number, end: number, rects: DOMRect[]) => {
+    const text = node.data.slice(start, end);
+    if (!text.trim() || !rects.length) return;
+    const left = Math.min(...rects.map((r) => r.left)), right = Math.max(...rects.map((r) => r.right));
+    const top = Math.min(...rects.map((r) => r.top)), bottom = Math.max(...rects.map((r) => r.bottom));
+    const o = runOptions(node, base, text);
+    s.addText([{ text, options: o }], {
+      x: IN(left - origin.left), y: IN(top - origin.top), w: IN(right - left + Math.max(3, (right - left) * 0.03)), h: IN(bottom - top),
+      margin: 0, valign: 'top', wrap: false, fit: 'none', fontFace: PPT_FONT, fontSize: o.fontSize, color: o.color,
+    });
+  };
+  const walk = (n: Node) => {
+    if (n.nodeType === Node.TEXT_NODE) {
+      const t = n as Text;
+      let start = 0, lineTop: number | null = null, rects: DOMRect[] = [];
+      for (let i = 0; i < t.data.length; i++) {
+        range.setStart(t, i);
+        range.setEnd(t, i + 1);
+        const r = range.getClientRects()[0];
+        if (!r) continue;
+        if (lineTop !== null && Math.abs(r.top - lineTop) > 2) {
+          flushText(t, start, i, rects);
+          start = i; rects = [];
+        }
+        lineTop = r.top;
+        rects.push(r);
+      }
+      flushText(t, start, t.data.length, rects);
+    } else if (n instanceof Element && n.classList.contains('math-inline')) {
+      addMath(s, n.querySelector('svg'), origin);
+    } else n.childNodes.forEach(walk);
+  };
+  walk(p);
+}
+
+function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect) {
+  const boxRect = relRect(dom, origin);
+  if (el.style.fill) {
+    s.addShape('rect', { x: IN(boxRect.x), y: IN(boxRect.y), w: IN(boxRect.w), h: IN(boxRect.h), fill: { color: hex(el.style.fill) } });
+  }
+  const content = dom.querySelector('.tb-content');
+  if (!content) return;
+  const blocks = [...content.querySelectorAll('p, .math-block')];
+  const hasMath = blocks.some((b) => b.classList.contains('math-block') || b.querySelector('.math-inline'));
+  let group: Element[] = [];
+  const flush = () => {
+    if (group.length) addTextGroup(s, el, group, content, origin, boxRect, !hasMath);
+    group = [];
+  };
+  for (const b of blocks) {
+    if (b.classList.contains('math-block')) { flush(); addMath(s, b.querySelector('svg'), origin); }
+    else if (b.querySelector('.math-inline')) { flush(); addFragments(s, el, b, content, origin); }
+    else group.push(b);
+  }
+  flush();
+}
+
+// ---------- shapes, lines, images ----------
+
+function addShape(pptx: PptxGenJS, s: Slide, el: ShapeElement) {
+  const sw = el.stroke ? el.strokeWidth : 0;
+  // SVG strokes are drawn inside the element box; PowerPoint centers them on the outline.
+  const x = el.x + sw / 2, y = el.y + sw / 2, w = Math.max(1, el.w - sw), h = Math.max(1, el.h - sw);
+  const type = el.shape === 'ellipse' ? pptx.ShapeType.ellipse : el.shape === 'roundRect' ? pptx.ShapeType.roundRect : pptx.ShapeType.rect;
+  s.addShape(type, {
+    x: IN(x), y: IN(y), w: IN(w), h: IN(h),
+    fill: el.fill ? { color: hex(el.fill) } : undefined,
+    line: el.stroke ? { color: hex(el.stroke), width: PT(sw) } : undefined,
+    rectRadius: el.shape === 'roundRect' ? IN(Math.min(el.radius, w / 2, h / 2)) : undefined,
+  });
+}
+
+function addLine(pptx: PptxGenJS, s: Slide, el: LineElement) {
+  s.addShape(pptx.ShapeType.line, {
+    x: IN(Math.min(el.x1, el.x2)), y: IN(Math.min(el.y1, el.y2)),
+    w: IN(Math.abs(el.x2 - el.x1)), h: IN(Math.abs(el.y2 - el.y1)),
+    flipH: el.x2 < el.x1, flipV: el.y2 < el.y1,
+    line: {
+      color: hex(el.stroke), width: PT(el.strokeWidth), dashType: el.dashed ? 'dash' : 'solid',
+      endArrowType: el.arrowEnd ? 'triangle' : undefined, beginArrowType: el.arrowStart ? 'triangle' : undefined,
+    },
+  });
+}
+
+const PPT_NATIVE = /^image\/(png|jpe?g|gif|svg\+xml)$/;
+const pngCache = new Map<string, string>();
+
+/** PowerPoint can't read WebP/AVIF/BMP: convert to PNG. SVGs get explicit pixel sizes. */
+async function imageData(a: Asset): Promise<string> {
+  if (a.mime === 'image/svg+xml') {
+    const svg = decodeURIComponent(escape(atob(a.dataUrl.split(',')[1] ?? '')));
+    if (/<svg[^>]*\swidth=/.test(svg.slice(0, 2000))) return a.dataUrl;
+    const sized = svg.replace(/<svg\b/, `<svg width="${a.width}" height="${a.height}"`);
+    return 'data:image/svg+xml;base64,' + b64(sized);
+  }
+  if (PPT_NATIVE.test(a.mime)) return a.dataUrl;
+  const hit = pngCache.get(a.id);
+  if (hit) return hit;
+  const img = new Image();
+  img.src = a.dataUrl;
+  await img.decode();
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  c.getContext('2d')!.drawImage(img, 0, 0);
+  const png = c.toDataURL('image/png');
+  pngCache.set(a.id, png);
+  return png;
+}
+
+async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset>) {
+  const a = assets[el.assetId];
+  if (!a) return;
+  s.addImage({ data: await imageData(a), x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h) });
+}
+
+// ---------- XML clean-up ----------
+
+/**
+ * pptxgenjs writes one <a:pPr> per run; PowerPoint only allows one per paragraph (first child).
+ * Also fix the East-Asian charset (Hangul = 129).
+ */
+async function fixXml(blob: Blob): Promise<Blob> {
+  const zip = await JSZip.loadAsync(blob);
+  const files = Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f));
+  for (const f of files) {
+    let xml = await zip.file(f)!.async('string');
+    xml = xml.replace(/<a:p>([\s\S]*?)<\/a:p>/g, (_m, inner: string) => {
+      let seen = false;
+      inner = inner.replace(/<a:pPr\b[^>]*?(?:\/>|>[\s\S]*?<\/a:pPr>)/g, (pp, offset: number) => {
+        if (!seen && offset === 0) { seen = true; return pp; }
+        return '';
+      });
+      return `<a:p>${inner}</a:p>`;
+    });
+    xml = xml.replace(/(<a:ea typeface="[^"]*" pitchFamily="\d+" charset=")-122"/g, '$1-127"');
+    zip.file(f, xml);
+  }
+  return zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', compression: 'DEFLATE' });
+}
+
+export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root: HTMLElement): Promise<Blob> {
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_WIDE';
+  pptx.title = deck.title;
+  pptx.theme = { headFontFace: PPT_FONT, bodyFontFace: PPT_FONT };
+
+  for (const slide of deck.slides) {
+    const s = pptx.addSlide();
+    s.background = { color: hex(slide.background) };
+    const slideDom = root.querySelector(`[data-slide-id="${slide.id}"]`);
+    if (!slideDom) continue;
+    const origin = slideDom.getBoundingClientRect();
+    for (const el of slide.elements) {
+      if (el.type === 'shape') addShape(pptx, s, el);
+      else if (el.type === 'line') addLine(pptx, s, el);
+      else if (el.type === 'image') await addImage(s, el, assets);
+      else {
+        const dom = slideDom.querySelector(`[data-el-id="${el.id}"]`);
+        if (dom) addTextElement(s, el, dom, origin);
+      }
+    }
+    if (slide.notes.trim()) s.addNotes(slide.notes);
+  }
+  const blob = (await pptx.write({ outputType: 'blob' })) as Blob;
+  return fixXml(blob);
+}

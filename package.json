@@ -1,0 +1,47 @@
+{
+  "name": "math-slides",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "app": "vite build && electron .",
+    "app:dev": "concurrently -k \"vite --port 5173 --strictPort\" \"wait-on tcp:5173 && cross-env ELECTRON_DEV_URL=http://localhost:5173 electron .\""
+  },
+  "dependencies": {
+    "@tiptap/core": "^2.27.3",
+    "@tiptap/extension-color": "^2.27.3",
+    "@tiptap/extension-placeholder": "^2.27.3",
+    "@tiptap/extension-text-style": "^2.27.3",
+    "@tiptap/extension-underline": "^2.27.3",
+    "@tiptap/pm": "^2.27.3",
+    "@tiptap/react": "^2.27.3",
+    "@tiptap/starter-kit": "^2.27.3",
+    "idb-keyval": "^6.3.0",
+    "immer": "^11.1.21",
+    "jszip": "^3.10.2",
+    "mathjax-full": "^3.2.2",
+    "nanoid": "^6.0.1",
+    "pptxgenjs": "^4.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "cross-env": "^10.1.0",
+    "electron": "^44.5.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.2",
+    "wait-on": "^9.5.1"
+  },
+  "allowScripts": {
+    "electron@44.5.1": true
+  }
+}
