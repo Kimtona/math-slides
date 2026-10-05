@@ -482,8 +482,57 @@ function SelectionOverlay({ scale }: { scale: number }) {
   );
 }
 
-function Guides({ scale }: { scale: number }) {
-  const guides = useStore((s) => s.guides);
+/**
+ * Alignment references of the current slide's elements — the same snap targets the drag guides use
+ * (edges and centers), minus the slide border itself, de-duplicated to the pixel.
+ */
+export function previewGuides(): Guide[] {
+  const t = snapTargets(currentSlide().elements.map(boxOf));
+  const uniq = (vs: number[], max: number) => [...new Set(vs.map(Math.round))].filter((v) => v > 0 && v < max);
+  return [
+    ...uniq(t.xs, SLIDE_W).map((pos) => ({ axis: 'x' as const, pos })),
+    ...uniq(t.ys, SLIDE_H).map((pos) => ({ axis: 'y' as const, pos })),
+  ];
+}
+
+/**
+ * Holding Shift on the idle canvas previews the alignment guides (editor-only overlay, nothing is stored).
+ * Not while editing text / cropping / typing in a field, not with other keys or modifiers, and it hides
+ * on pointer-down (Shift-drag / Shift-click keep their usual meaning) and when the window loses focus.
+ */
+function useShiftPreview() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const idle = () => {
+      const st = useStore.getState();
+      const a = document.activeElement as HTMLElement | null;
+      const typing = !!a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+      return st.focusArea === 'canvas' && !st.editingId && !st.cropEditId && !st.presenting && !typing;
+    };
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'Shift' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) setOn(idle());
+      else if (e.key !== 'Shift') setOn(false);
+    };
+    const off = () => setOn(false);
+    const up = (e: KeyboardEvent) => { if (e.key === 'Shift') off(); };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', off);
+    window.addEventListener('pointerdown', off, true);
+    return () => {
+      window.removeEventListener('keydown', down); window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', off); window.removeEventListener('pointerdown', off, true);
+    };
+  }, []);
+  return on;
+}
+
+function Guides({ scale, preview }: { scale: number; preview: boolean }) {
+  const dragGuides = useStore((s) => s.guides);
+  const elements = useStore((s) => s.deck.slides.find((x) => x.id === s.currentSlideId)?.elements);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const guides = dragGuides.length ? dragGuides : preview ? previewGuides() : [];
+  void elements; // re-render when the slide's elements change while previewing
   return (
     <>
       {guides.map((g, i) =>
@@ -574,6 +623,7 @@ export function Canvas() {
   const [dropping, setDropping] = useState(false);
   const slide = useStore((s) => s.deck.slides.find((x) => x.id === s.currentSlideId)!);
   const editingId = useStore((s) => s.editingId);
+  const shiftPreview = useShiftPreview();
 
   useLayoutEffect(() => {
     const vp = vpRef.current!;
@@ -609,7 +659,8 @@ export function Canvas() {
       setMarquee(null);
       const inside = start.x >= 0 && start.y >= 0 && start.x <= SLIDE_W && start.y <= SLIDE_H;
       // Click on empty slide area (with nothing selected) creates a text box right there.
-      if (!moved && !wasEditing && !hadSelection && !e.shiftKey && inside) insertTextAt(start.x, start.y);
+      // (Shift is allowed: it only previews alignment guides, and with nothing selected it adds nothing to a marquee.)
+      if (!moved && !wasEditing && !hadSelection && inside) insertTextAt(start.x, start.y);
     });
   }, []);
 
@@ -632,7 +683,7 @@ export function Canvas() {
           </div>
           <div className="overlay">
             <SelectionOverlay scale={scale} />
-            <Guides scale={scale} />
+            <Guides scale={scale} preview={shiftPreview} />
             {marquee && <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h, borderWidth: 1 / scale }} />}
           </div>
         </div>

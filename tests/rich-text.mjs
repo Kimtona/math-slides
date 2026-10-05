@@ -587,6 +587,58 @@ try {
     assert.equal(await evaluate(`document.querySelectorAll('${where} .img-caption-input, ${where} textarea').length`), 0, 'no caption editor in ' + where);
   }
   console.log('PASS /image slash command (shared picker, cancel) and image captions (add/edit/remove, layout, undo/redo, delete, static/thumbnail)');
+  // Hold Shift → alignment guide preview (editor-only), on the current (image) slide.
+  const shift = (type) => send('Input.dispatchKeyEvent', {type, key: 'Shift', code: 'ShiftLeft', modifiers: type === 'keyDown' ? 8 : 0, windowsVirtualKeyCode: 16});
+  const guidePositions = () => evaluate("[...document.querySelectorAll('.slide.editable .overlay .guide')].map(g => g.style.height === '720px' ? 'x' + g.style.left : 'y' + g.style.top)");
+  const slideRect = () => evaluate("(() => { const r = document.querySelector('.slide.editable').getBoundingClientRect(); return {x: r.x, y: r.y, k: r.width / 1280}; })()");
+  await evaluate('store.getState().select([]); document.activeElement?.blur?.()'); await pause();
+  assert.deepEqual(await guidePositions(), [], 'no preview guides by default');
+  await shift('keyDown'); await pause();
+  const preview = await guidePositions();
+  assert.ok(preview.length > 3, 'Shift shows alignment guides');
+  assert.equal(new Set(preview).size, preview.length, 'no duplicated guide positions');
+  const slideEls = await evaluate("store.getState().deck.slides.find(s => s.id === store.getState().currentSlideId).elements.map(e => ({x: e.x, y: e.y, w: e.w, h: e.h}))");
+  const el0 = slideEls.find((e) => e.w === 400 && e.h === 200);
+  assert.ok(preview.includes('x' + el0.x + 'px') && preview.includes('x' + (el0.x + el0.w) + 'px') && preview.includes('x' + (el0.x + el0.w / 2) + 'px') && preview.includes('y' + el0.y + 'px'), 'guides come from existing element edges and centers');
+  assert.equal(await evaluate("document.querySelectorAll('.thumb .guide, .print-root .guide').length"), 0, 'guides exist only in the editor canvas');
+  assert.ok(!(await evaluate('JSON.stringify(store.getState().deck)')).includes('guide'), 'guides are not stored');
+  await shift('keyUp'); await pause();
+  assert.deepEqual(await guidePositions(), [], 'releasing Shift hides the guides');
+  // Shift while editing text: no guides, typing untouched.
+  const body = await evaluate("store.getState().deck.slides.find(s => s.id === store.getState().currentSlideId).elements.find(e => e.type === 'text').id");
+  await evaluate(`store.getState().startEditing('${body}', 'end')`); await until(() => evaluate('!!active()'), 'Shift text editor');
+  await shift('keyDown'); await pause();
+  assert.deepEqual(await guidePositions(), [], 'no guides while editing text');
+  await send('Input.insertText', {text: 'X'}); await shift('keyUp'); await pause();
+  assert.ok(JSON.stringify(await doc()).includes('X'), 'typing with Shift still works');
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause();
+  // Shift-click on empty canvas still places text (nothing selected).
+  const sr = await slideRect();
+  const textCount = () => evaluate("store.getState().deck.slides.find(s => s.id === store.getState().currentSlideId).elements.filter(e => e.type === 'text').length");
+  const before = await textCount();
+  await shift('keyDown'); await pause();
+  const at = {x: sr.x + 1000 * sr.k, y: sr.y + 600 * sr.k};
+  await send('Input.dispatchMouseEvent', {type: 'mousePressed', button: 'left', clickCount: 1, modifiers: 8, ...at});
+  await send('Input.dispatchMouseEvent', {type: 'mouseReleased', button: 'left', clickCount: 1, modifiers: 8, ...at});
+  await shift('keyUp'); await pause();
+  assert.equal(await textCount(), before + 1, 'click placement of text works while Shift is held');
+  assert.deepEqual(await guidePositions(), [], 'guides hide after the click / Shift release');
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause();
+  // Existing drag-time guides still appear.
+  const imgs = await images();
+  const [i1, i2] = [imgs[0], imgs[1]];
+  const rectOf = (id) => evaluate(`(() => { const r = document.querySelector('.slide.editable [data-el-id="${id}"]').getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()`);
+  const from = await rectOf(i2.id);
+  await send('Input.dispatchMouseEvent', {type: 'mousePressed', button: 'left', clickCount: 1, ...from});
+  const target = {x: from.x + (i1.x - i2.x - 2) * sr.k, y: from.y + 20};
+  await send('Input.dispatchMouseEvent', {type: 'mouseMoved', button: 'left', buttons: 1, ...from, x: from.x + 30});
+  await send('Input.dispatchMouseEvent', {type: 'mouseMoved', button: 'left', buttons: 1, ...target});
+  await pause();
+  assert.ok((await guidePositions()).length > 0, 'drag-time alignment guides still appear');
+  await send('Input.dispatchMouseEvent', {type: 'mouseReleased', button: 'left', clickCount: 1, ...target}); await pause();
+  assert.deepEqual(await guidePositions(), [], 'drag guides clear on release');
+  await evaluate('store.getState().undo()'); await pause();
+  console.log('PASS Shift alignment-guide preview (show/hide, element-derived, de-duplicated, editor-only, text editing safe, Shift-click placement, drag guides)');
   // TOC entered in the real editor; generated sections retain their IDs through formatting.
   await evaluate('store.getState().addTocSlide()');
   await evaluate(`store.getState().startEditing(store.getState().deck.slides.find(s=>s.kind==='toc').elements.find(e=>e.role==='toc').id)`);
