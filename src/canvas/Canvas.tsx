@@ -5,7 +5,7 @@ import { SLIDE_H, SLIDE_W } from '../model/types';
 import { lineBox } from '../model/defaults';
 import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
 import { currentSlide, useStore } from '../store/store';
-import { CitationLabel, ElementBody, elementBoxStyle, footerNumberStyle, footerParts, footerRefStyle, LineSvg, slideNumberText } from '../render/ElementView';
+import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerNumberStyle, footerParts, footerRefStyle, LineSvg, slideNumberText } from '../render/ElementView';
 import { extractCitations, resolveCitation } from '../citations/resolve';
 import { findCitations } from '../citations/providers';
 import { TextEditor } from '../editor/TextEditor';
@@ -345,6 +345,7 @@ function CropOverlay({ el, scale }: { el: ImageElement; scale: number }) {
 const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideElement; editing: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const assets = useStore((s) => s.assets);
+  const selected = useStore((s) => s.selection.length === 1 && s.selection[0] === el.id && s.cropEditId !== el.id);
 
   // Text boxes are auto-height: measure and store the height (used for selection, snapping, export).
   useLayoutEffect(() => {
@@ -391,10 +392,37 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
       onPointerDown={onPointerDown} onDoubleClick={onDoubleClick}>
       {editing && el.type === 'text' ? <TextEditor el={el} />
         : el.type === 'line' ? <LineSvg el={el} hit />
-        : <ElementBody el={el} assets={assets} />}
+        : <ElementBody el={el} assets={assets} caption={el.type === 'image' && selected && el.caption !== undefined ? <CaptionInput el={el} /> : undefined} />}
     </div>
   );
 });
+
+/** Editor-only caption field (plain text) under a selected image. One undo step per editing session. */
+function CaptionInput({ el }: { el: ImageElement }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const active = useRef(false);
+  const last = useRef(el.caption ?? '');
+  last.current = el.caption ?? '';
+  const value = el.caption ?? '';
+  useLayoutEffect(() => { const t = ref.current; if (t) { t.style.height = '0'; t.style.height = `${t.scrollHeight}px`; } }, [value, el.w]);
+  // Ends the editing session (also when the field unmounts while focused, e.g. the image is deselected).
+  const finish = useCallback(() => {
+    if (!active.current) return;
+    active.current = false;
+    const st = useStore.getState();
+    // Emptied caption → back to the no-caption state (same gesture, so it is part of the editing step).
+    if (!last.current.trim()) st.updateElements([el.id], (d) => { delete (d as ImageElement).caption; }, true);
+    st.endGesture();
+  }, [el.id]);
+  useEffect(() => { if (!el.caption) ref.current?.focus(); return finish; }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <textarea ref={ref} className="img-caption-input" style={captionStyle} value={value} rows={1} placeholder="Add a caption..." spellCheck={false}
+      onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
+      onChange={(e) => { if (!active.current) { active.current = true; useStore.getState().beginGesture(); } useStore.getState().updateElements([el.id], (d) => { (d as ImageElement).caption = e.target.value; }, true); }}
+      onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') ref.current?.blur(); }}
+      onBlur={finish} />
+  );
+}
 
 function SelectionOverlay({ scale }: { scale: number }) {
   const selection = useStore((s) => s.selection);

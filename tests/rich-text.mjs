@@ -484,6 +484,109 @@ try {
     assert.equal(await evaluate(`document.querySelectorAll('${where} .ablock input, ${where} .ablock-caret, ${where} .ablock-types').length`), 0, 'no editor controls in ' + where);
   }
   console.log('PASS academic block (/block, types and color families, title, rich body, math, exit, undo/redo, static/thumbnail)');
+  // /image + image captions, on a slide of their own.
+  await evaluate('store.getState().addSlide()'); await pause();
+  await evaluate(`window.__fileInputs = []; HTMLInputElement.prototype.click = function () { if (this.type === 'file') window.__fileInputs.push(this); };
+    window.__supply = async (i, name) => { const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#4a90d9"/></svg>'; const dt = new DataTransfer(); dt.items.add(new File([svg], name + '.svg', {type: 'image/svg+xml'})); Object.defineProperty(window.__fileInputs[i], 'files', {value: dt.files}); await window.__fileInputs[i].onchange(); };`);
+  const slideId = await evaluate('store.getState().currentSlideId');
+  const images = () => evaluate("store.getState().deck.slides.find(s => s.id === store.getState().currentSlideId).elements.filter(e => e.type === 'image')");
+  const imageGeometry = (e) => ({x: e.x, y: e.y, w: e.w, h: e.h});
+  // Existing toolbar workflow.
+  await click('button[title^="이미지 (I)"]');
+  assert.equal(await evaluate('window.__fileInputs.length'), 1, 'toolbar Image opens the file picker');
+  const pickerAccept = await evaluate('window.__fileInputs[0].accept');
+  assert.ok(pickerAccept.includes('image/png') && await evaluate('window.__fileInputs[0].multiple'));
+  await evaluate('window.__supply(0, "one")'); await until(async () => (await images()).length === 1, 'toolbar image inserted');
+  assert.equal((await images())[0].caption, undefined, 'new image has no caption');
+  assert.equal(await evaluate("document.querySelectorAll('.el-image .img-caption, .img-caption-input').length"), 0, 'no caption UI by default');
+  const id1 = (await images())[0].id;
+  await evaluate(`store.getState().updateElements(['${id1}'], e => { e.x = 100; e.y = 120; e.w = 400; e.h = 200; })`);
+  // /image: same picker, trigger removed, cancel inserts nothing.
+  const slashImage = async () => {
+    await evaluate(`store.getState().addElements([defaults.newText(64, 420, {w: 500})], {edit: true})`);
+    await until(() => evaluate('!!active()'), 'Image slash editor');
+    await send('Input.insertText', {text: '/image'}); await pause();
+    assert.equal(await evaluate("[...document.querySelectorAll('.slash-item .slash-name')].map(e => e.textContent).join()"), 'Image');
+    await key('Enter'); await pause();
+    assert.ok(!JSON.stringify(await doc()).includes('/image'), '/image trigger removed');
+  };
+  await slashImage();
+  assert.equal(await evaluate('window.__fileInputs.length'), 2, '/image opens the file picker');
+  assert.equal(await evaluate('window.__fileInputs[1].accept'), pickerAccept, '/image uses the same picker as the toolbar');
+  await evaluate('store.getState().stopEditing()'); await pause();
+  assert.equal((await images()).length, 1, 'cancelled picker inserts nothing');
+  assert.ok(!(await evaluate('JSON.stringify(store.getState().deck.slides.find(s => s.id === store.getState().currentSlideId).elements)')).includes('/image'), 'cancel does not restore /image');
+  await slashImage();
+  await evaluate('window.__supply(2, "two")'); await until(async () => (await images()).length === 2, '/image inserted');
+  await evaluate('store.getState().stopEditing()'); await pause();
+  const id2 = (await images())[1].id;
+  await evaluate(`store.getState().updateElements(['${id2}'], e => { e.x = 700; e.y = 120; e.w = 360; e.h = 180 })`);
+  // Caption action (existing image toolbar).
+  const geomBefore = imageGeometry((await images())[1]);
+  await evaluate(`store.getState().select(['${id2}'])`); await pause();
+  assert.equal(await evaluate("!!document.querySelector('.propsbar button[title=\"이미지 캡션 추가\"]')"), true, 'Caption action on a selected image');
+  assert.equal(await evaluate("document.querySelectorAll('.img-caption-input').length"), 0);
+  await click('.propsbar button[title="이미지 캡션 추가"]'); await pause();
+  assert.equal(await evaluate("document.activeElement?.className"), 'img-caption-input', 'editable caption area, focused');
+  assert.equal(await evaluate("document.querySelector('.img-caption-input').placeholder"), 'Add a caption...');
+  assert.ok(!(await evaluate('JSON.stringify(store.getState().deck)')).includes('Add a caption'), 'placeholder is not content');
+  await pause(300);
+  await send('Input.insertText', {text: 'Architecture of the proposed model'}); await pause();
+  assert.equal((await images())[1].caption, 'Architecture of the proposed model', 'caption typed');
+  assert.deepEqual(imageGeometry((await images())[1]), geomBefore, 'caption does not change image geometry');
+  const layout = () => evaluate(`(() => { const el = document.querySelector('[data-el-id="${id2}"]'); const c = el.querySelector('.img-caption-input, .img-caption'); const cs = getComputedStyle(c); const er = el.getBoundingClientRect(), cr = c.getBoundingClientRect(); return {fs: cs.fontSize, align: cs.textAlign, weight: cs.fontWeight, dx: cr.left - er.left, dw: cr.width - er.width, gap: (cr.top - er.bottom) / (er.width / el.offsetWidth), h: c.offsetHeight, scale: er.width / el.offsetWidth}; })()`);
+  let L = await layout();
+  assert.deepEqual([L.fs, L.align, L.weight, Math.round(L.dx), Math.round(L.dw)], ['14px', 'left', '400', 0, 0], 'caption: 14pt, left-aligned, image left edge and width');
+  assert.ok(Math.abs(L.gap - 6) < 1, 'small gap below the image');
+  const oneLine = L.h;
+  await evaluate("document.activeElement.blur()"); await pause();
+  assert.equal(await evaluate('store.getState().gestureBase === null'), true, 'editing session closed');
+  await evaluate(`store.getState().updateElements(['${id2}'], e => { e.w = 180; e.h = 90 })`); await pause();
+  L = await layout();
+  assert.ok(L.h > oneLine * 1.5 && Math.round(L.dw) === 0 && Math.round(L.dx) === 0, 'narrower image: caption wraps within the image width');
+  await evaluate(`store.getState().updateElements(['${id2}'], e => { e.x = 600; e.y = 200 })`); await pause();
+  L = await layout();
+  assert.ok(Math.round(L.dx) === 0 && Math.abs(L.gap - 6) < 1, 'moved image keeps its caption attached');
+  // Undo/redo of caption operations (each is its own step).
+  await evaluate('store.getState().undo(); store.getState().undo(); store.getState().undo()'); await pause(); // move, resize, text
+  assert.equal((await images())[1].caption, '', 'undo caption text → empty editable caption');
+  await evaluate('store.getState().undo()'); await pause();
+  assert.equal((await images())[1].caption, undefined, 'undo adding the caption');
+  await evaluate('store.getState().redo(); store.getState().redo()'); await pause();
+  assert.equal((await images())[1].caption, 'Architecture of the proposed model', 'redo caption');
+  // Remove Caption.
+  await evaluate(`store.getState().select(['${id2}'])`); await pause();
+  await click('.propsbar button[title="이미지 캡션 삭제"]'); await pause();
+  assert.equal((await images())[1].caption, undefined, 'caption removed');
+  assert.equal(await evaluate("document.querySelectorAll('.img-caption, .img-caption-input').length"), 0);
+  await evaluate('store.getState().undo()'); await pause();
+  assert.equal((await images())[1].caption, 'Architecture of the proposed model', 'undo remove caption');
+  await evaluate('store.getState().redo()'); await pause();
+  assert.equal((await images())[1].caption, undefined, 'redo remove caption');
+  // Re-add; a different caption on the first image.
+  const addCaption = async (id, text) => {
+    await evaluate(`store.getState().select(['${id}'])`); await pause();
+    await click('.propsbar button[title="이미지 캡션 추가"]'); await pause(400);
+    await send('Input.insertText', {text}); await pause();
+    await evaluate('document.activeElement.blur()'); await pause();
+  };
+  await addCaption(id2, 'Architecture of the proposed model');
+  await addCaption(id1, 'Figure 1. Baseline');
+  // Delete the captioned image: caption goes with it; undo restores both.
+  await evaluate(`store.getState().select(['${id2}']); store.getState().deleteSelection()`); await pause();
+  assert.equal((await images()).length, 1);
+  assert.ok(!(await evaluate('JSON.stringify(store.getState().deck.slides.find(s => s.id === store.getState().currentSlideId).elements)')).includes('Architecture'), 'no orphan caption after deleting the image');
+  assert.equal(await evaluate("[...document.querySelectorAll('.slide.editable .img-caption, .img-caption-input')].map(e => e.value ?? e.textContent).join()"), 'Figure 1. Baseline');
+  await evaluate('store.getState().undo()'); await pause();
+  assert.deepEqual((await images()).map((e) => e.caption), ['Figure 1. Baseline', 'Architecture of the proposed model'], 'undo restores image and caption together');
+  // An empty caption behaves as no caption outside the editor.
+  await evaluate(`store.getState().addElements([{id: 'img-empty', type: 'image', assetId: store.getState().deck.slides.find(s => s.id === '${slideId}').elements.find(e => e.type === 'image').assetId, x: 100, y: 400, w: 200, h: 100, caption: ''}])`);
+  await evaluate('store.getState().select([])'); await pause();
+  for (const where of ['.slide.editable', '.thumb']) {
+    assert.deepEqual(await evaluate(`[...document.querySelectorAll('${where} .img-caption')].map(e => e.textContent)`), where === '.thumb' ? ['Figure 1. Baseline', 'Architecture of the proposed model'] : ['Figure 1. Baseline', 'Architecture of the proposed model'], 'captions rendered in ' + where + ' (empty one skipped)');
+    assert.equal(await evaluate(`document.querySelectorAll('${where} .img-caption-input, ${where} textarea').length`), 0, 'no caption editor in ' + where);
+  }
+  console.log('PASS /image slash command (shared picker, cancel) and image captions (add/edit/remove, layout, undo/redo, delete, static/thumbnail)');
   // TOC entered in the real editor; generated sections retain their IDs through formatting.
   await evaluate('store.getState().addTocSlide()');
   await evaluate(`store.getState().startEditing(store.getState().deck.slides.find(s=>s.kind==='toc').elements.find(e=>e.role==='toc').id)`);
@@ -522,6 +625,9 @@ try {
   const savedSlide2 = JSON.stringify(saved.deck.slides[1]);
   assert.ok(savedSlide2.includes('"callout"') && savedSlide2.includes('"icon":"⚠️"') && savedSlide2.includes('"icon":"✅"'), '.mslides keeps callouts and their icons');
   assert.ok(savedSlide2.includes('"academicBlock"') && savedSlide2.includes('"type":"theorem"') && savedSlide2.includes('"title":"Policy Gradient Theorem"') && savedSlide2.includes('"type":"definition"'), '.mslides keeps academic block type and title');
+  const imageSlide = saved.deck.slides.find((x) => x.elements.some((e) => e.type === 'image'));
+  assert.deepEqual(imageSlide.elements.filter((e) => e.type === 'image').map((e) => e.caption), ['Figure 1. Baseline', 'Architecture of the proposed model', ''], '.mslides keeps captions');
+  assert.ok(!JSON.stringify(saved).includes('Add a caption'), 'placeholder never persisted');
   assert.ok(savedSlide2.includes('"codeBlock"') && savedSlide2.includes('"blockquote"'), '.mslides keeps code/quote blocks');
   for (const l of ['python', 'c', 'bash']) assert.ok(savedSlide2.includes(`"language":"${l}"`), '.mslides keeps language ' + l);
   await evaluate(`persist.newProject()`); await pause();
@@ -582,6 +688,19 @@ try {
   assert.match(xml2, /<a:t> — <\/a:t>[\s\S]{0,700}<a:t>Policy Gradient Theorem<\/a:t>/, 'title is separate editable text');
   assert.match(xml2, /<a:t>Definition<\/a:t>/); assert.match(xml2, /<a:t>Markov property<\/a:t>/); assert.match(xml2, /<a:t>Statement<\/a:t>/);
   assert.ok(!xml2.includes('제목 (선택)') && !xml2.includes('▾'), 'selector / title input are not exported');
+  const imgIndex = saved.deck.slides.indexOf(imageSlide) + 1;
+  const xmlImg = await zip.file('ppt/slides/slide' + imgIndex + '.xml').async('string');
+  const geom = /<a:off x="(\d+)" y="(\d+)"\/>\s*<a:ext cx="(\d+)" cy="(\d+)"\/>/;
+  const caps = [...xmlImg.matchAll(/name="Image Caption"[\s\S]*?<\/p:sp>/g)].map((m) => m[0]);
+  const pics = [...xmlImg.matchAll(/<p:pic>[\s\S]*?<\/p:pic>/g)].map((m) => m[0]);
+  assert.equal(caps.length, 2, 'only non-empty captions are exported'); assert.equal(pics.length, 3, 'images stay native pictures');
+  for (const [i, c] of caps.entries()) {
+    const [, cx, cy, cw] = geom.exec(c).map(Number), [, px, py, pw, ph] = geom.exec(pics[i]).map(Number);
+    assert.deepEqual([cx, cw], [px, pw], 'caption left edge and width = image'); assert.ok(cy >= py + ph, 'caption below the image');
+    assert.match(c, /sz="1050"/); /* 14 slide px = 10.5pt on the 13.33in slide, same scale as the 16px code block = 12pt */ assert.match(c, /algn="l"/); assert.ok(!/ b="1"/.test(c), 'caption is not bold');
+  }
+  assert.match(xmlImg, /<a:t>Figure 1\. Baseline<\/a:t>/); assert.match(xmlImg, /<a:t>Architecture of the proposed model<\/a:t>/);
+  assert.ok(!/Add a caption|Remove Caption|>Caption</.test(xmlImg), 'editor-only caption UI is not exported');
   const tocIndex = saved.deck.slides.findIndex(s=>s.kind==='toc')+1;
   const tocRels = await zip.file('ppt/slides/_rels/slide'+tocIndex+'.xml.rels').async('string');
   assert.match(tocRels, /relationships\/slide/);

@@ -3,7 +3,7 @@ import { useStore } from '../store/store';
 import type { Asset, Citation, LineElement, ShapeElement, Slide, SlideElement, TextElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { StaticText } from './StaticText';
-import { FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE } from '../model/typography';
+import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, TYPOGRAPHY } from '../model/typography';
 
 export function textBoxStyle(el: TextElement): CSSProperties {
   return {
@@ -65,20 +65,28 @@ export function LineSvg({ el, hit }: { el: LineElement; hit?: boolean }) {
 }
 
 /** The visual content of an element, without positioning. */
-export function ElementBody({ el, assets }: { el: SlideElement; assets: Record<string, Asset> }) {
+/** Shared by the static caption and the editor's caption input so both lay out identically. */
+export const captionStyle: CSSProperties = { marginTop: CAPTION_GAP, fontSize: TYPOGRAPHY.caption, color: CAPTION_COLOR };
+
+export function ElementBody({ el, assets, caption }: { el: SlideElement; assets: Record<string, Asset>; caption?: ReactNode }) {
   switch (el.type) {
     case 'text': return <StaticText doc={el.doc} />;
     case 'image': {
       const a = assets[el.assetId];
       if (!a) return <div className="el-img missing">image</div>;
-      if (!el.crop) return <img className="el-img" src={a.dataUrl} draggable={false} alt="" />;
+      // The caption hangs below the element box (its geometry stays the image's); empty = none.
+      const cap = caption ?? (el.caption?.trim() ? <div className="img-caption" style={captionStyle}>{el.caption}</div> : null);
+      if (!el.crop) return <><img className="el-img" src={a.dataUrl} draggable={false} alt="" />{cap}</>;
       // Cropped: the full image is drawn larger and offset; the element box clips it.
       const c = el.crop;
       return (
-        <div className="el-img-crop">
-          <img className="el-img-src" src={a.dataUrl} draggable={false} alt=""
-            style={{ left: `${(-c.x / c.w) * 100}%`, top: `${(-c.y / c.h) * 100}%`, width: `${100 / c.w}%`, height: `${100 / c.h}%` }} />
-        </div>
+        <>
+          <div className="el-img-crop">
+            <img className="el-img-src" src={a.dataUrl} draggable={false} alt=""
+              style={{ left: `${(-c.x / c.w) * 100}%`, top: `${(-c.y / c.h) * 100}%`, width: `${100 / c.w}%`, height: `${100 / c.h}%` }} />
+          </div>
+          {cap}
+        </>
       );
     }
     case 'shape': return <ShapeSvg el={el} />;

@@ -10,7 +10,13 @@ export const TYPOGRAPHY = {
   body: 25,
   /** Default size of a new Code Block (`/code`), independent of the text box size. */
   code: 16,
+  /** Image caption (px on the 1280×720 slide = pt in the 13.333in deck). */
+  caption: 14,
 } as const;
+
+export const CAPTION_COLOR = '#6B7280';
+/** Gap between an image's bottom edge and its caption. */
+export const CAPTION_GAP = 6;
 
 /** Markdown prefix → font size: `# ` h1, `## ` h2, `### ` h3, `#### ` body. */
 export const MARKDOWN_SIZES: Record<number, number> = {

@@ -2,7 +2,7 @@ import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
 import type { Asset, Deck, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
 import { sourceRect } from '../model/imageCrop';
-import { FOOTER_COLOR, FOOTER_FONT_SIZE } from '../model/typography';
+import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, TYPOGRAPHY } from '../model/typography';
 import { tokenColor } from '../editor/codeHighlight';
 import { INLINE_CODE_BACKGROUND, INLINE_CODE_FONT } from '../model/textFormatting';
 
@@ -423,10 +423,25 @@ async function imageData(a: Asset): Promise<string> {
   return png;
 }
 
-async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset>) {
+/** Image caption → native editable text derived from the image's geometry (below it, same left edge and width). */
+function addCaption(s: Slide, el: ImageElement, slideDom: Element, origin: DOMRect) {
+  if (!el.caption?.trim()) return;
+  const dom = slideDom.querySelector(`[data-el-id="${el.id}"] .img-caption`);
+  const r = dom ? relRect(dom, origin) : { x: el.x, y: el.y + el.h + CAPTION_GAP, w: el.w, h: TYPOGRAPHY.caption * 1.5 };
+  const lh = dom ? parseFloat(getComputedStyle(dom).lineHeight) || TYPOGRAPHY.caption * 1.35 : TYPOGRAPHY.caption * 1.35;
+  const lines = el.caption.replace(/\s+$/, '').split('\n');
+  const runs: TextProps[] = lines.map((text, i) => ({ text, options: { fontFace: PPT_FONT, fontSize: PT(TYPOGRAPHY.caption), color: hex(CAPTION_COLOR), bold: false, ...(i < lines.length - 1 ? { breakLine: true } : {}) } }));
+  s.addText(runs, {
+    x: IN(el.x), y: IN(r.y), w: IN(el.w), h: IN(Math.max(r.h, lh)), margin: 0, valign: 'top', wrap: true, fit: 'none', align: 'left',
+    fontFace: PPT_FONT, fontSize: PT(TYPOGRAPHY.caption), color: hex(CAPTION_COLOR), lineSpacing: PT(lh), paraSpaceBefore: 0, paraSpaceAfter: 0, objectName: 'Image Caption',
+  });
+}
+
+async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset>, slideDom: Element, origin: DOMRect) {
   const a = assets[el.assetId];
   if (!a) return;
   const data = await imageData(a);
+  addCaption(s, el, slideDom, origin);
   if (!el.crop) {
     s.addImage({ data, x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h) });
     return;
@@ -509,7 +524,7 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
     for (const el of slide.elements) {
       if (el.type === 'shape') addShape(pptx, s, el);
       else if (el.type === 'line') addLine(pptx, s, el);
-      else if (el.type === 'image') await addImage(s, el, assets);
+      else if (el.type === 'image') await addImage(s, el, assets, slideDom, origin);
       else {
         const dom = slideDom.querySelector(`[data-el-id="${el.id}"]`);
         if (dom) addTextElement(s, el, dom, origin);

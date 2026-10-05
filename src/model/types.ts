@@ -62,6 +62,11 @@ export interface ImageElement extends ElementBase {
   assetId: ID;
   /** Absent (older files, uncropped images) = the whole image. */
   crop?: ImageCrop;
+  /**
+   * Optional plain-text caption, drawn left-aligned below the image at the image's width.
+   * Absent / empty = no caption (older files have none); '' only exists while it is being edited.
+   */
+  caption?: string;
 }
 
 export type ShapeKind = 'rect' | 'roundRect' | 'ellipse';

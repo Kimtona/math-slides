@@ -154,6 +154,9 @@ function ImageProps({ el }: { el: ImageElement }) {
         if (!asset) return;
         st.updateElements([el.id], (d) => { d.h = Math.round(d.w * (c.h * asset.height) / (c.w * asset.width)); });
       }}>원본 비율</Btn>
+      {el.caption === undefined
+        ? <Btn wide title="이미지 캡션 추가" onClick={() => st.updateElements([el.id], (d) => { (d as ImageElement).caption = ''; })}>Caption</Btn>
+        : <Btn wide className="active" title="이미지 캡션 삭제" onClick={() => st.updateElements([el.id], (d) => { delete (d as ImageElement).caption; })}>Remove Caption</Btn>}
       <span className="hint">드래그 = 비율 유지 · ⌥ Option = 자유 변형 · ⇧ Shift = 크롭 · 더블클릭 = 크롭 편집</span>
     </>
   );
