@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import type { Deck, LineElement, PMNode, ShapeElement, ShapeKind, Slide, TextElement, TextStyle } from './types';
 import { SLIDE_H, SLIDE_W } from './types';
 import { presetHex } from './colors';
+import { TYPOGRAPHY } from './typography';
 
 export const uid = () => nanoid(10);
 
@@ -17,7 +18,7 @@ export const textDoc = (...paragraphs: string[]): PMNode => ({
 });
 
 export function defaultTextStyle(partial: Partial<TextStyle> = {}): TextStyle {
-  return { fontSize: 28, color: DEFAULT_TEXT_COLOR, align: 'left', lineHeight: 1.35, fill: null, ...partial };
+  return { fontSize: TYPOGRAPHY.body, color: DEFAULT_TEXT_COLOR, align: 'left', lineHeight: 1.35, fill: null, ...partial };
 }
 
 export function newText(x: number, y: number, opts: { w?: number; doc?: PMNode; style?: Partial<TextStyle> } = {}): TextElement {

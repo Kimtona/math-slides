@@ -36,7 +36,8 @@ function renderNode(n: PMNode, key: number): ReactNode {
       const c = n.content ?? [];
       // ProseMirror adds a trailing <br> to empty paragraphs and after a final hard break.
       const trailing = !c.length || c[c.length - 1].type === 'hardBreak' ? <br className="ProseMirror-trailingBreak" /> : null;
-      return <p key={key}>{kids()}{trailing}</p>;
+      const fs = n.attrs?.fontSize;
+      return <p key={key} style={fs ? { fontSize: fs } : undefined}>{kids()}{trailing}</p>;
     }
     case 'text': return renderMarks(n.text ?? '', n.marks, key);
     case 'hardBreak': return <br key={key} />;

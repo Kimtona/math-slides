@@ -8,6 +8,7 @@ import { currentSlide, useStore } from '../store/store';
 import { ElementBody, elementBoxStyle, LineSvg } from '../render/ElementView';
 import { TextEditor } from '../editor/TextEditor';
 import { insertImageFiles, insertTextAt } from './insert';
+import { scaleParagraphSizes } from '../editor/extensions';
 
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'p1' | 'p2';
 const SNAP_PX = 6;
@@ -162,6 +163,7 @@ function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle, op
           // Corner handles on a text box scale the text (Canva behaviour).
           const k = w / o.w;
           d.style.fontSize = Math.max(6, Math.round((o as TextElement).style.fontSize * k * 2) / 2);
+          d.doc = scaleParagraphSizes((o as TextElement).doc, k) as any;
           if (hasN) d.y = Math.round(o.y + o.h - o.h * k);
         }
       } else {

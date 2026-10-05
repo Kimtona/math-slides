@@ -33,12 +33,18 @@ function useEditorTick() {
 function TextProps({ el, editing }: { el: TextElement; editing: boolean }) {
   useEditorTick();
   const ed = editing ? getActiveEditor() : null;
-  const size = el.style.fontSize;
+  // A line sized with #/##/###/#### has its own size; while the caret is on it, the field edits that line.
+  const lineSize = ed?.getAttributes('paragraph').fontSize as number | undefined;
+  const size = lineSize ?? el.style.fontSize;
+  const setSize = (v: number) => {
+    if (ed && lineSize) ed.chain().focus().updateAttributes('paragraph', { fontSize: v }).run();
+    else setTextStyle({ fontSize: v });
+  };
   return (
     <>
-      <Btn title="글자 작게" onClick={() => setTextStyle({ fontSize: Math.max(6, size - 2) })}>−</Btn>
-      <NumberField value={size} min={6} max={300} title="글자 크기 (px)" onChange={(v) => setTextStyle({ fontSize: v })} />
-      <Btn title="글자 크게" onClick={() => setTextStyle({ fontSize: size + 2 })}>+</Btn>
+      <Btn title="글자 작게" onClick={() => setSize(Math.max(6, size - 2))}>−</Btn>
+      <NumberField value={size} min={6} max={300} title={lineSize ? '이 줄의 글자 크기 (px)' : '글자 크기 (px)'} onChange={setSize} />
+      <Btn title="글자 크게" onClick={() => setSize(size + 2)}>+</Btn>
       <Sep />
       <Btn title="굵게 ⌘B" active={markActive('bold', el, editing)} onClick={() => toggleMark('bold')}><b>B</b></Btn>
       <Btn title="기울임 ⌘I" active={markActive('italic', el, editing)} onClick={() => toggleMark('italic')}><i style={{ fontFamily: 'serif' }}>I</i></Btn>

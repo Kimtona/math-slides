@@ -109,6 +109,12 @@ function paragraphRuns(p: Element, content: Element, base: TextElement, last: bo
       ? li.ordered ? { type: 'number', indent: li.indent, numberStartAt: li.start } : { indent: li.indent }
       : false;
   }
+  // Lines sized with #/##/### get their own exact line spacing (font size × line height).
+  const pSize = parseFloat(getComputedStyle(p).fontSize);
+  if (pSize && Math.abs(pSize - base.style.fontSize) > 0.01) {
+    const spacing = PT(pSize * base.style.lineHeight);
+    runs.forEach((r) => { r.options!.lineSpacing = spacing; });
+  }
   if (!last) runs[runs.length - 1].options!.breakLine = true;
   return runs;
 }
@@ -254,8 +260,7 @@ async function imageData(a: Asset): Promise<string> {
   const hit = pngCache.get(a.id);
   if (hit) return hit;
   const img = new Image();
-  img.src = a.dataUrl;
-  await img.decode();
+  await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error('image load failed')); img.src = a.dataUrl; });
   const c = document.createElement('canvas');
   c.width = img.naturalWidth; c.height = img.naturalHeight;
   c.getContext('2d')!.drawImage(img, 0, 0);

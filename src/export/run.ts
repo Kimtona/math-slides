@@ -24,7 +24,9 @@ async function mountExportStage(mode: 'print' | 'measure'): Promise<HTMLElement>
   await frame();
   await document.fonts.ready;
   const root = document.getElementById('print-root')!;
-  await Promise.all([...root.querySelectorAll('img')].map((img) => img.decode().catch(() => {})));
+  // img.decode() can stay pending in background tabs: skip loaded images and cap the wait.
+  await Promise.all([...root.querySelectorAll('img')].map((img) => img.complete ? null
+    : Promise.race([img.decode().catch(() => {}), new Promise((r) => setTimeout(r, 5000))])));
   await frame();
   return root;
 }
