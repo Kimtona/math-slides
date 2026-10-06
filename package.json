@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
-    "test": "node tests/rich-text.mjs",
+    "test": "node tests/current-slide.mjs && node tests/rich-text.mjs",
     "app": "vite build && electron .",
     "app:dev": "concurrently -k \"vite --port 5173 --strictPort\" \"wait-on tcp:5173 && cross-env ELECTRON_DEV_URL=http://localhost:5173 electron .\"",
     "dist:mac": "npm run build && electron-builder --mac",

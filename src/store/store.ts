@@ -109,17 +109,27 @@ function syncTitle(prev: Deck, next: Deck): Deck {
 export const useStore = create<AppState>()((set, get) => {
   const deck0 = initialDeck();
 
+  /** Current slide id that exists in `deck`: unchanged if it survived, else the slide now at its old position (clamped). */
+  const validCurrent = (deck: Deck, cur: ID): ID => {
+    if (deck.slides.some((x) => x.id === cur)) return cur;
+    const oldIdx = get().deck.slides.findIndex((x) => x.id === cur);
+    return deck.slides[Math.max(0, Math.min(oldIdx, deck.slides.length - 1))].id;
+  };
+
   /** Keeps current slide / selection valid after the deck changes underneath (undo, delete...). */
   const fixup = (deck: Deck, s: Partial<AppState> = {}): Partial<AppState> => {
     const st = { ...get(), ...s };
-    let cur = st.currentSlideId;
-    if (!deck.slides.some((x) => x.id === cur)) {
-      const oldIdx = get().deck.slides.findIndex((x) => x.id === cur);
-      cur = deck.slides[Math.max(0, Math.min(oldIdx, deck.slides.length - 1))].id;
-    }
+    const cur = validCurrent(deck, st.currentSlideId);
     const slide = findSlide(deck, cur)!;
     const ids = new Set(slide.elements.map((e) => e.id));
     return { ...s, deck, currentSlideId: cur, selection: st.selection.filter((i) => ids.has(i)) };
+  };
+
+  /** After commit/live: only if reconciliation or the mutation removed the current slide, move to the fallback. */
+  const keepCurrentValid = (deck: Deck): Partial<AppState> => {
+    const cur = get().currentSlideId;
+    const valid = validCurrent(deck, cur);
+    return valid === cur ? {} : { currentSlideId: valid, selection: [] };
   };
 
   return {
@@ -146,13 +156,14 @@ export const useStore = create<AppState>()((set, get) => {
       const { deck, past, gestureBase } = get();
       const next = reconcileStructure(deck, syncTitle(deck, produce(deck, fn)));
       if (next === deck) return;
-      if (gestureBase) set({ deck: next });
-      else set({ deck: next, past: [...past, deck].slice(-HISTORY_LIMIT), future: [] });
+      const cur = keepCurrentValid(next);
+      if (gestureBase) set({ deck: next, ...cur });
+      else set({ deck: next, past: [...past, deck].slice(-HISTORY_LIMIT), future: [], ...cur });
     },
     live: (fn) => {
       const { deck } = get();
       const next = reconcileStructure(deck, syncTitle(deck, produce(deck, fn)));
-      if (next !== deck) set({ deck: next });
+      if (next !== deck) set({ deck: next, ...keepCurrentValid(next) });
     },
     beginGesture: () => {
       if (!get().gestureBase) set({ gestureBase: get().deck });
