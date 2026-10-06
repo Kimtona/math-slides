@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import type { Deck, LineElement, PMNode, ShapeElement, ShapeKind, Slide, TextElement, TextStyle } from './types';
 import { SLIDE_H, SLIDE_W } from './types';
 import { HIGHLIGHT_COLORS, presetHex } from './colors';
+import { REFERENCES_LAYOUT } from './referencesLayout';
 import { TYPOGRAPHY } from './typography';
 import { BLOCK_ARROW_DEFAULTS } from './blockArrow';
 
@@ -163,7 +164,8 @@ export function newReferencesSlide(page = 1): Slide {
 }
 
 export function referencesListElement(slideId = REFERENCES_SLIDE_ID): TextElement {
-  const el = newText(64, 40 + Math.round(TYPOGRAPHY.h2 * 1.35) + 28, { w: SLIDE_W - 128, style: { fontSize: TYPOGRAPHY.body, lineHeight: 1.4 } });
+  const L = REFERENCES_LAYOUT;
+  const el = newText(L.x, L.top, { w: L.width, style: { fontSize: L.fontSize, lineHeight: L.lineHeight } });
   el.id = `${slideId}-list`;
   el.role = 'references-list';
   return el;

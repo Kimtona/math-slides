@@ -3,6 +3,7 @@ import type { Deck, PMNode, Section, Slide, TextElement } from './types';
 import { newReferencesSlide, newSubtitleSlide, referencesListElement, referencesSlideId, referencesTitleText, subtitleElement, subtitleSlideId } from './defaults';
 import { plainText } from '../editor/docUtils';
 import { displayCitation } from '../citations/format';
+import { paginateReferences } from './referencesLayout';
 
 // Structural relationships, kept consistent after every edit (runs inside commit/live, so each
 // undo snapshot is consistent too):
@@ -111,19 +112,18 @@ function firstAuthorKey(deck: Deck, id: string) {
   return (a.split(/\s+/).pop() ?? '').toLowerCase() + ' ' + (deck.citations?.[id]?.year ?? '');
 }
 
+/** True while a generated References slide carries references (its list is not empty). */
+export const referencesHaveContent = (s: Slide) => s.elements.some((e) => e.type === 'text' && e.role === 'references-list' && plainText(e.doc).trim() !== '');
+
 /** The generated References slides, in deck order. They are recognised by `kind: 'references'`; their ids are `referencesSlideId(page)`. */
 export const referencesSlides = (deck: Deck) => deck.slides.filter((s) => s.kind === 'references');
-
-/** Citation ids → pages of citation ids (one generated References slide each). A single page for now. */
-function paginateReferences(ids: string[]): string[][] {
-  return ids.length ? [ids] : [];
-}
 
 const textRole = (s: Draft<Slide>, role: string) => s.elements.find((e) => e.type === 'text' && e.role === role) as Draft<TextElement> | undefined;
 
 function reconcileReferences(d: Draft<Deck>) {
   const sorted = [...usedCitations(d as Deck)].sort((a, b) => firstAuthorKey(d as Deck, a).localeCompare(firstAuthorKey(d as Deck, b)));
-  const pages = paginateReferences(sorted);
+  // Pages of citation ids, assigned by estimated rendered height (see referencesLayout.ts).
+  const pages = paginateReferences(sorted.map((id) => ({ id, text: displayCitation(d.citations![id]) }))).map((p) => p.map((x) => x.id));
   // Page n lives on slide `references-n`; the first existing References slide stands in for page 1 (older decks, any id).
   const existing = d.slides.filter((s) => s.kind === 'references');
   const slideFor = (page: number) => existing.find((s) => s.id === referencesSlideId(page))

@@ -922,6 +922,94 @@ try {
   assert.equal(await evaluate("store.getState().deck.slides.filter(s=>s.kind==='references').length"), 1, 'slide returns with the citation');
   assert.equal(await evaluate('store.getState().deck.slides.at(-2).kind'), 'references');
   console.log('PASS References slide identification (kind + deterministic ids), deletion protection, user content kept, lifecycle');
+  {
+  // ---- Continuation References slides: deterministic pagination by estimated height ----
+  const REAL = 'arxiv:1706.03762';
+  const setFakes = (kinds) => evaluate(`(() => { const kinds = ${JSON.stringify(kinds)}; store.getState().commit(d => {
+    for (const id of Object.keys(d.citations)) if (id.startsWith('arxiv:9999.')) delete d.citations[id];
+    for (const s of d.slides) if (s.citations) s.citations = s.citations.filter(id => !id.startsWith('arxiv:9999.'));
+    kinds.forEach((k, i) => { const n = String(i).padStart(5, '0'), id = 'arxiv:9999.' + n;
+      d.citations[id] = { id, type: 'arxiv', sourceId: '9999.' + n, url: 'https://arxiv.org/abs/' + id.slice(6), status: 'ok', year: 2020, authors: ['Ann Fam' + n, 'Bob B'],
+        title: k === 'long' ? ('A long descriptive paper title about many things ' + i + ' ').repeat(5).trim() : k === 'kor' ? '한국어 제목이 들어간 논문 ' + i + ' 한국어 제목이 들어간 논문 ' + '한국어 제목 '.repeat(8) : 'Short title ' + i };
+      d.slides[0].citations.push(id); }); }); })()`);
+  const pages = () => evaluate(`store.getState().deck.slides.filter(s => s.kind === 'references').map(s => ({ id: s.id, title: s.elements.find(e => e.role === 'references-title').doc.content[0].content[0].text,
+    refs: s.elements.find(e => e.role === 'references-list').doc.content.map(p => (p.content || []).map(t => t.text).join('')) }))`);
+  const est = (texts) => evaluate(`(async()=>{const m=await import('/src/model/referencesLayout.ts'); return {max: m.REFERENCES_MAX_LINES, lines: ${JSON.stringify(texts)}.map(m.estimateReferenceLines)};})()`);
+  assert.equal(await evaluate("store.getState().deck.slides.filter(s=>s.kind==='references').length"), 1);
+  assert.equal((await pages()).length, 1);
+  // Fits: a handful of short references stay on one slide.
+  await setFakes(['short', 'short', 'short']);
+  let ps = await pages();
+  assert.deepEqual(ps.map(p => [p.id, p.title]), [['references', 'References']], 'small bibliography: one slide');
+  assert.equal(ps[0].refs.length, 4);
+  // Overflow: one logical action creates references-2; undo/redo restore whole-deck snapshots.
+  const mixed = Array.from({ length: 24 }, (_, i) => (i % 5 === 0 ? 'long' : i % 7 === 0 ? 'kor' : 'short'));
+  await setFakes(mixed);
+  ps = await pages();
+  assert.ok(ps.length >= 3, 'enough references create 3+ slides: ' + ps.length);
+  assert.deepEqual(ps.map(p => p.id), ps.map((_, i) => i ? `references-${i + 1}` : 'references'), 'deterministic ids');
+  assert.deepEqual(ps.map(p => p.title), ps.map((_, i) => i ? 'References (cont.)' : 'References'), 'continuation titles');
+  const all = ps.flatMap(p => p.refs);
+  assert.equal(all.length, 25, 'every reference exactly once'); assert.equal(new Set(all).size, 25);
+  assert.deepEqual(all, [...all].sort((a, b) => a.localeCompare(b)), 'alphabetical order preserved across pages');
+  assert.ok(ps.every(p => p.refs.length && p.refs.every(Boolean)), 'no empty pages or paragraphs');
+  const e = await est(all); let k = 0;
+  const pageLines = ps.map(p => { const n = p.refs.length; const sum = e.lines.slice(k, k + n).reduce((a, b) => a + b, 0); k += n; return sum; });
+  assert.ok(pageLines.every((n) => n <= e.max), 'each page within the estimated capacity: ' + pageLines + ' / ' + e.max);
+  k = 0; ps.slice(0, -1).forEach((p, i) => { k += p.refs.length; assert.ok(pageLines[i] + e.lines[k] > e.max, 'greedy: the next reference would not have fit on page ' + (i + 1)); });
+  assert.deepEqual(await evaluate("(() => { const d = store.getState().deck, r = d.slides.map((s, i) => s.kind === 'references' ? i : -1).filter(i => i >= 0); return [r.every((v, i) => i === 0 || v === r[i - 1] + 1), d.slides.at(-1).kind]; })()"), [true, 'thanks'], 'pages adjacent, before Thank You');
+  // The estimate holds in the real layout: measured list heights stay above the footer area.
+  const maxBottom = await evaluate("import('/src/model/referencesLayout.ts').then(m => m.REFERENCES_LAYOUT.bottom)");
+  for (const p of ps) {
+    await evaluate(`store.getState().goToSlide(${JSON.stringify(p.id)})`);
+    await until(() => evaluate(`(() => { const l = store.getState().deck.slides.find(s => s.id === ${JSON.stringify(p.id)}).elements.find(e => e.role === 'references-list'); return document.querySelector('.slide.editable') && l.h > 0; })()`), 'References list measured');
+    await pause(300);
+    const [lt, lh] = await evaluate(`(() => { const l = store.getState().deck.slides.find(s => s.id === ${JSON.stringify(p.id)}).elements.find(e => e.role === 'references-list'); return [l.y, l.h]; })()`);
+    assert.ok(lt + lh <= maxBottom, `${p.id}: rendered list bottom ${lt + lh} within ${maxBottom}`);
+  }
+  await evaluate('store.getState().goToSlide(store.getState().deck.slides[0].id)'); // later collapses delete generated slides: do not stay on one
+  // Stable: reconciling again changes nothing, and unrelated edits keep the generated slides' identity.
+  assert.equal(await evaluate("import('/src/model/structure.ts').then(m => m.reconcileStructure(null, store.getState().deck) === store.getState().deck)"), true, 'no churn');
+  await evaluate("window.__refBefore = store.getState().deck.slides.filter(s => s.kind === 'references'); store.getState().commit(d => { d.slides[0].notes = 'x'; })");
+  assert.equal(await evaluate("store.getState().deck.slides.filter(s => s.kind === 'references').every((s, i) => s === __refBefore[i])"), true, 'unrelated edit leaves References slides untouched');
+  // Long references take more of the page than short ones.
+  await setFakes(Array(12).fill('short')); const shortPages = await pages();
+  await setFakes(Array(12).fill('long')); const longPages = await pages();
+  assert.ok(longPages[0].refs.length < shortPages[0].refs.length && longPages.length > shortPages.length, `long refs fill pages faster (${longPages[0].refs.length} vs ${shortPages[0].refs.length} per page)`);
+  // Undo / redo across overflow and collapse (each is one history step).
+  await setFakes(['short']); const n1 = (await pages()).length;
+  await setFakes(mixed); const n2 = (await pages()).length;
+  assert.ok(n2 > n1);
+  await evaluate('store.getState().undo()'); assert.equal((await pages()).length, n1, 'undo removes the continuation slides');
+  await evaluate('store.getState().redo()'); assert.equal((await pages()).length, n2, 'redo restores them');
+  assert.deepEqual((await pages()).map(p => p.id), ps.map(p => p.id).slice(0, n2), 'same ids after redo');
+  await setFakes(['short']); assert.equal((await pages()).length, n1, 'removing references collapses the pages');
+  await evaluate('store.getState().undo()'); assert.equal((await pages()).length, n2, 'undo of the collapse restores the pages');
+  await evaluate('store.getState().redo()'); assert.equal((await pages()).length, n1);
+  assert.equal(await evaluate("store.getState().deck.slides.some(s => s.id === 'references-2')"), false, 'no leftover continuation slides');
+  // User content on a continuation slide is never destroyed; empty generated pages are.
+  await setFakes(mixed); assert.ok((await pages()).length >= 3);
+  await evaluate(`store.getState().commit(d=>{d.slides.find(s=>s.id==='references-2').elements.push(defaults.newText(64,600,{doc:defaults.textDoc('keep me')}));})`);
+  await setFakes(['short']);
+  assert.deepEqual((await pages()).map(p => p.id), ['references', 'references-2'], 'slide with user content survives; managed-only references-3 removed');
+  const kept = (await pages())[1]; assert.deepEqual(kept.refs, [''], 'its generated list is emptied');
+  assert.equal(await evaluate("store.getState().deck.slides.find(s=>s.id==='references-2').elements.some(e=>e.type==='text'&&!e.role&&e.doc.content[0].content[0].text==='keep me')"), true, 'user element intact');
+  await evaluate("store.getState().deleteSlide('references')");
+  assert.equal(await evaluate("store.getState().deck.slides.some(s=>s.id==='references')"), true, 'the References slide holding references is protected');
+  await setFakes(mixed); // the kept slide is reused for page 2
+  assert.equal(await evaluate("store.getState().deck.slides.filter(s=>s.id==='references-2').length"), 1);
+  assert.equal(await evaluate("store.getState().deck.slides.find(s=>s.id==='references-2').elements.some(e=>e.role==='references-list' && e.doc.content.length > 1) && store.getState().deck.slides.find(s=>s.id==='references-2').elements.some(e=>!e.role)"), true, 'reused with its user content');
+  await evaluate("store.getState().deleteSlide('references-3')");
+  assert.equal(await evaluate("store.getState().deck.slides.some(s=>s.id==='references-3')"), true, 'continuation slides are protected too');
+  // Cleanup: back to the original single real citation.
+  await evaluate(`store.getState().commit(d=>{const s=d.slides.find(s=>s.id==='references-2'); if (s) s.elements=s.elements.filter(e=>e.role);})`);
+  await setFakes([]);
+  assert.deepEqual((await pages()).map(p => p.id), ['references']);
+  assert.equal(await refText(), 'Vaswani, A. et al. (2017). Attention Is All You Need. arXiv:1706.03762.');
+  await evaluate("store.getState().commit(d => { d.slides[0].notes = ''; })");
+  await evaluate('store.getState().goToSlide(store.getState().deck.slides[0].id)'); // the checks above visited the generated slides
+  console.log('PASS continuation References slides (pagination by estimated height, ids/titles, order, collapse, undo/redo, user content, protection, layout bound)');
+  }
   // Presentation Theme Color: presentation-level, derived decorations, readable foregrounds.
   await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause();
   const slideIds = await evaluate("({title: store.getState().deck.slides[0].id, content: store.getState().deck.slides[1].id, sub: store.getState().deck.slides.find(s => s.kind === 'subtitle').id})");

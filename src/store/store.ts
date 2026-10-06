@@ -5,7 +5,7 @@ import { initialDeck, isTemplatePlaceholder, newContentSlide, newTitleSlide, uid
 import { plainText } from '../editor/docUtils';
 import type { Guide } from '../model/geometry';
 import { isDocEmpty, trimTrailingEmpty } from '../editor/docUtils';
-import { isManagedText, plainSlideCopy, reconcileStructure } from '../model/structure';
+import { isManagedText, plainSlideCopy, reconcileStructure, referencesHaveContent } from '../model/structure';
 import { newThanksSlide, newTocSlide } from '../model/defaults';
 import { flash } from './persistence';
 import type { Citation } from '../model/types';
@@ -334,7 +334,7 @@ export const useStore = create<AppState>()((set, get) => {
       if (get().editingId) get().stopEditing();
       const victim = findSlide(deck, id);
       if (victim?.kind === 'subtitle') { flash('부제 슬라이드는 목차에서 항목을 지우면 함께 지워집니다'); return; }
-      if (victim?.kind === 'references' && deck.slides.some((x) => x.id !== id && x.citations?.length)) {
+      if (victim?.kind === 'references' && referencesHaveContent(victim) && deck.slides.some((x) => x.id !== id && x.citations?.length)) {
         flash('References 슬라이드는 슬라이드의 인용을 모두 지우면 사라집니다'); return;
       }
       if (deck.slides.length <= 1) {
