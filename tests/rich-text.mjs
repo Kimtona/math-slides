@@ -1421,9 +1421,9 @@ try {
   const gridTexts = () => evaluate("[...document.querySelectorAll('.emoji-picker .emoji-grid button')].map((b) => b.textContent)");
   const typeQuery = async (q) => { await evaluate("(() => { const i = document.querySelector('.emoji-search'); i.focus(); })()"); await send('Input.insertText', {text: q}); await pause(250); };
   const clickEmoji = (e) => evaluate(`[...document.querySelectorAll('.emoji-picker .emoji-grid button')].find((b) => b.textContent === ${JSON.stringify(e)}).click()`).then(() => pause(250));
-  // Quick row unchanged + ⋯ at its end.
+  // Quick row unchanged + ✎ (customize) and ⋯ at its end.
   await openQuick(0);
-  assert.deepEqual(await evaluate("[...document.querySelectorAll('.el.editing .callout-icons button')].map((b) => b.textContent)"), ['💡', 'ℹ️', '⚠️', '✅', '❌', '📌', '🔥', '💬', '⭐', '🚀', '⋯'], 'quick emojis kept, ⋯ at the end');
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.el.editing .callout-icons button')].map((b) => b.textContent)"), ['💡', 'ℹ️', '⚠️', '✅', '❌', '📌', '🔥', '💬', '⭐', '🚀', '✎', '⋯'], 'quick emojis kept, ✎ then ⋯ at the end');
   await evaluate("document.querySelectorAll('.el.editing .callout-icons button')[6].dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}))"); await pause(250);
   assert.equal((await emIcons())[0], '🔥', 'quick pick still works');
   // Open the full picker.

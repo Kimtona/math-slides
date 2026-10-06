@@ -18,7 +18,9 @@ import type { PMNode } from '../model/types';
 import { MARKDOWN_SIZES, TYPOGRAPHY } from '../model/typography';
 import { ACADEMIC_BLOCK_TYPES, DEFAULT_BLOCK_TYPE, blockTypeInfo } from '../model/academicBlocks';
 import { Highlight, InlineCode } from './formattingMarks';
-import { openEmojiPicker } from './EmojiPicker';
+import { closeEmojiPicker, openEmojiPicker } from './EmojiPicker';
+import { DEFAULT_QUICK_EMOJIS } from '../model/userPrefs';
+import { getQuickEmojis, resetQuickEmojis, setQuickEmoji, subscribeUserPrefs } from '../store/userPrefs';
 import { fontFromCss, fontStack } from '../model/fonts';
 
 /**
@@ -304,8 +306,8 @@ const SlideBlockquote = Blockquote.extend({
   },
 });
 
-/** Icon presets offered by the Callout icon popover (any emoji can be stored; these are just the quick picks). */
-export const CALLOUT_ICONS = ['💡', 'ℹ️', '⚠️', '✅', '❌', '📌', '🔥', '💬', '⭐', '🚀'];
+/** The v1 default quick row (any emoji can be stored; the quick row shown is the user's preference, see store/userPrefs). */
+export const CALLOUT_ICONS: readonly string[] = DEFAULT_QUICK_EMOJIS;
 export const DEFAULT_CALLOUT_ICON = CALLOUT_ICONS[0];
 
 /**
@@ -344,8 +346,8 @@ const Callout = TipNode.create({
       body.className = 'callout-body';
       dom.append(icon, body);
       let pop: HTMLElement | null = null;
-      const closePop = () => { pop?.remove(); pop = null; document.removeEventListener('mousedown', outside, true); };
-      function outside(e: MouseEvent) { if (pop && !pop.contains(e.target as Node) && e.target !== icon) closePop(); }
+      const closePop = () => { pop?.remove(); pop = null; editSlot = null; unsub?.(); unsub = null; document.removeEventListener('mousedown', outside, true); };
+      function outside(e: MouseEvent) { if (pop && !pop.contains(e.target as Node) && e.target !== icon && !(e.target as Element).closest?.('.emoji-picker')) closePop(); }
       const setIcon = (value: string) => {
         const pos = getPos();
         closePop();
@@ -355,31 +357,50 @@ const Callout = TipNode.create({
         editor.view.dispatch(tr);
         editor.view.focus();
       };
+      // Quick row = the user's 10 preferred emojis (a local user preference, not document data). Edit mode swaps the
+      // same popover into a slot editor; nothing here dispatches a document transaction except picking the icon.
+      let editSlot: number | null = null; // null = normal quick row; 0-9 = editing that slot
+      let unsub: (() => void) | null = null;
+      const mkButton = (text: string, cls: string, title: string, onMouseDown: (ev: MouseEvent) => void) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.textContent = text; b.title = title; if (cls) b.className = cls;
+        b.addEventListener('mousedown', (ev) => { ev.preventDefault(); ev.stopPropagation(); onMouseDown(ev); });
+        return b;
+      };
+      const renderPop = () => {
+        if (!pop) return;
+        pop.replaceChildren();
+        const quick = getQuickEmojis();
+        if (editSlot === null) {
+          quick.forEach((em) => pop!.append(mkButton(em, em === current.attrs.icon ? 'on' : '', '', () => setIcon(em))));
+          // ✎ = customize the quick row (left of ⋯); ⋯ = the full searchable picker, unchanged.
+          pop.append(mkButton('✎', 'edit', '빠른 이모지 편집', () => { editSlot = 0; renderPop(); }));
+          pop.append(mkButton('⋯', 'more', '더 많은 이모지', () => {
+            const anchor = pop!.querySelector('.more')!.getBoundingClientRect();
+            closePop();
+            openEmojiPicker({ anchor, current: current.attrs.icon, onPick: setIcon });
+          }));
+        } else {
+          pop.classList.add('editing');
+          quick.forEach((em, i) => pop!.append(mkButton(em, i === editSlot ? 'slot on' : 'slot', `${i + 1}번 슬롯 교체`, () => {
+            editSlot = i; renderPop();
+            // The slot is replaced through the existing full picker (same catalog/search), anchored below the editor row.
+            openEmojiPicker({ anchor: pop!.getBoundingClientRect(), current: em, onPick: (v) => setQuickEmoji(i, v) });
+          })));
+          pop.append(mkButton('기본값', 'reset', 'Reset to Default', () => { resetQuickEmojis(); }));
+          pop.append(mkButton('완료', 'done', '편집 완료', () => { editSlot = null; closeEmojiPicker(); renderPop(); }));
+        }
+      };
       icon.addEventListener('mousedown', (e) => {
         e.preventDefault();
         if (pop) return closePop();
         pop = document.createElement('div');
         pop.className = 'callout-icons';
         pop.contentEditable = 'false';
-        for (const em of CALLOUT_ICONS) {
-          const b = document.createElement('button');
-          b.type = 'button';
-          b.textContent = em;
-          b.className = em === current.attrs.icon ? 'on' : '';
-          b.addEventListener('mousedown', (ev) => { ev.preventDefault(); ev.stopPropagation(); setIcon(em); });
-          pop.append(b);
-        }
-        // ⋯ = more: the full searchable picker (a React popover; it picks through the same setIcon path).
-        const more = document.createElement('button');
-        more.type = 'button'; more.textContent = '⋯'; more.title = '더 많은 이모지'; more.className = 'more';
-        more.addEventListener('mousedown', (ev) => {
-          ev.preventDefault(); ev.stopPropagation();
-          const anchor = more.getBoundingClientRect();
-          closePop();
-          openEmojiPicker({ anchor, current: current.attrs.icon, onPick: setIcon });
-        });
-        pop.append(more);
+        editSlot = null;
+        renderPop();
         dom.append(pop);
+        unsub = subscribeUserPrefs(renderPop); // a changed preference updates every open quick row immediately
         document.addEventListener('mousedown', outside, true);
       });
       const sync = () => { icon.textContent = current.attrs.icon; dom.setAttribute('data-icon', current.attrs.icon); };
@@ -618,7 +639,7 @@ export function convertToCallout(editor: Editor, range: { from: number; to: numb
   return editor.chain().focus()
     .command(({ tr }) => { closeHistory(tr); return true; })
     .deleteRange(range)
-    .wrapIn('callout', { icon: DEFAULT_CALLOUT_ICON })
+    .wrapIn('callout', { icon: getQuickEmojis()[0] })
     .run();
 }
 
