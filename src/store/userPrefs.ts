@@ -1,5 +1,5 @@
 import { get, set } from 'idb-keyval';
-import { QUICK_EMOJI_SLOTS, normalizeUserPrefs, resolveQuickEmojis, type UserPrefs } from '../model/userPrefs';
+import { QUICK_EMOJI_SLOTS, isMathFavoriteText, mathFavoriteText, normalizeUserPrefs, resolveMathFavorites, resolveQuickEmojis, type MathFavorite, type UserPrefs } from '../model/userPrefs';
 
 /**
  * User-scoped preference store: one versioned IndexedDB record (`prefs:v1`, same storage family as the deck
@@ -44,3 +44,26 @@ export function setQuickEmoji(slot: number, emoji: string) {
 
 /** Back to the v1 defaults (the stored override is removed). */
 export const resetQuickEmojis = () => update({ quickEmojis: undefined });
+
+// ---------- Math Favorites (the `자주 사용` tab of the Math palette) ----------
+
+let favCache: { raw: unknown; value: readonly MathFavorite[] } | null = null;
+/** Stable between changes (same array until the stored preference changes), so React can subscribe to it. */
+export function getMathFavorites(): readonly MathFavorite[] {
+  const raw = prefs.favoriteMathExpressions;
+  if (!favCache || favCache.raw !== raw) favCache = { raw, value: resolveMathFavorites(raw) };
+  return favCache.value;
+}
+const setMathFavorites = (list: MathFavorite[]) => update({ favoriteMathExpressions: list });
+
+/** Star toggle for the complete current expression: adds it (at the front, no duplicates) or removes the exact match. */
+export function toggleMathFavorite(latex: string) {
+  const t = latex.trim();
+  if (!t) return;
+  const list = getMathFavorites();
+  if (isMathFavoriteText(list, t)) setMathFavorites(list.filter((f) => mathFavoriteText(f) !== t));
+  else setMathFavorites([{ pre: t }, ...list]);
+}
+export const removeMathFavoriteAt = (index: number) => setMathFavorites(getMathFavorites().filter((_, i) => i !== index));
+/** Back to the original `자주 사용` items (the stored override is removed). */
+export const resetMathFavorites = () => update({ favoriteMathExpressions: undefined });

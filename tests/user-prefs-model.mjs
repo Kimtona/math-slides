@@ -38,5 +38,37 @@ try {
   assert.equal(JSON.stringify(useStore.getState().deck), before, 'deck unchanged by preference changes');
   assert.equal(useStore.getState().saveState, save, 'not dirtied');
   assert.ok(!before.includes('🧠') && !before.includes('quickEmojis'));
+  // ---- Math Favorites ----
+  const DEF_TIPS = ['rho · \\rho', 'theta · \\theta', 'lambda · \\lambda', 'R · \\mathbb{R}', 'E · \\mathbb{E}', 'bold · \\mathbf{}', 'norm · \\lVert x\\rVert', 'fraction · \\frac{}{}', 'sum · \\sum_{}^{}', 'cases · \\begin{cases}'];
+  assert.deepEqual(m.DEFAULT_MATH_FAVORITES.map((f) => f.tip), DEF_TIPS, 'defaults = the former 자주 사용 items, in order');
+  const pal = await server.ssrLoadModule('/src/editor/mathPaletteItems.ts');
+  assert.deepEqual(pal.MATH_CATEGORIES[0].items.map((i) => i.tip), DEF_TIPS, 'palette default tab unchanged');
+  for (const bad of [undefined, null, 'x', 5, {}]) assert.deepEqual(m.resolveMathFavorites(bad), m.DEFAULT_MATH_FAVORITES.map((f) => ({ ...f })), 'non-array -> defaults');
+  assert.deepEqual(m.resolveMathFavorites([]), [], 'an empty list is respected (user removed all)');
+  assert.deepEqual(m.resolveMathFavorites([{ pre: 'x^2' }, null, 5, { pre: '' }, { pre: '  ' }, { post: 'y' }, { pre: '\\frac{', post: '}{}', wrap: true, wrapCaret: 2, junk: 1 }]),
+    [{ pre: 'x^2' }, { pre: '\\frac{', post: '}{}', wrap: true, wrapCaret: 2 }], 'unusable entries dropped, unknown fields stripped');
+  assert.equal(m.resolveMathFavorites(Array.from({ length: 500 }, (_, i) => ({ pre: 'a' + i }))).length, 100, 'bounded');
+  assert.deepEqual(m.normalizeUserPrefs({ version: 1, quickEmojis: custom }).favoriteMathExpressions, undefined, 'older record without favorites stays unset (-> defaults)');
+  assert.deepEqual(m.normalizeUserPrefs({ favoriteMathExpressions: 'bad', quickEmojis: custom }).quickEmojis, custom, 'bad favorites never touch quickEmojis');
+  assert.equal(m.isMathFavoriteText([{ pre: 'a+b' }, { pre: '\\mathbf{', post: '}' }], ' a+b '), true);
+  assert.equal(m.isMathFavoriteText([{ pre: 'a+b' }], 'a + b'), false, 'exact comparison, no LaTeX normalization');
+  assert.equal(m.isMathFavoriteText([{ pre: 'a' }], '  '), false);
+  const before2 = JSON.stringify(useStore.getState().deck), save2 = useStore.getState().saveState, past2 = useStore.getState().past.length;
+  let n2 = 0; const off2 = p.subscribeUserPrefs(() => n2++);
+  assert.deepEqual(p.getMathFavorites().map((f) => f.tip), DEF_TIPS, 'store starts at defaults');
+  assert.equal(p.getMathFavorites(), p.getMathFavorites(), 'snapshot is referentially stable (React subscription)');
+  p.toggleMathFavorite('L(\\theta) =  ');
+  assert.deepEqual(p.getMathFavorites()[0], { pre: 'L(\\theta) =' }, 'added at the front, trimmed'); assert.equal(p.getMathFavorites().length, 11);
+  p.toggleMathFavorite('L(\\theta) ='); assert.equal(p.getMathFavorites().length, 10, 'second toggle removes, no duplicate');
+  p.toggleMathFavorite('   '); assert.equal(p.getMathFavorites().length, 10, 'blank is ignored');
+  p.toggleMathFavorite('\\rho'); assert.equal(p.getMathFavorites().length, 9, 'an expression equal to a default item toggles that item off');
+  p.removeMathFavoriteAt(0); assert.equal(p.getMathFavorites().length, 8);
+  p.setQuickEmoji(0, '🧠'); assert.equal(p.getMathFavorites().length, 8, 'quick emoji change leaves favorites alone');
+  p.resetMathFavorites(); assert.deepEqual(p.getMathFavorites().map((f) => f.tip), DEF_TIPS, 'reset restores defaults');
+  assert.equal(p.getQuickEmojis()[0], '🧠', 'reset of favorites leaves quick emojis alone'); p.resetQuickEmojis();
+  assert.ok(n2 >= 5, 'subscribers notified');
+  off2();
+  assert.equal(JSON.stringify(useStore.getState().deck), before2); assert.equal(useStore.getState().saveState, save2); assert.equal(useStore.getState().past.length, past2, 'favorites never touch presentation state');
+  assert.ok(!before2.includes('favoriteMathExpressions'));
   console.log('PASS user preferences model + store (defaults, fallback, slots, reset, deck untouched)');
 } finally { await server.close(); }

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../store/store';
 import { getActiveEditor } from './active';
@@ -6,6 +6,8 @@ import { commitMath, setMathLatex } from './mathNodes';
 import { renderTex } from '../math/mathjax';
 import { MathPalette } from './MathPalette';
 import { applyMathItem, type MathItem } from './mathPaletteItems';
+import { getMathFavorites, subscribeUserPrefs, toggleMathFavorite } from '../store/userPrefs';
+import { isMathFavoriteText } from '../model/userPrefs';
 
 /**
  * Notion-style equation editor: a small floating textarea under the equation.
@@ -20,6 +22,9 @@ export function MathPopover() {
   const box = useRef<HTMLDivElement>(null);
   const [palette, setPalette] = useState(false);
   const caretAfter = useRef<number | null>(null);
+  // ☆/★: is the complete current expression one of the user's Math Favorites (user-level preference, not presentation state)?
+  const favorites = useSyncExternalStore(subscribeUserPrefs, getMathFavorites);
+  const isFav = isMathFavoriteText(favorites, latex);
 
   const node = mathEdit && editor && !editor.isDestroyed ? editor.state.doc.nodeAt(mathEdit.pos) : null;
   const display = node?.type.name === 'mathBlock';
@@ -120,6 +125,8 @@ export function MathPopover() {
       <div className="math-popover-foot">
         <button type="button" className={'math-pal-btn' + (palette ? ' on' : '')} title="수식 팔레트" aria-label="수식 팔레트" aria-expanded={palette}
           onMouseDown={(e) => e.preventDefault()} onClick={() => setPalette((v) => !v)}>Ω</button>
+        <button type="button" className={'math-fav-btn' + (isFav ? ' on' : '')} title={isFav ? '즐겨찾기에서 제거' : '즐겨찾기에 추가 — 현재 수식 전체'} aria-label="수식 즐겨찾기" aria-pressed={isFav}
+          disabled={!latex.trim()} onMouseDown={(e) => e.preventDefault()} onClick={() => toggleMathFavorite(latex)}>{isFav ? '★' : '☆'}</button>
         <span className={error ? 'math-err-msg' : 'math-help'}>
           {error ?? (display ? 'Shift+Enter 줄바꿈 · 블록 수식' : 'Shift+Enter 줄바꿈 · 인라인 수식')}
         </span>

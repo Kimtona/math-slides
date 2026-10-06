@@ -1,3 +1,5 @@
+import { DEFAULT_MATH_FAVORITES } from '../model/userPrefs';
+
 /**
  * Compact Math Palette data + pure insertion logic. An item is `pre` + (selection) + `post`:
  * - `wrap` items wrap a non-empty selection (`\mathbf{` + x + `}`), otherwise leave the caret at `pre.length`;
@@ -11,15 +13,8 @@ export interface MathCategory { key: string; label: string; items: MathItem[] }
 const sym = (tex: string, name = tex.slice(1)): MathItem => ({ pre: tex, tip: `${name} · ${tex}` });
 const greek = (n: string): MathItem => sym('\\' + n, n);
 
-const FREQ: MathItem[] = [
-  greek('rho'), greek('theta'), greek('lambda'),
-  { pre: '\\mathbb{R}', tip: 'R · \\mathbb{R}' }, { pre: '\\mathbb{E}', tip: 'E · \\mathbb{E}' },
-  { pre: '\\mathbf{', post: '}', wrap: true, show: '\\mathbf{x}', tip: 'bold · \\mathbf{}' },
-  { pre: '\\lVert ', post: '\\rVert', wrap: true, show: '\\lVert x\\rVert', tip: 'norm · \\lVert x\\rVert' },
-  { pre: '\\frac{', post: '}{}', wrap: true, wrapCaret: 2, show: '\\frac{a}{b}', tip: 'fraction · \\frac{}{}' },
-  { pre: '\\sum_{', post: '}^{}', show: '\\sum_{i}^{n}', tip: 'sum · \\sum_{}^{}' },
-  { pre: '\\begin{cases} ', post: ' & \\text{if } \\\\ & \\text{otherwise}\\end{cases}', show: '\\begin{cases}a\\\\b\\end{cases}', tip: 'cases · \\begin{cases}' },
-];
+/** The built-in default of the `자주 사용` tab; the tab itself shows the user's Math Favorites (store/userPrefs). */
+const FREQ: MathItem[] = DEFAULT_MATH_FAVORITES.map((f) => ({ ...f, tip: f.tip ?? f.pre }));
 const GREEK = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'varepsilon', 'zeta', 'eta', 'theta', 'lambda', 'mu', 'nu', 'xi', 'pi', 'rho', 'sigma', 'tau',
   'phi', 'varphi', 'chi', 'psi', 'omega', 'Gamma', 'Delta', 'Theta', 'Lambda', 'Sigma', 'Phi', 'Psi', 'Omega'].map(greek);
 const OPS: MathItem[] = [
