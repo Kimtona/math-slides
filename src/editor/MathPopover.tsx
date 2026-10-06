@@ -118,11 +118,11 @@ export function MathPopover() {
         }}
       />
       <div className="math-popover-foot">
+        <button type="button" className={'math-pal-btn' + (palette ? ' on' : '')} title="수식 팔레트" aria-label="수식 팔레트" aria-expanded={palette}
+          onMouseDown={(e) => e.preventDefault()} onClick={() => setPalette((v) => !v)}>Ω</button>
         <span className={error ? 'math-err-msg' : 'math-help'}>
           {error ?? (display ? 'Shift+Enter 줄바꿈 · 블록 수식' : 'Shift+Enter 줄바꿈 · 인라인 수식')}
         </span>
-        <button type="button" className={'math-pal-btn' + (palette ? ' on' : '')} title="수식 팔레트" aria-label="수식 팔레트" aria-expanded={palette}
-          onMouseDown={(e) => e.preventDefault()} onClick={() => setPalette((v) => !v)}>Ω</button>
         <button className="btn primary small" onMouseDown={(e) => e.preventDefault()}
           onClick={() => commitMath(editor, mathEdit.pos, true)}>Done ↵</button>
       </div>
