@@ -1,3 +1,4 @@
+import type { Citation } from '../model/types';
 import type { PaperMeta } from './providers';
 
 const family = (name: string) => name.trim().split(/\s+/).pop() ?? name;
@@ -19,13 +20,22 @@ export function shortCitation(m: PaperMeta): string {
   return `${m.title}, ${who}, ${m.year}`;
 }
 
-/** References slide, APA-like: "Vaswani, A., Shazeer, N., … & Polosukhin, I. (2017). Title. arXiv:1706.03762." */
+/**
+ * References slide, compact and presentation-oriented: 1 author "Vaswani, A. (2017)", 2 authors "Vaswani, A., & Shazeer, N. (2017)",
+ * 3 or more "Vaswani, A. et al. (2017)". Followed by ". Title. arXiv:1706.03762."
+ */
 export function fullCitation(m: PaperMeta, sourceId: string): string {
   const names = m.authors.map(apaName);
-  let authors: string;
-  if (names.length === 1) authors = names[0];
-  else if (names.length <= 20) authors = `${names.slice(0, -1).join(', ')}, & ${names[names.length - 1]}`;
-  else authors = `${names.slice(0, 19).join(', ')}, … ${names[names.length - 1]}`; // APA 7: first 19, …, last
+  const authors = names.length <= 1 ? (names[0] ?? '') : names.length === 2 ? `${names[0]}, & ${names[1]}` : `${names[0]} et al.`;
   const title = m.title.replace(/[.\s]+$/, '');
   return `${authors} (${m.year}). ${title}. arXiv:${sourceId}.`;
+}
+
+/**
+ * The text shown on the References slide. Derived from the structured metadata (authors, title, year, sourceId), so a
+ * `fullCitation` string stored by an older format never goes stale; it is only the fallback when that metadata is missing.
+ */
+export function displayCitation(c: Citation): string {
+  if (c.authors?.length && c.title && c.year) return fullCitation({ authors: c.authors, title: c.title, year: c.year }, c.sourceId);
+  return c.fullCitation ?? c.url;
 }

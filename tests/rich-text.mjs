@@ -880,6 +880,20 @@ try {
   await evaluate(`(async()=>{const r=await import('/src/citations/resolve.ts'); r.extractCitations(store.getState().deck.slides[1].id,'https://arxiv.org/abs/1706.03762');})()`);
   assert.equal(await evaluate('Object.keys(store.getState().deck.citations).length'), 1);
   console.log('PASS TOC/Sub-title editor and presenter navigation, citations, References deduplication, Thank You and manual reference');
+  // Compact References author format: 1 / 2 / 3+ authors, derived from the structured metadata (no refetch).
+  const fmt = (n) => evaluate(`(async()=>{const f=await import('/src/citations/format.ts'); const names=['Ada Lovelace','Alan M. Turing','Grace Hopper','Jean-Luc Picard','Emmy Noether'].slice(0,${n}); return f.fullCitation({title:'A Title.',authors:names,year:2020},'2001.00001');})()`);
+  assert.equal(await fmt(1), 'Lovelace, A. (2020). A Title. arXiv:2001.00001.');
+  assert.equal(await fmt(2), 'Lovelace, A., & Turing, A. M. (2020). A Title. arXiv:2001.00001.');
+  assert.equal(await fmt(3), 'Lovelace, A. et al. (2020). A Title. arXiv:2001.00001.');
+  assert.equal(await evaluate(`(async()=>{const f=await import('/src/citations/format.ts'); return f.fullCitation({title:'T',authors:Array.from({length:40},(_, i)=>'First'+i+' Fam'+i),year:2021},'2101.00002');})()`), 'Fam0, F. et al. (2021). T. arXiv:2101.00002.', 'many authors: first author + et al.');
+  assert.equal(await evaluate(`(async()=>{const f=await import('/src/citations/format.ts'); return f.shortCitation({title:'T',authors:['A B','C D','E F'],year:2021});})()`), 'T, B et al., 2021', 'footer short citation keeps the same 1/2/3+ rule');
+  const refText = () => evaluate("store.getState().deck.slides.find(s=>s.kind==='references').elements.find(e=>e.role==='references-list').doc.content.map(p=>p.content.map(t=>t.text).join('')).join('\\n')");
+  assert.equal(await refText(), 'Vaswani, A. et al. (2017). Attention Is All You Need. arXiv:1706.03762.', 'References slide uses the compact format');
+  // A stored fullCitation in an older format never wins over the structured metadata; nothing is refetched.
+  await evaluate(`store.getState().commit(d=>{d.citations['arxiv:1706.03762'].fullCitation='Vaswani, A., Shazeer, N., Parmar, N., … & Polosukhin, I. (2017). OLD FORMAT'; d.citations['arxiv:1706.03762'].shortCitation='old';})`);
+  assert.equal(await refText(), 'Vaswani, A. et al. (2017). Attention Is All You Need. arXiv:1706.03762.', 'stale stored fullCitation is ignored');
+  assert.equal(await evaluate("store.getState().deck.citations['arxiv:1706.03762'].status"), 'ok', 'no refetch needed');
+  console.log('PASS compact References author format (1/2/3+/many authors, et al. punctuation, derived from structured metadata, stale stored text ignored)');
   // Presentation Theme Color: presentation-level, derived decorations, readable foregrounds.
   await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause();
   const slideIds = await evaluate("({title: store.getState().deck.slides[0].id, content: store.getState().deck.slides[1].id, sub: store.getState().deck.slides.find(s => s.kind === 'subtitle').id})");

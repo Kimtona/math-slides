@@ -2,6 +2,7 @@ import { produce, type Draft } from 'immer';
 import type { Deck, PMNode, Section, Slide, TextElement } from './types';
 import { newReferencesSlide, newSubtitleSlide, referencesListElement, subtitleElement, subtitleSlideId } from './defaults';
 import { plainText } from '../editor/docUtils';
+import { displayCitation } from '../citations/format';
 
 // Structural relationships, kept consistent after every edit (runs inside commit/live, so each
 // undo snapshot is consistent too):
@@ -135,7 +136,7 @@ function reconcileReferences(d: Draft<Deck>) {
   const sorted = [...used].sort((a, b) => firstAuthorKey(d as Deck, a).localeCompare(firstAuthorKey(d as Deck, b)));
   const doc = docOf(...sorted.map((id) => {
     const c = d.citations![id];
-    return para(c.fullCitation ?? c.url, [{ type: 'link', attrs: { href: c.url } }]);
+    return para(displayCitation(c), [{ type: 'link', attrs: { href: c.url } }]);
   }));
   if (!same(list.doc, doc)) list.doc = doc as Draft<PMNode>;
 }

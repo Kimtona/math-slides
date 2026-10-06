@@ -8,6 +8,7 @@ import { themeLayout, themedTextColor, todoAccent } from '../model/theme';
 import { shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { slideFontVars } from '../model/fonts';
 import { blockArrowOutline } from '../model/blockArrow';
+import { displayCitation } from '../citations/format';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 
 export function textBoxStyle(el: TextElement): CSSProperties {
@@ -162,7 +163,7 @@ export const footerRefStyle: CSSProperties = {
 
 /** One footer citation: the short citation linked to the paper (or the URL while unresolved). */
 export function CitationLabel({ c }: { c: Citation }) {
-  if (c.status === 'ok') return <a className="cite-link" href={c.url} target="_blank" rel="noopener noreferrer" title={c.fullCitation}>{c.shortCitation}</a>;
+  if (c.status === 'ok') return <a className="cite-link" href={c.url} target="_blank" rel="noopener noreferrer" title={displayCitation(c)}>{c.shortCitation}</a>;
   return <a className={`cite-link pending ${c.status}`} href={c.url} target="_blank" rel="noopener noreferrer">{c.url}</a>;
 }
 
