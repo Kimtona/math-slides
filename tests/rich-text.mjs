@@ -824,6 +824,101 @@ try {
   await pause(600); await pickTheme('Rose shade 5');
   assert.equal(await colorOf(titleSel), 'rgb(255, 255, 255)');
   console.log('PASS theme color (presentation-wide, title/header/section/footer decorations, readable foregrounds, user content untouched, undo/redo, thumbnails)');
+  // Presentation font: the top selector rewrites every text; the selected-text font is a per-range mark that the top selector overwrites.
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause();
+  const fontSnapshot = await evaluate('JSON.stringify({deck: store.getState().deck, assets: store.getState().assets, current: store.getState().currentSlideId})');
+  const familyOf = (sel) => evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) throw Error('Missing ' + ${JSON.stringify(sel)}); return getComputedStyle(e).fontFamily.split(',')[0].replace(/['"]/g, '').trim(); })()`);
+  const thumbFamilies = () => evaluate("[...document.querySelectorAll('.thumb .tb-content')].map((e) => getComputedStyle(e).fontFamily.split(',')[0].replace(/['\"]/g, '').trim())");
+  const fontButtonText = (title) => evaluate(`document.querySelector('.propsbar button[title^="${title}"]').textContent`);
+  const pickFont = async (title, name) => {
+    await click(`.propsbar button[title^="${title}"]`);
+    assert.deepEqual(await evaluate("[...document.querySelectorAll('.pop .menu-item')].map((e) => e.textContent)"), ['NanumSquare', 'Pretendard', 'Noto Serif KR'], 'exactly three fonts');
+    await evaluate(`[...document.querySelectorAll('.pop .menu-item')].find((e) => e.textContent === ${JSON.stringify(name)}).click()`); await pause(400);
+  };
+  const GLOBAL = '프레젠테이션 전체 글꼴', SELECTED = '선택한 텍스트 글꼴';
+  assert.equal(await evaluate('store.getState().deck.fontFamily'), undefined, 'new presentations have no font metadata (= NanumSquare)');
+  await evaluate('store.getState().addSlide()'); await pause();
+  const fontSlideId = await evaluate('store.getState().currentSlideId');
+  await evaluate(`store.getState().addElements([defaults.newText(64, 300, {w: 760, doc: defaults.textDoc('Alpha beta gamma')})], {edit: true})`);
+  await until(() => evaluate('!!active()'), 'Font editor');
+  const fontElId = await evaluate('store.getState().editingId');
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause(300);
+  assert.equal(await evaluate("(() => { const f = document.querySelector('.propsbar .font-btn'), t = document.querySelector('.propsbar button[title^=\"Theme:\"]'); return !!(f.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING); })()"), true, 'font selector sits left of Theme');
+  assert.equal(await fontButtonText(GLOBAL), 'NanumSquare ▾', 'NanumSquare is the default');
+  assert.equal(await familyOf('.slide.editable .tb-content'), 'NanumSquare');
+  // Three genuinely different bundled fonts (loaded from the app's own files, not a fallback).
+  const widths = await evaluate(`(async () => { const r = {}; for (const f of ['NanumSquare', 'Pretendard', 'Noto Serif KR']) { await document.fonts.load('400 40px "' + f + '"', 'Alpha 가나다'); await document.fonts.load('700 40px "' + f + '"', 'Alpha 가나다'); const c = document.createElement('canvas').getContext('2d'); c.font = '400 40px "' + f + '", monospace'; r[f] = Math.round(c.measureText('Alpha beta 가나다라마').width); } return r; })()`);
+  assert.equal(new Set(Object.values(widths)).size, 3, 'fonts render differently: ' + JSON.stringify(widths));
+  assert.deepEqual(await evaluate("['Pretendard', 'Noto Serif KR'].map((f) => [...document.fonts].filter((x) => x.family.replace(/['\"]/g, '') === f && x.status === 'loaded').length)"), [2, 2], 'regular + bold of each new font loaded from the bundled files');
+  // Top selector → every slide, existing text immediately.
+  await pickFont(GLOBAL, 'Pretendard');
+  assert.equal(await evaluate('store.getState().deck.fontFamily'), 'Pretendard');
+  assert.equal(await fontButtonText(GLOBAL), 'Pretendard ▾');
+  const pretendardThumbs = await thumbFamilies();
+  assert.ok(pretendardThumbs.length >= 6 && pretendardThumbs.every((f) => f === 'Pretendard'), 'every slide thumbnail uses Pretendard: ' + pretendardThumbs.join());
+  assert.equal(await familyOf('.slide.editable .tb-content'), 'Pretendard');
+  assert.equal(await familyOf('.slide.editable .footer-num'), 'Pretendard', 'footer text follows the deck font');
+  // New text uses the presentation font.
+  await evaluate(`store.getState().addElements([defaults.newText(64, 450, {w: 760, doc: defaults.textDoc('New text')})])`); await pause(300);
+  assert.equal(await evaluate("[...document.querySelectorAll('.slide.editable .tb-content')].map((e) => getComputedStyle(e).fontFamily.split(',')[0].replace(/['\"]/g, '').trim()).every((f) => f === 'Pretendard')"), true, 'new text is created in the presentation font');
+  // Selected text → only that range.
+  await evaluate(`store.getState().startEditing('${fontElId}')`); await until(() => evaluate('!!active()'), 'Font editor');
+  await select(7, 11); // "beta"
+  assert.equal(await fontButtonText(SELECTED), 'Pretendard ▾', 'selected-text control shows the effective font');
+  await pickFont(SELECTED, 'Noto Serif KR');
+  const runs = (d) => d.content[0].content.map((n) => [n.text, (n.marks ?? []).filter((m) => m.type === 'textStyle').map((m) => m.attrs.fontFamily)[0] ?? null]);
+  assert.deepEqual(runs(await doc()), [['Alpha ', null], ['beta', 'Noto Serif KR'], [' gamma', null]], 'only the selected range carries the font');
+  assert.equal(await evaluate('store.getState().deck.fontFamily'), 'Pretendard', 'the presentation font is unchanged');
+  assert.equal(await familyOf('.el.editing p span'), 'Noto Serif KR');
+  assert.equal(await familyOf('.el.editing p'), 'Pretendard');
+  assert.equal(await fontButtonText(SELECTED), 'Noto Serif KR ▾');
+  // Clearing run colors with a caret keeps the font (same textStyle mark).
+  await select(9);
+  await evaluate(`import('/src/ui/textFormat.ts').then((m) => m.setTextColor('#2F6FEB'))`); await pause(300);
+  assert.deepEqual(runs(await doc()).map((r) => r[1]), [null, 'Noto Serif KR', null], 'caret color change keeps the run font');
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause(400);
+  assert.equal(await evaluate("[...document.querySelectorAll('.thumb .tb-content span')].filter((e) => e.textContent === 'beta' && e.style.fontFamily).map((e) => getComputedStyle(e).fontFamily.split(',')[0].replace(/['\"]/g, '').trim()).join()"), 'Noto Serif KR', 'thumbnail shows the range font');
+  // Presentation mode and the PDF/print DOM share the same renderer.
+  await evaluate('store.setState({presenting: true})'); await pause(400);
+  assert.equal(await familyOf('.presenter .tb-content'), 'Pretendard');
+  assert.equal(await evaluate("[...document.querySelectorAll('.presenter .tb-content span')].filter((e) => e.textContent === 'beta' && e.style.fontFamily).map((e) => getComputedStyle(e).fontFamily.split(',')[0].replace(/['\"]/g, '').trim()).join()"), 'Noto Serif KR');
+  await key('Escape');
+  await evaluate("store.setState({exportMode: 'print'})"); await pause(500);
+  assert.equal(await evaluate("[...document.querySelectorAll('#print-root .tb-content')].every((e) => /^['\"]?Pretendard/.test(getComputedStyle(e).fontFamily))"), true, 'print/PDF DOM uses the presentation font');
+  assert.equal(await evaluate("[...document.querySelectorAll('#print-root .tb-content span')].filter((e) => e.textContent === 'beta' && e.style.fontFamily).map((e) => getComputedStyle(e).fontFamily).join()").then((f) => f.includes('Noto Serif KR')), true, 'print/PDF DOM keeps the range font');
+  await evaluate("store.setState({exportMode: null})"); await pause(300);
+  // Editable PPTX: the presentation font on the runs, the range font on its run.
+  const fontDeckName = await evaluate('persist.safeName(store.getState().deck.title)');
+  await evaluate("import('/src/export/run.ts').then((m) => m.exportPptx())");
+  await until(() => evaluate(`testFiles[${JSON.stringify(fontDeckName + '.pptx')}]?.length > 1000`), 'PPTX export (fonts)', 30000);
+  const fontZip = await JSZip.loadAsync(Buffer.from(await evaluate(`testFiles[${JSON.stringify(fontDeckName + '.pptx')}]`)));
+  const fontSlideNo = (await evaluate('store.getState().deck.slides.findIndex((s) => s.id === ' + JSON.stringify(fontSlideId) + ')')) + 1;
+  const fontXml = await fontZip.file('ppt/slides/slide' + fontSlideNo + '.xml').async('string');
+  const runFace = (text) => new RegExp('<a:r>(?:(?!</a:r>)[\\s\\S])*?typeface="([^"]+)"(?:(?!</a:r>)[\\s\\S])*?<a:t>' + text + '</a:t>').exec(fontXml)?.[1];
+  assert.equal(runFace('Alpha '), 'Pretendard'); assert.equal(runFace('beta'), 'Noto Serif KR'); assert.equal(runFace(' gamma'), 'Pretendard');
+  // .mslides content: presentation font + the range mark; older files (no font metadata) open as NanumSquare.
+  const fontFile = await evaluate('JSON.stringify(store.getState().deck)');
+  assert.equal(JSON.parse(fontFile).fontFamily, 'Pretendard');
+  assert.equal((fontFile.match(/"fontFamily":"Noto Serif KR"/g) ?? []).length, 1, 'one range font mark is saved');
+  await evaluate(`(() => { const s = store.getState(); store.getState().loadDeck(JSON.parse(${JSON.stringify(fontFile)}), s.assets); store.getState().goToSlide(${JSON.stringify(fontSlideId)}); })()`); await pause(400);
+  assert.equal(await evaluate('store.getState().deck.fontFamily'), 'Pretendard', 'reopened: presentation font kept');
+  assert.equal(await evaluate("[...document.querySelectorAll('.slide.editable .tb-content span')].filter((e) => e.textContent === 'beta' && e.style.fontFamily).map((e) => getComputedStyle(e).fontFamily).join()").then((f) => f.includes('Noto Serif KR')), true, 'reopened: range font kept');
+  const legacy = JSON.parse(fontFile); delete legacy.fontFamily;
+  await evaluate(`store.getState().loadDeck(${JSON.stringify(legacy)}, store.getState().assets); store.getState().goToSlide(${JSON.stringify(fontSlideId)})`); await pause(400);
+  assert.equal(await familyOf('.slide.editable .tb-content'), 'NanumSquare', 'files without font metadata open in NanumSquare');
+  await evaluate(`store.getState().loadDeck(JSON.parse(${JSON.stringify(fontFile)}), store.getState().assets); store.getState().goToSlide(${JSON.stringify(fontSlideId)})`); await pause(400);
+  // Top selector again → overwrites the range font everywhere; undo restores it in one step.
+  await pickFont(GLOBAL, 'NanumSquare');
+  assert.equal(await evaluate('store.getState().deck.fontFamily'), undefined, 'default font is stored as no metadata');
+  assert.equal(await evaluate("JSON.stringify(store.getState().deck.slides).includes('fontFamily')"), false, 'every per-range font was overwritten');
+  assert.ok((await thumbFamilies()).every((f) => f === 'NanumSquare'));
+  await evaluate('store.getState().undo()'); await pause(300);
+  assert.equal(await evaluate('store.getState().deck.fontFamily'), 'Pretendard'); assert.equal(await evaluate("JSON.stringify(store.getState().deck.slides).includes('Noto Serif KR')"), true, 'undo restores the range font');
+  await evaluate('store.getState().redo()'); await pause(300);
+  assert.equal(await evaluate("JSON.stringify(store.getState().deck.slides).includes('fontFamily')"), false);
+  // Back to the state the following checks expect.
+  await evaluate(`(() => { const s = JSON.parse(${JSON.stringify(fontSnapshot)}); store.getState().loadDeck(s.deck, s.assets); store.getState().goToSlide(s.current); })()`); await pause(400);
+  console.log('PASS presentation font (3 bundled fonts, NanumSquare default, top selector overwrites all text and range fonts, selected-text font, new text, thumbnails/presenter/print/PPTX, .mslides persistence, legacy files, undo/redo)');
   // Todo block (/todo): semantic node with a checked attribute; node-UI checkbox; presentation-only checked look.
   await evaluate('store.getState().addSlide()'); await pause();
   await evaluate(`store.getState().addElements([defaults.newText(64, 300, {w: 760})], {edit: true})`);

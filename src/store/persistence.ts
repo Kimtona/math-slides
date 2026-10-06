@@ -354,7 +354,7 @@ async function legacyArchive(): Promise<{ deck: Deck }[]> {
 function normalized(d: Deck): string {
   const some = <T extends object | undefined>(v: T) => (v && (Array.isArray(v) ? v.length : Object.keys(v).length) ? v : undefined);
   return JSON.stringify({
-    title: d.title, themeColor: d.themeColor, sections: some(d.sections), citations: some(d.citations),
+    title: d.title, themeColor: d.themeColor, fontFamily: d.fontFamily, sections: some(d.sections), citations: some(d.citations),
     slides: d.slides.map((s) => ({
       background: s.background, notes: s.notes, reference: s.reference || '', kind: s.kind, citations: some(s.citations),
       elements: s.elements.map((e) => (e.type === 'text' ? { ...e, id: undefined, h: undefined, doc: plainText(e.doc) } : { ...e, id: undefined })),

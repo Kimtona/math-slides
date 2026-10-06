@@ -7,7 +7,8 @@ import { themeColorOf } from '../model/theme';
 import { DEFAULT_TEXT_COLOR, emptyDoc, shapeTextStyle } from '../model/defaults';
 import { cropOf, isCropped, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
-import { activeTextColor, markActive, setTextStyle, toggleList, toggleMark } from './textFormat';
+import { activeTextColor, activeTextFont, markActive, setDeckFont, setSelectionFont, setTextStyle, toggleList, toggleMark } from './textFormat';
+import { SLIDE_FONTS, deckFont, type SlideFont } from '../model/fonts';
 import { HighlightButton, PaletteColorButton, ShapeFillButton, TextColorButton, ThemeColorButton } from './TextColorPalette';
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
@@ -32,6 +33,21 @@ function useEditorTick() {
   }, []);
 }
 
+/** Compact font dropdown. `value` null = mixed fonts in the selection. */
+function FontButton({ title, value, onChange }: { title: string; value: SlideFont | null; onChange: (f: SlideFont) => void }) {
+  return (
+    <Popover title={title} button={<span className="small-label font-btn">{value ?? '혼합'} ▾</span>}>
+      {(close) => (
+        <div className="menu">
+          {SLIDE_FONTS.map((f) => (
+            <div key={f.id} className={`menu-item${f.id === value ? ' sel' : ''}`} style={{ fontFamily: f.stack }} onClick={() => { onChange(f.id); close(); }}>{f.id}</div>
+          ))}
+        </div>
+      )}
+    </Popover>
+  );
+}
+
 function TextProps({ el, editing, box = true }: { el: TextElement; editing: boolean; box?: boolean }) {
   useEditorTick();
   const ed = editing ? getActiveEditor() : null;
@@ -51,6 +67,8 @@ function TextProps({ el, editing, box = true }: { el: TextElement; editing: bool
       <Btn title="글자 작게" onClick={() => setSize(Math.max(6, size - 2))}>−</Btn>
       <NumberField value={size} min={6} max={300} title={inCode ? '코드 블록 글자 크기 (px)' : lineSize ? '이 줄의 글자 크기 (px)' : '글자 크기 (px)'} onChange={setSize} />
       <Btn title="글자 크게" onClick={() => setSize(size + 2)}>+</Btn>
+      <Sep />
+      <FontButton title="선택한 텍스트 글꼴 (전체 글꼴은 슬라이드 빈 곳 선택 후 상단 '글꼴')" value={activeTextFont(el, editing)} onChange={setSelectionFont} />
       <Sep />
       <Btn title="굵게 ⌘B" active={markActive('bold', el, editing)} onClick={() => toggleMark('bold')}><b>B</b></Btn>
       <Btn title="기울임 ⌘I" active={markActive('italic', el, editing)} onClick={() => toggleMark('italic')}><i style={{ fontFamily: 'serif' }}>I</i></Btn>
@@ -210,6 +228,8 @@ export function PropsBar() {
         <>
           <span className="small-label">슬라이드 {slideIdx + 1} / {total}</span>
           <Sep />
+          <span className="small-label">글꼴</span>
+          <FontButton title="프레젠테이션 전체 글꼴 — 모든 슬라이드의 모든 텍스트에 적용" value={deckFont(deck.fontFamily)} onChange={setDeckFont} />
           <ThemeColorButton value={themeColorOf(deck)} onChange={(c) => useStore.getState().commit((d) => { d.themeColor = c; })} />
           <PaletteColorButton title="슬라이드 배경" label={<span className="small-label">배경색</span>} value={slide.background}
             onChange={(c) => useStore.getState().commit((d) => { d.slides[slideIdx].background = c; })} />

@@ -4,6 +4,7 @@ import type { PMNode } from '../model/types';
 import { renderTex } from '../math/mathjax';
 import { inlineCodeStyle } from '../editor/formattingMarks';
 import { blockTypeInfo } from '../model/academicBlocks';
+import { fontStack } from '../model/fonts';
 import { highlightCode, isSupportedLanguage } from '../editor/codeHighlight';
 
 /** Renders math exactly like the editor node views do (same classes & markup). */
@@ -31,7 +32,9 @@ function renderMarks(text: string, marks: PMNode['marks'], key: number): ReactNo
       case 'highlight': node = <mark style={{ backgroundColor: m.attrs?.color, color: 'inherit' }}>{node}</mark>; break;
       case 'code': node = <code style={codeStyle}>{node}</code>; break;
       case 'textStyle':
-        if (m.attrs?.color) node = <span style={{ color: m.attrs.color }}>{node}</span>;
+        if (m.attrs?.color || m.attrs?.fontFamily) {
+          node = <span style={{ color: m.attrs.color || undefined, fontFamily: m.attrs.fontFamily ? fontStack(m.attrs.fontFamily) : undefined }}>{node}</span>;
+        }
         break;
       case 'link':
         if (m.attrs?.href) node = <a className="doc-link" href={m.attrs.href} target="_blank" rel="noopener noreferrer">{node}</a>;

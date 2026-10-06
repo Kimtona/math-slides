@@ -16,7 +16,7 @@ npm run dev          # browser: open http://localhost:5173 (use Chrome)
 
 You can also double-click `MathSlides.command` in Finder to launch the desktop app.
 
-> For PPTX files to show the same font in PowerPoint, install **NanumSquare** on your Mac ([Naver Hangeul fonts](https://hangeul.naver.com/font)). The editor and PDF already embed the font, so they look right without it.
+> Fonts: NanumSquare (default), Pretendard and Noto Serif KR are bundled (SIL OFL, see `src/fonts/`). The **글꼴** control (left of Theme, nothing selected) sets the font of every text in the presentation and overrides per-text fonts; the font control next to the text size changes only the selected text. For PPTX files to show the same font in PowerPoint, install the font you used (NanumSquare: [Naver Hangeul fonts](https://hangeul.naver.com/font)). The editor and PDF already embed the fonts, so they look right without it.
 
 ## Building and installing the macOS app
 

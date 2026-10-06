@@ -18,6 +18,7 @@ import type { PMNode } from '../model/types';
 import { MARKDOWN_SIZES, TYPOGRAPHY } from '../model/typography';
 import { ACADEMIC_BLOCK_TYPES, DEFAULT_BLOCK_TYPE, blockTypeInfo } from '../model/academicBlocks';
 import { Highlight, InlineCode } from './formattingMarks';
+import { fontFromCss, fontStack } from '../model/fonts';
 
 /**
  * Per-line font size (paragraph attribute `fontSize`, px) + Notion-style Markdown shortcuts:
@@ -619,6 +620,23 @@ export function convertToCodeBlock(editor: Editor, range: { from: number; to: nu
     .run();
 }
 
+/** Font of a selected range: a `fontFamily` attribute on the textStyle mark (next to Color). The deck font is NOT stored here. */
+const FontFamily = Extension.create({
+  name: 'fontFamily',
+  addGlobalAttributes() {
+    return [{
+      types: ['textStyle'],
+      attributes: {
+        fontFamily: {
+          default: null,
+          parseHTML: (el) => fontFromCss((el as HTMLElement).style.fontFamily) ?? null,
+          renderHTML: (attrs) => (attrs.fontFamily ? { style: `font-family: ${fontStack(attrs.fontFamily)}` } : {}),
+        },
+      },
+    }];
+  },
+});
+
 export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } = {}): Extensions {
   const exts: Extensions = [
     StarterKit.configure({
@@ -633,6 +651,7 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } =
     Underline,
     TextStyle,
     Color,
+    FontFamily,
     Highlight, // priority 102 → wraps the TextStyle color span (see formattingMarks.ts)
     InlineCode,
     MathInline,

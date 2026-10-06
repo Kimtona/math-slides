@@ -153,6 +153,8 @@ export interface Deck {
   titleElementId?: ID;
   /** Table of Contents sections (derived from the TOC box; maps section → Sub-title slide). */
   sections?: Section[];
+  /** Presentation font (a SLIDE_FONTS id). Absent = NanumSquare. */
+  fontFamily?: string;
   /** Presentation theme color (#rrggbb). Absent = White (no theme decorations). */
   themeColor?: string;
   /** Citation metadata registry. */

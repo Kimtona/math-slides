@@ -12,6 +12,7 @@ import { findCitations } from '../citations/providers';
 import { TextEditor } from '../editor/TextEditor';
 import { insertImageFiles, insertTextAt } from './insert';
 import { scaleParagraphSizes } from '../editor/extensions';
+import { slideFontVars } from '../model/fonts';
 
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'p1' | 'p2';
 const SNAP_PX = 6;
@@ -629,6 +630,7 @@ export function Canvas() {
   const editingId = useStore((s) => s.editingId);
   const shiftPreview = useShiftPreview();
   const themeColor = useStore((s) => s.deck.themeColor);
+  const fontFamily = useStore((s) => s.deck.fontFamily);
 
   useLayoutEffect(() => {
     const vp = vpRef.current!;
@@ -681,7 +683,7 @@ export function Canvas() {
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDropping(true); } }}
       onDragLeave={() => setDropping(false)} onDrop={onDrop}>
       <div className="slide-frame" style={{ width: SLIDE_W * scale, height: SLIDE_H * scale }}>
-        <div ref={slideRef} className="slide editable" style={{ width: SLIDE_W, height: SLIDE_H, transform: `scale(${scale})`, background: slide.background, ['--todo-accent' as string]: todoAccent({ themeColor }) }}>
+        <div ref={slideRef} className="slide editable" style={{ width: SLIDE_W, height: SLIDE_H, transform: `scale(${scale})`, background: slide.background, ['--todo-accent' as string]: todoAccent({ themeColor }), ...slideFontVars(fontFamily) }}>
           <div className="slide-content" onClickCapture={(e) => { if ((e.target as Element).closest('.el a[href]')) e.preventDefault(); }}>
             <ThemeDecor slide={slide} />
             {slide.elements.map((el) => <CanvasElement key={el.id} el={el} editing={editingId === el.id} />)}

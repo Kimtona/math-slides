@@ -8,11 +8,13 @@ import { shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { isDocEmpty } from '../editor/docUtils';
 import { tokenColor } from '../editor/codeHighlight';
 import { INLINE_CODE_BACKGROUND, INLINE_CODE_FONT } from '../model/textFormatting';
+import { DEFAULT_FONT, deckFont, fontFromCss } from '../model/fonts';
 
 // Slide units are CSS px on a 1280×720 canvas = 13.333×7.5in (PowerPoint widescreen).
 const IN = (px: number) => px / 96;
 const PT = (px: number) => px * 0.75;
-export const PPT_FONT = 'NanumSquare';
+/** Font of the presentation being exported (set by buildPptx); runs with their own font read it from the DOM. */
+export let PPT_FONT: string = DEFAULT_FONT;
 
 type Slide = PptxGenJS.Slide;
 type TextProps = PptxGenJS.TextProps;
@@ -81,7 +83,7 @@ function runOptions(textNode: Node, base: TextElement, text: string): TextPropsO
   const parent = textNode.parentElement!;
   const cs = getComputedStyle(parent);
   const o: TextPropsOptions = {
-    fontFace: parent.closest('code') ? INLINE_CODE_FONT : PPT_FONT,
+    fontFace: parent.closest('code') ? INLINE_CODE_FONT : fontFromCss(cs.fontFamily) ?? PPT_FONT,
     fontSize: PT(parseFloat(cs.fontSize) || base.style.fontSize),
     color: hex(cs.color),
     bold: parseInt(cs.fontWeight) >= 600,
@@ -550,6 +552,7 @@ function addFooter(s: Slide, slideDom: Element, origin: DOMRect) {
 
 export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root: HTMLElement): Promise<Blob> {
   const pptx = new PptxGenJS();
+  PPT_FONT = deckFont(deck.fontFamily);
   pptx.layout = 'LAYOUT_WIDE';
   pptx.title = deck.title;
   pptx.theme = { headFontFace: PPT_FONT, bodyFontFace: PPT_FONT };

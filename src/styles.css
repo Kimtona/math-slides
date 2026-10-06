@@ -2,6 +2,10 @@
 @font-face { font-family: 'NanumSquare'; font-weight: 400; font-display: block; src: local('NanumSquareR'), local('NanumSquare'), url('./fonts/NanumSquareR.woff2') format('woff2'); }
 @font-face { font-family: 'NanumSquare'; font-weight: 700; font-display: block; src: local('NanumSquareB'), local('NanumSquare Bold'), url('./fonts/NanumSquareB.woff2') format('woff2'); }
 @font-face { font-family: 'NanumSquare'; font-weight: 800; font-display: block; src: local('NanumSquareEB'), local('NanumSquare ExtraBold'), url('./fonts/NanumSquareEB.woff2') format('woff2'); }
+@font-face { font-family: 'Pretendard'; font-weight: 400; font-display: block; src: url('./fonts/Pretendard-Regular.woff2') format('woff2'); }
+@font-face { font-family: 'Pretendard'; font-weight: 700; font-display: block; src: url('./fonts/Pretendard-Bold.woff2') format('woff2'); }
+@font-face { font-family: 'Noto Serif KR'; font-weight: 400; font-display: block; src: url('./fonts/NotoSerifKR-Regular.woff2') format('woff2'); }
+@font-face { font-family: 'Noto Serif KR'; font-weight: 700; font-display: block; src: url('./fonts/NotoSerifKR-Bold.woff2') format('woff2'); }
 
 :root {
   --accent: #2f6feb;

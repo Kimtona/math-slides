@@ -15,7 +15,7 @@ When this document was written, `main` and `origin/main` were synchronized at `3
 
 MathSlides is an Electron desktop app (React + TipTap + MathJax SVG) for academic slide decks, with a WYSIWYG semantic editor, an editable `.mslides` document format, PDF export, editable PPTX export, presentation mode, thumbnails, autosave, undo/redo and slash commands (`/math`, `/code`, `/callout`, `/block`, `/todo`, `/image`, ...).
 
-Implemented editor features: Code Block, Callout, Academic Blocks, Todo, Image + optional caption, editable text inside shapes, alignment guides (incl. Shift preview), presentation-wide Theme Color, Title Slide insertion, TOC slide, Thank You slide, PowerPoint-style color controls where appropriate. See `README.md` for usage; source layout: `src/{canvas,editor,export,model,render,store,ui}`, `electron/`, `tests/rich-text.mjs`.
+Implemented editor features: Code Block, Callout, Academic Blocks, Todo, Image + optional caption, editable text inside shapes, alignment guides (incl. Shift preview), presentation-wide Theme Color, Title Slide insertion, TOC slide, Thank You slide, PowerPoint-style color controls where appropriate, presentation font selection. See `README.md` for usage; source layout: `src/{canvas,editor,export,model,render,store,ui}`, `electron/`, `tests/rich-text.mjs`.
 
 ## Desktop document lifecycle
 
@@ -75,7 +75,7 @@ The user keeps the packaged MathSlides pinned in the Dock and uses it for real w
 
 ## Further work candidates (not committed requirements)
 
-1. **Presentation font selection** — curated set, e.g. NanumSquare (default), Pretendard (modern), Noto Serif KR (academic); presentation-level setting consistent across Editor / Thumbnail / Presentation / PDF / PPTX; math and code typography stay separate; check redistribution licenses and bundling first.
+1. ~~Presentation font selection~~ — DONE: exactly NanumSquare (default), Pretendard, Noto Serif KR, bundled in `src/fonts/` (OFL licenses alongside). `Deck.fontFamily` (absent = NanumSquare) drives the slide `--slide-font`; the top-bar 글꼴 control is an explicit "apply to all text" that also clears every per-range font (`textStyle.fontFamily` mark); the font control in the text toolbar changes only the selected range. Math and inline-code typography stay separate. No weights beyond 400/700 for the new fonts.
 2. **Notion / Markdown / Google Docs → MathSlides import** — map `#`/`##`/`###`, paragraphs, callouts, code, todo, images to the Deck model; one-way import first; needs a design pass.
 3. **Finder first-slide thumbnails** — needs a macOS Quick Look Thumbnail Extension; preferably the renderer produces the preview and the native extension only reads it (avoid a Swift re-implementation of the renderer). May motivate evolving `.mslides` into a package (`presentation.json`, `preview.png`, `assets/`). Needs an architecture pass.
 4. **Windows validation** — NSIS installer, association, icon, double-click, Open/Save/Save As, restart restoration, recovery.
