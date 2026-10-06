@@ -1,10 +1,10 @@
 import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
-import type { Asset, Deck, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
+import type { Asset, Deck, EmojiElement, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
 import { sourceRect } from '../model/imageCrop';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 import { themeLayout } from '../model/theme';
-import { shapeTextInset, shapeTextStyle } from '../model/defaults';
+import { EMOJI_GLYPH_SCALE, shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { isDocEmpty } from '../editor/docUtils';
 import { tokenColor } from '../editor/codeHighlight';
 import { INLINE_CODE_BACKGROUND, INLINE_CODE_FONT } from '../model/textFormatting';
@@ -495,6 +495,36 @@ function addCaption(s: Slide, el: ImageElement, slideDom: Element, origin: DOMRe
   });
 }
 
+/**
+ * Standalone emoji → picture. Native PowerPoint text would be drawn with whatever emoji font the viewer has (a
+ * different look per platform), so the glyph is rasterized once with the same system emoji font and size ratio as
+ * the canvas, at 4× the slide size (min 256 px, max 1024 px) — sharp at presentation sizes. The Unicode value is
+ * kept as the picture's alt text; the .mslides model itself stays semantic.
+ */
+const emojiCache = new Map<string, string>();
+function emojiPng(emoji: string, sizePx: number): string {
+  const n = Math.max(256, Math.min(1024, Math.ceil(sizePx * 4)));
+  const key = `${emoji}@${n}`;
+  const hit = emojiCache.get(key);
+  if (hit) return hit;
+  const c = document.createElement('canvas');
+  c.width = c.height = n;
+  const g = c.getContext('2d')!;
+  g.font = `${n * EMOJI_GLYPH_SCALE}px 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif`;
+  g.textAlign = 'center';
+  g.textBaseline = 'alphabetic';
+  const m = g.measureText(emoji);
+  // Ink-centered vertically, like the line-height:1 box the canvas/DOM draw it in.
+  g.fillText(emoji, n / 2, n / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
+  const png = c.toDataURL('image/png');
+  emojiCache.set(key, png);
+  return png;
+}
+
+function addEmoji(s: Slide, el: EmojiElement) {
+  s.addImage({ data: emojiPng(el.emoji, Math.min(el.w, el.h)), x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h), altText: el.emoji, objectName: 'Emoji' });
+}
+
 async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset>, slideDom: Element, origin: DOMRect) {
   const a = assets[el.assetId];
   if (!a) return;
@@ -594,6 +624,7 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
       if (el.type === 'shape') addShape(pptx, s, el, slideDom, origin);
       else if (el.type === 'line') addLine(pptx, s, el);
       else if (el.type === 'image') await addImage(s, el, assets, slideDom, origin);
+      else if (el.type === 'emoji') addEmoji(s, el);
       else {
         const dom = slideDom.querySelector(`[data-el-id="${el.id}"]`);
         if (dom) addTextElement(s, el, dom, origin);

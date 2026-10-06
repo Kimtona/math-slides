@@ -18,9 +18,9 @@ import type { PMNode } from '../model/types';
 import { MARKDOWN_SIZES, TYPOGRAPHY } from '../model/typography';
 import { ACADEMIC_BLOCK_TYPES, DEFAULT_BLOCK_TYPE, blockTypeInfo } from '../model/academicBlocks';
 import { Highlight, InlineCode } from './formattingMarks';
-import { closeEmojiPicker, openEmojiPicker } from './EmojiPicker';
+import { createQuickEmojiPanel } from './quickEmojiPanel';
 import { DEFAULT_QUICK_EMOJIS } from '../model/userPrefs';
-import { getQuickEmojis, resetQuickEmojis, setQuickEmoji, subscribeUserPrefs } from '../store/userPrefs';
+import { getQuickEmojis } from '../store/userPrefs';
 import { fontFromCss, fontStack } from '../model/fonts';
 
 /**
@@ -346,7 +346,8 @@ const Callout = TipNode.create({
       body.className = 'callout-body';
       dom.append(icon, body);
       let pop: HTMLElement | null = null;
-      const closePop = () => { pop?.remove(); pop = null; editSlot = null; unsub?.(); unsub = null; document.removeEventListener('mousedown', outside, true); };
+      let panel: { el: HTMLElement; destroy: () => void } | null = null;
+      const closePop = () => { pop?.remove(); pop = null; panel?.destroy(); panel = null; document.removeEventListener('mousedown', outside, true); };
       function outside(e: MouseEvent) { if (pop && !pop.contains(e.target as Node) && e.target !== icon && !(e.target as Element).closest?.('.emoji-picker')) closePop(); }
       const setIcon = (value: string) => {
         const pos = getPos();
@@ -357,50 +358,14 @@ const Callout = TipNode.create({
         editor.view.dispatch(tr);
         editor.view.focus();
       };
-      // Quick row = the user's 10 preferred emojis (a local user preference, not document data). Edit mode swaps the
-      // same popover into a slot editor; nothing here dispatches a document transaction except picking the icon.
-      let editSlot: number | null = null; // null = normal quick row; 0-9 = editing that slot
-      let unsub: (() => void) | null = null;
-      const mkButton = (text: string, cls: string, title: string, onMouseDown: (ev: MouseEvent) => void) => {
-        const b = document.createElement('button');
-        b.type = 'button'; b.textContent = text; b.title = title; if (cls) b.className = cls;
-        b.addEventListener('mousedown', (ev) => { ev.preventDefault(); ev.stopPropagation(); onMouseDown(ev); });
-        return b;
-      };
-      const renderPop = () => {
-        if (!pop) return;
-        pop.replaceChildren();
-        const quick = getQuickEmojis();
-        if (editSlot === null) {
-          quick.forEach((em) => pop!.append(mkButton(em, em === current.attrs.icon ? 'on' : '', '', () => setIcon(em))));
-          // ✎ = customize the quick row (left of ⋯); ⋯ = the full searchable picker, unchanged.
-          pop.append(mkButton('✎', 'edit', '빠른 이모지 편집', () => { editSlot = 0; renderPop(); }));
-          pop.append(mkButton('⋯', 'more', '더 많은 이모지', () => {
-            const anchor = pop!.querySelector('.more')!.getBoundingClientRect();
-            closePop();
-            openEmojiPicker({ anchor, current: current.attrs.icon, onPick: setIcon });
-          }));
-        } else {
-          pop.classList.add('editing');
-          quick.forEach((em, i) => pop!.append(mkButton(em, i === editSlot ? 'slot on' : 'slot', `${i + 1}번 슬롯 교체`, () => {
-            editSlot = i; renderPop();
-            // The slot is replaced through the existing full picker (same catalog/search), anchored below the editor row.
-            openEmojiPicker({ anchor: pop!.getBoundingClientRect(), current: em, onPick: (v) => setQuickEmoji(i, v) });
-          })));
-          pop.append(mkButton('기본값', 'reset', 'Reset to Default', () => { resetQuickEmojis(); }));
-          pop.append(mkButton('완료', 'done', '편집 완료', () => { editSlot = null; closeEmojiPicker(); renderPop(); }));
-        }
-      };
+      // Quick row = the shared user-level Quick Emojis panel (see quickEmojiPanel.ts); here a pick changes this Callout's icon.
       icon.addEventListener('mousedown', (e) => {
         e.preventDefault();
         if (pop) return closePop();
-        pop = document.createElement('div');
-        pop.className = 'callout-icons';
+        panel = createQuickEmojiPanel({ onPick: setIcon, onMore: closePop, current: () => current.attrs.icon });
+        pop = panel.el;
         pop.contentEditable = 'false';
-        editSlot = null;
-        renderPop();
         dom.append(pop);
-        unsub = subscribeUserPrefs(renderPop); // a changed preference updates every open quick row immediately
         document.addEventListener('mousedown', outside, true);
       });
       const sync = () => { icon.textContent = current.attrs.icon; dom.setAttribute('data-icon', current.attrs.icon); };

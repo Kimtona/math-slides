@@ -1,6 +1,6 @@
 import type { Asset, ImageElement, ShapeKind, SlideElement, TextElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
-import { newLine, newShape, newText, uid } from '../model/defaults';
+import { newEmoji, newLine, newShape, newText, uid } from '../model/defaults';
 import { currentSlide, useStore } from '../store/store';
 import { saveAsset } from '../store/persistence';
 import { textToDoc } from '../editor/docUtils';
@@ -61,6 +61,12 @@ export function pickImages() {
   input.multiple = true;
   input.onchange = () => insertImageFiles(Array.from(input.files ?? []));
   input.click();
+}
+
+/** Standalone emoji element at the slide center (offset when one already sits there); selected, but not text-edited. */
+export function insertEmoji(emoji: string) {
+  const taken = currentSlide().elements.filter((e) => e.type === 'emoji').length;
+  useStore.getState().addElements([newEmoji(emoji, SLIDE_W / 2 + (taken % 6) * 24, SLIDE_H / 2 + (taken % 6) * 24)]);
 }
 
 /** New text box; the click point is where the first line's text begins. */

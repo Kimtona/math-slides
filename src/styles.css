@@ -205,9 +205,11 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .callout-icons button { border: 0; background: none; padding: 4px; border-radius: 5px; cursor: pointer; font: inherit; }
 .callout-icons button.more, .callout-icons button.edit { color: #6b7280; font-size: 16px; }
 .callout-icons button.reset, .callout-icons button.done { color: #6b7280; font-size: 12px; white-space: nowrap; align-self: center; }
+.emoji-tool .callout-icons { position: static; padding: 0; border: 0; box-shadow: none; background: none; }
 .callout-icons.editing { align-items: center; }
 .callout-icons button.slot { outline: 1px dashed #c3c8cf; outline-offset: -1px; }
 .callout-icons button.slot.on { outline: 2px solid #2f6feb; background: #eef0f2; }
+.el-emoji { display: flex; align-items: center; justify-content: center; line-height: 1; white-space: nowrap; user-select: none; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; }
 .emoji-picker { position: fixed; z-index: 320; width: 328px; height: 360px; display: flex; flex-direction: column; background: #fff; border: 1px solid #d9dce0; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.16); font-family: var(--ui-font); color: var(--ink); }
 .emoji-search { margin: 8px 8px 4px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 13px; outline: none; background: #fafbfc; }
 .emoji-search:focus { border-color: var(--accent); background: #fff; }

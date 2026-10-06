@@ -1,8 +1,9 @@
 import { useStore } from '../store/store';
 import { Btn, Icons, MenuItem, Popover, Sep } from './controls';
-import { insertLine, insertMathBox, insertShape, insertTextCenter, pickImages } from '../canvas/insert';
+import { insertEmoji, insertLine, insertMathBox, insertShape, insertTextCenter, pickImages } from '../canvas/insert';
 import { loadRecovery, newProject, openProject, restoreRecovered, saveProject } from '../store/persistence';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createQuickEmojiPanel } from '../editor/quickEmojiPanel';
 import { exportPdf, exportPptx } from '../export/run';
 
 export const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
@@ -13,6 +14,17 @@ function RecoverWork() {
   const [has, setHas] = useState(false);
   useEffect(() => { loadRecovery().then((r) => setHas(r.length > 0)); }, []);
   return has ? <MenuItem onClick={restoreRecovered}>직전 작업 복구</MenuItem> : null;
+}
+
+/** The shared Quick Emojis panel (same user preference as the Callout's) whose picks insert a standalone emoji. */
+function QuickEmojiMenu({ close }: { close: () => void }) {
+  const host = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const panel = createQuickEmojiPanel({ onPick: (e) => { close(); insertEmoji(e); }, onMore: close });
+    host.current!.append(panel.el);
+    return () => { panel.destroy(); panel.el.remove(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return <div ref={host} className="emoji-tool" />;
 }
 
 export function Toolbar() {
@@ -59,6 +71,9 @@ export function Toolbar() {
               <MenuItem onClick={() => insertShape('blockArrow')}>⇨ 두꺼운 화살표</MenuItem>
             </div>
           )}
+        </Popover>
+        <Popover title="이모지" className="emoji-menu" button={<span className="wide-inner">{Icons.emoji}<span>이모지</span></span>}>
+          {(close) => <QuickEmojiMenu close={close} />}
         </Popover>
       </div>
 

@@ -105,7 +105,16 @@ export interface LineElement extends ElementBase {
   dashed: boolean;
 }
 
-export type SlideElement = TextElement | ImageElement | ShapeElement | LineElement;
+/**
+ * Standalone emoji: the Unicode string itself (rendered as text at the element's size, so it stays sharp at any
+ * size; never a bitmap). Always square (w === h); resizing is uniform.
+ */
+export interface EmojiElement extends ElementBase {
+  type: 'emoji';
+  emoji: string;
+}
+
+export type SlideElement = TextElement | ImageElement | ShapeElement | LineElement | EmojiElement;
 
 export interface Slide {
   id: ID;

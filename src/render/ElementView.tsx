@@ -5,7 +5,7 @@ import { SLIDE_H, SLIDE_W } from '../model/types';
 import { StaticText } from './StaticText';
 import { isDocEmpty } from '../editor/docUtils';
 import { themeLayout, themedTextColor, todoAccent } from '../model/theme';
-import { shapeTextInset, shapeTextStyle } from '../model/defaults';
+import { EMOJI_GLYPH_SCALE, shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { slideFontVars } from '../model/fonts';
 import { blockArrowOutline } from '../model/blockArrow';
 import { displayCitation } from '../citations/format';
@@ -115,6 +115,8 @@ export function ElementBody({ el, assets, caption }: { el: SlideElement; assets:
     }
     case 'shape': return <ShapeView el={el} />;
     case 'line': return <LineSvg el={el} />;
+    // Real text at the element's size (re-rasterized by the font renderer at every size, never a scaled bitmap).
+    case 'emoji': return <span className="emoji-glyph" style={{ fontSize: Math.min(el.w, el.h) * EMOJI_GLYPH_SCALE }}>{el.emoji}</span>;
   }
 }
 

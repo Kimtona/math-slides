@@ -31,7 +31,7 @@ export function Popover({ button, children, title, className, onOpen }: { button
     if (!open) return;
     const h = (e: PointerEvent) => {
       const t = e.target as Node;
-      if (!ref.current?.contains(t) && !popRef.current?.contains(t)) setOpen(false);
+      if (!ref.current?.contains(t) && !popRef.current?.contains(t) && !(t as Element).closest?.('.emoji-picker')) setOpen(false);
     };
     const close = () => setOpen(false);
     window.addEventListener('pointerdown', h, true);
@@ -168,6 +168,7 @@ export const Icons = {
   text: <I d="M4 7V4h16v3M9 20h6M12 4v16" />,
   image: <I><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" /></I>,
   shape: <I><rect x="3" y="3" width="10" height="10" rx="1" /><circle cx="16" cy="16" r="5" /></I>,
+  emoji: <I><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4 4 0 0 0 7 0M9 9.5h.01M15 9.5h.01" /></I>,
   play: <I d="M6 4l14 8-14 8z" />,
   download: <I d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3" />,
   file: <I d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6" />,

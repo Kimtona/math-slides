@@ -197,7 +197,7 @@ function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle, op
     const MIN = 12;
     let w = Math.max(MIN, x2 - x1), h = Math.max(MIN, y2 - y1);
     const corner = (hasW || hasE) && (hasN || hasS);
-    const keepAspect = corner && (o.type === 'shape' ? ev.shiftKey : o.type === 'text');
+    const keepAspect = corner && (o.type === 'shape' ? ev.shiftKey : o.type === 'text' || o.type === 'emoji');
     if (keepAspect) {
       const sc = o.type === 'text' ? w / o.w : Math.max(w / o.w, h / o.h);
       w = Math.max(MIN, o.w * sc); h = Math.max(MIN, o.h * sc);
@@ -484,6 +484,8 @@ function SelectionOverlay({ scale }: { scale: number }) {
   }
   const handles: Handle[] =
     el.type === 'text' ? ['nw', 'ne', 'se', 'sw', 'e', 'w'] :
+    el.type === 'emoji' ? ['nw', 'ne', 'se', 'sw'] : // always square: uniform scaling from the corners only
+
     ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
   const pos = (h: Handle) => ({
     left: h.includes('w') ? el.x : h.includes('e') ? el.x + el.w : el.x + el.w / 2,
