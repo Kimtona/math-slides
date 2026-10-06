@@ -5,7 +5,7 @@ import { getActiveEditor } from './active';
 import { commitMath, setMathLatex } from './mathNodes';
 import { renderTex } from '../math/mathjax';
 import { MathPalette } from './MathPalette';
-import { applyMathItem, type MathItem } from './mathPalette';
+import { applyMathItem, type MathItem } from './mathPaletteItems';
 
 /**
  * Notion-style equation editor: a small floating textarea under the equation.

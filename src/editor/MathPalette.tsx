@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { renderTex } from '../math/mathjax';
-import { MATH_CATEGORIES, type MathItem } from './mathPalette';
+import { MATH_CATEGORIES, type MathItem } from './mathPaletteItems';
 
 /**
  * Compact optional helper under the equation textarea (opened by Ω). Cells show the rendered symbol (the normal
