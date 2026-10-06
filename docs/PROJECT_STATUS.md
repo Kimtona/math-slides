@@ -2,9 +2,9 @@
 
 ## Current stable checkpoint
 
-`3e74a25 "Redesign autosave recovery"`
+`7871abf "Move math palette button to the left of the equation footer"`
 
-When this document was written, `main` and `origin/main` were synchronized at `3e74a25` (later commits may exist; check `git log`). It is the approved product checkpoint, and the installed macOS app was manually tested for the recovery UX:
+When this document was updated, `main` and `origin/main` were synchronized at `7871abf` (later commits may exist; check `git log`). Since the previous documented checkpoint (`3e74a25 "Redesign autosave recovery"`) the feature commits are: presentation font selection, adjustable Block Arrow, instance borders + shared background palette, the Callout emoji picker, and the compact Math Palette (with its footer placement). The persistence/lifecycle architecture below is unchanged since `3e74a25`, whose recovery UX was manually tested in the installed macOS app:
 
 - the packaged app launches
 - the old "Previous Presentations" archive list is no longer exposed in the ∑ menu
@@ -15,7 +15,7 @@ When this document was written, `main` and `origin/main` were synchronized at `3
 
 MathSlides is an Electron desktop app (React + TipTap + MathJax SVG) for academic slide decks, with a WYSIWYG semantic editor, an editable `.mslides` document format, PDF export, editable PPTX export, presentation mode, thumbnails, autosave, undo/redo and slash commands (`/math`, `/code`, `/callout`, `/block`, `/todo`, `/image`, ...).
 
-Implemented editor features: Code Block, Callout, Academic Blocks, Todo, Image + optional caption, editable text inside shapes, alignment guides (incl. Shift preview), presentation-wide Theme Color, Title Slide insertion, TOC slide, Thank You slide, PowerPoint-style color controls where appropriate, presentation font selection. Shapes: Rectangle, Rounded Rectangle, Ellipse, Line/Arrow and an adjustable Block Arrow (`두꺼운 화살표`: `ShapeElement.shape: 'blockArrow'` with optional `shaft`/`head` ratios; geometry in `src/model/blockArrow.ts`, two canvas adjustment handles, exported to PPTX as a freeform). Text boxes (incl. equation/code content) and images have a box background (full shared palette, 없음) and an optional instance border (`borderColor?`, one 2px solid line, drawn as an outline centered on the bounds; native rectangle in PPTX). Shapes keep their own stroke. Callout icons: the quick row plus a `⋯` button that opens a full searchable emoji picker (`src/editor/EmojiPicker.tsx`, data from `emojibase-data` en/compact, lazy-loaded chunk, standard Unicode groups); the picked Unicode string goes through the same `icon` attribute and history step as the quick icons — no schema change. See `README.md` for usage; source layout: `src/{canvas,editor,export,model,render,store,ui}`, `electron/`, `tests/rich-text.mjs`.
+Implemented editor features: Code Block, Callout, Academic Blocks, Todo, Image + optional caption, editable text inside shapes, alignment guides (incl. Shift preview), presentation-wide Theme Color, Title Slide insertion, TOC slide, Thank You slide, PowerPoint-style color controls where appropriate, presentation font selection. Shapes: Rectangle, Rounded Rectangle, Ellipse, Line/Arrow and an adjustable Block Arrow (`두꺼운 화살표`: `ShapeElement.shape: 'blockArrow'` with optional `shaft`/`head` ratios; geometry in `src/model/blockArrow.ts`, two canvas adjustment handles, exported to PPTX as a freeform). Text boxes (incl. equation/code content) and images have a box background (full shared palette, 없음) and an optional instance border (`borderColor?`, one 2px solid line, drawn as an outline centered on the bounds; native rectangle in PPTX). Shapes keep their own stroke. Callout icons: the quick row plus a `⋯` button that opens a full searchable emoji picker (`src/editor/EmojiPicker.tsx`, data from `emojibase-data` en/compact, lazy-loaded chunk, standard Unicode groups); the picked Unicode string goes through the same `icon` attribute and history step as the quick icons — no schema change. Equation editing: the popover keeps direct LaTeX typing as the primary workflow and has an optional, hidden-by-default `Ω` button at the left of its footer (before the hint text; `Done ↵` stays alone on the right) that opens the compact Math Palette (`src/editor/MathPalette.tsx`, data + pure insertion logic `applyMathItem` in `src/editor/mathPalette.ts`, wired in `MathPopover.tsx`). Categories 자주 사용 / 그리스 / 연산 / 스타일 / 구조; cells show the symbol rendered through the existing `renderTex` MathJax path (LaTeX only as hover hint). Insertion is cursor-aware and keeps focus in the textarea: symbols replace the selection / insert at the caret (a bare control word gets a trailing space only if it would fuse with a following letter or ends the text); wrapper templates (`\mathbf{}`, `\mathbb{}`, `\mathcal{}`, `\hat{}`, `\bar{}`, `\text{}`, `\boxed{}`, `\sqrt{}`, norm, fraction) wrap a selection, otherwise put the caret inside the first braces (fraction with a selection: selection becomes the numerator, caret in the denominator); sum/integral/cases/matrix replace the selection and place the caret in the first slot. Escape or an outside click inside the popover closes only the palette; Enter/Shift+Enter/Escape on the equation behave as before. No schema change. Not implemented: `\` command autocomplete, search, history, custom palettes. See `README.md` for usage; source layout: `src/{canvas,editor,export,model,render,store,ui}`, `electron/`, `tests/rich-text.mjs`.
 
 ## Desktop document lifecycle
 
@@ -68,6 +68,14 @@ Electron + electron-builder.
 - macOS: packaged `.app` and `.dmg` build (`npm run dist:mac`, output in git-ignored `release/`), installable as `/Applications/MathSlides.app`; app icon, `.mslides` document icon and Finder association work; lifecycle/recovery UX manually validated in the packaged app.
 - Windows: NSIS configuration exists but has NOT been validated on a real Windows install.
 - Not implemented: macOS signing, notarization, auto-update, GitHub Actions release builds, automated GitHub Releases. Do not add unless requested.
+
+## Development environment
+
+The Ubuntu development machine is validated for normal development: Node v22.23.2, npm 10.9.8, Electron 44.5.1; `npm run typecheck`, `npm run build` and the GUI suite all pass. The GUI suite launches real Electron windows, so on this shared Ubuntu machine run it under Xvfb, not on the live desktop:
+
+`xvfb-run -a -s "-screen 0 1920x1080x24" npm test`
+
+The test harness already uses an isolated temporary `userData` profile and its own debug port. macOS-specific packaging, `/Applications/MathSlides.app` replacement and final macOS verification stay on the Mac.
 
 ## Current development phase: dogfooding
 
