@@ -18,6 +18,7 @@ import type { PMNode } from '../model/types';
 import { MARKDOWN_SIZES, TYPOGRAPHY } from '../model/typography';
 import { ACADEMIC_BLOCK_TYPES, DEFAULT_BLOCK_TYPE, blockTypeInfo } from '../model/academicBlocks';
 import { Highlight, InlineCode } from './formattingMarks';
+import { openEmojiPicker } from './EmojiPicker';
 import { fontFromCss, fontStack } from '../model/fonts';
 
 /**
@@ -368,6 +369,16 @@ const Callout = TipNode.create({
           b.addEventListener('mousedown', (ev) => { ev.preventDefault(); ev.stopPropagation(); setIcon(em); });
           pop.append(b);
         }
+        // ⋯ = more: the full searchable picker (a React popover; it picks through the same setIcon path).
+        const more = document.createElement('button');
+        more.type = 'button'; more.textContent = '⋯'; more.title = '더 많은 이모지'; more.className = 'more';
+        more.addEventListener('mousedown', (ev) => {
+          ev.preventDefault(); ev.stopPropagation();
+          const anchor = more.getBoundingClientRect();
+          closePop();
+          openEmojiPicker({ anchor, current: current.attrs.icon, onPick: setIcon });
+        });
+        pop.append(more);
         dom.append(pop);
         document.addEventListener('mousedown', outside, true);
       });

@@ -1172,6 +1172,109 @@ try {
   assert.ok(bShapes.every((x) => x.includes('<a:noFill/>') || x.includes('FACC15') === false), 'no background fill unless chosen');
   await evaluate(`(() => { const s = JSON.parse(${JSON.stringify(borderSnapshot)}); store.getState().loadDeck(s.deck, s.assets); store.getState().goToSlide(s.current); })()`); await pause(400);
   console.log('PASS instance background palette + border (shared palette, 없음, independence, text/equation/code/image, shapes untouched, undo/redo, selection coexistence, resize, duplicate/paste, thumbnail/presenter/print, persistence, PPTX)');
+  // Full emoji picker for Callouts: quick row + ⋯ → searchable picker; same icon attribute and history path as the quick icons.
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause();
+  const emojiSnapshot = await evaluate('JSON.stringify({deck: store.getState().deck, assets: store.getState().assets, current: store.getState().currentSlideId})');
+  await evaluate('store.getState().addSlide()'); await pause();
+  const emSlideId = await evaluate('store.getState().currentSlideId');
+  const callout = (t) => ({type: 'callout', attrs: {icon: '💡'}, content: [{type: 'paragraph', content: [{type: 'text', text: t}]}]});
+  const emDoc = {type: 'doc', content: ['one', 'two', 'three', 'four'].map(callout)};
+  await evaluate(`(() => { const t = defaults.newText(64, 150, {w: 700, doc: ${JSON.stringify(emDoc)}}); window.__em = t.id; store.getState().addElements([t]); })()`); await pause(400);
+  const emId = await evaluate('window.__em');
+  await evaluate(`store.getState().startEditing('${emId}')`); await until(() => evaluate('!!active()'), 'Emoji editor'); await pause(500);
+  const emIcons = async () => (await doc()).content.filter((n) => n.type === 'callout').map((c) => c.attrs.icon);
+  const openQuick = (i) => evaluate(`document.querySelectorAll('.el.editing .callout-icon')[${i}].dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}))`).then(() => pause(200));
+  const openFull = async (i) => { await openQuick(i); await evaluate("document.querySelector('.el.editing .callout-icons button.more').dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}))"); await until(() => evaluate("!!document.querySelector('.emoji-picker .emoji-grid button')"), 'emoji data loaded'); await pause(150); };
+  const gridTexts = () => evaluate("[...document.querySelectorAll('.emoji-picker .emoji-grid button')].map((b) => b.textContent)");
+  const typeQuery = async (q) => { await evaluate("(() => { const i = document.querySelector('.emoji-search'); i.focus(); })()"); await send('Input.insertText', {text: q}); await pause(250); };
+  const clickEmoji = (e) => evaluate(`[...document.querySelectorAll('.emoji-picker .emoji-grid button')].find((b) => b.textContent === ${JSON.stringify(e)}).click()`).then(() => pause(250));
+  // Quick row unchanged + ⋯ at its end.
+  await openQuick(0);
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.el.editing .callout-icons button')].map((b) => b.textContent)"), ['💡', 'ℹ️', '⚠️', '✅', '❌', '📌', '🔥', '💬', '⭐', '🚀', '⋯'], 'quick emojis kept, ⋯ at the end');
+  await evaluate("document.querySelectorAll('.el.editing .callout-icons button')[6].dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}))"); await pause(250);
+  assert.equal((await emIcons())[0], '🔥', 'quick pick still works');
+  // Open the full picker.
+  await openFull(1);
+  assert.equal(await evaluate("document.querySelectorAll('.el.editing .callout-icons').length"), 0, 'quick row closes');
+  assert.equal(await evaluate("document.activeElement?.classList.contains('emoji-search')"), true, 'search is focused');
+  assert.equal(await evaluate("document.querySelectorAll('.emoji-cats button').length"), 9, 'compact category navigation (standard groups)');
+  assert.equal(await evaluate("document.querySelectorAll('.emoji-picker section[data-group]').length"), 9);
+  assert.ok((await gridTexts()).length > 1500, 'full set: ' + (await gridTexts()).length);
+  assert.equal(await evaluate("document.querySelectorAll('.emoji-picker').length"), 1);
+  await screenshot('emoji-picker');
+  // Search (dataset labels/tags), selection, one history step per selection.
+  await typeQuery('brain');
+  let res = await gridTexts(); assert.ok(res.includes('🧠') && res.length < 12, 'brain → 🧠: ' + res.join(''));
+  await evaluate("document.querySelector('.emoji-cats button').disabled").then((d) => assert.equal(d, true, 'categories pause while searching'));
+  await clickEmoji('🧠');
+  assert.equal(await evaluate("document.querySelectorAll('.emoji-picker').length"), 0, 'picker closes after selecting');
+  assert.deepEqual(await emIcons(), ['🔥', '🧠', '💡', '💡']);
+  assert.equal(await evaluate("document.querySelectorAll('.el.editing .callout-icon')[1].textContent"), '🧠', 'shown immediately');
+  assert.equal(await evaluate('store.getState().editingId'), emId, 'still editing the same box');
+  await evaluate('active().commands.undo()'); await pause();
+  assert.deepEqual(await emIcons(), ['🔥', '💡', '💡', '💡'], 'undo restores the previous icon in one step');
+  await evaluate('active().commands.redo()'); await pause();
+  assert.equal((await emIcons())[1], '🧠', 'redo');
+  await openFull(2); await typeQuery('robot'); res = await gridTexts(); assert.ok(res.includes('🤖')); await clickEmoji('🤖');
+  await openFull(3); await typeQuery('bar chart'); res = await gridTexts(); assert.ok(res.includes('📊'), 'chart → 📊: ' + res.join('')); await clickEmoji('📊');
+  assert.deepEqual(await emIcons(), ['🔥', '🧠', '🤖', '📊']);
+  // Multi-codepoint emoji stays one emoji.
+  await openFull(0); await typeQuery('technologist'); res = await gridTexts();
+  assert.ok(res.includes('👨‍💻'), 'ZWJ sequence found: ' + res.join('')); await clickEmoji('👨‍💻');
+  assert.equal((await emIcons())[0], '👨‍💻'); assert.equal(Array.from((await emIcons())[0]).length, 3, 'one ZWJ sequence (man + ZWJ + laptop), not split');
+  // Keyboard/focus: typing + Backspace in search never reaches canvas shortcuts; Escape / outside click close; still editing.
+  const elCount = () => evaluate("store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements.length");
+  const nEl = await elCount();
+  await openFull(1);
+  await typeQuery('trm');
+  for (let n = 0; n < 4; n++) { // real Backspace presses (virtual key code 8 so the input edits)
+    await send('Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8});
+    await send('Input.dispatchKeyEvent', {type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8}); await pause(80);
+  }
+  assert.equal(await evaluate("document.querySelector('.emoji-search').value"), '', 'search edits normally');
+  assert.equal(await elCount(), nEl, 'no canvas shortcut fired (no element added/deleted)'); assert.equal(await evaluate('store.getState().editingId'), emId);
+  await key('Escape');
+  assert.equal(await evaluate("document.querySelectorAll('.emoji-picker').length"), 0, 'Escape closes');
+  assert.equal(await evaluate('store.getState().editingId'), emId, 'Escape closed only the picker'); assert.equal(await elCount(), nEl);
+  await openFull(1);
+  await evaluate("document.body.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}))"); await pause(200);
+  assert.equal(await evaluate("document.querySelectorAll('.emoji-picker').length"), 0, 'outside click closes'); assert.equal((await emIcons())[1], '🧠', 'nothing changed');
+  // Near the window edges the picker flips/clamps and stays fully visible.
+  for (const [x, y] of [[-1, -1], [1e5, 1e5], [1e5, 30], [30, 1e5]]) {
+    const r = await evaluate(`import('/src/editor/EmojiPicker.tsx').then(async (m) => { m.openEmojiPicker({anchor: new DOMRect(Math.min(${x}, innerWidth - 20), Math.min(${y}, innerHeight - 20), 20, 20), current: '', onPick() {}}); await new Promise((r) => setTimeout(r, 150)); const b = document.querySelector('.emoji-picker').getBoundingClientRect(); m.closeEmojiPicker(); return [b.left >= 0, b.top >= 0, b.right <= innerWidth, b.bottom <= innerHeight]; })`);
+    assert.deepEqual(r, [true, true, true, true], `picker inside the window for anchor ${x},${y}`);
+  }
+  // No result message.
+  await openFull(1); await typeQuery('zzzzqq'); assert.equal(await evaluate("document.querySelector('.emoji-empty')?.textContent"), '검색 결과 없음'); await key('Escape');
+  // Rendering, duplicate, copy/paste, persistence — the same stored string everywhere.
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause(400);
+  const want = '👨‍💻,🧠,🤖,📊';
+  const iconsIn = (where) => evaluate(`[...document.querySelectorAll('${where} .callout .callout-icon')].map((e) => e.textContent).join()`);
+  assert.equal(await iconsIn('.slide.editable'), want); assert.equal(await iconsIn('.thumb.current'), want, 'thumbnail');
+  assert.equal(await evaluate("document.querySelectorAll('.slide.editable .callout-icons, .slide.editable .emoji-picker, .thumb .callout button').length"), 0, 'no picker UI in static rendering');
+  await evaluate('store.setState({presenting: true})'); await pause(400); assert.equal(await iconsIn('.presenter'), want, 'presenter'); await key('Escape');
+  await evaluate("store.setState({exportMode: 'print'})"); await pause(500); assert.equal(await iconsIn('#print-root #slide-' + emSlideId), want, 'print/PDF'); await evaluate("store.setState({exportMode: null})"); await pause(300);
+  await evaluate(`store.getState().select(['${emId}'])`); await pause(200);
+  await evaluate("import('/src/canvas/insert.ts').then((m) => m.duplicateSelection())"); await pause(300);
+  const emDocs = () => evaluate(`store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements.filter((e) => e.type === 'text' && JSON.stringify(e.doc).includes('callout')).map((e) => e.doc.content.map((c) => c.attrs.icon).join())`);
+  assert.deepEqual(await emDocs(), [want, want], 'duplicate keeps the emoji');
+  const emCopied = await evaluate("import('/src/canvas/insert.ts').then((m) => m.copySelection())");
+  await evaluate(`import('/src/canvas/insert.ts').then((m) => m.pasteElements(${JSON.stringify(emCopied)}))`); await pause(300);
+  assert.deepEqual(await emDocs(), [want, want, want], 'copy/paste keeps the emoji');
+  const emFile = await evaluate('JSON.stringify(store.getState().deck)');
+  assert.ok(emFile.includes('"icon":"👨‍💻"') && emFile.includes('"icon":"🧠"'), 'plain Unicode strings in .mslides');
+  assert.ok(!/hexcode|emojibase|"group"/.test(emFile), 'no picker metadata persisted');
+  await evaluate(`store.getState().loadDeck(JSON.parse(${JSON.stringify(emFile)}), store.getState().assets); store.getState().goToSlide(${JSON.stringify(emSlideId)})`); await pause(400);
+  assert.equal(await iconsIn('.slide.editable'), want + ',' + want + ',' + want, 'reopened');
+  // PPTX: the existing Callout export path writes the chosen emoji.
+  const emPptx = await evaluate('persist.safeName(store.getState().deck.title)');
+  await evaluate("import('/src/export/run.ts').then((m) => m.exportPptx())");
+  await until(() => evaluate(`testFiles[${JSON.stringify(emPptx + '.pptx')}]?.length > 1000`), 'PPTX export (emoji)', 30000);
+  const emZip = await JSZip.loadAsync(Buffer.from(await evaluate(`testFiles[${JSON.stringify(emPptx + '.pptx')}]`)));
+  const emXml = await emZip.file('ppt/slides/slide' + (JSON.parse(emFile).slides.findIndex((s) => s.id === emSlideId) + 1) + '.xml').async('string');
+  for (const e of ['👨‍💻', '🧠', '🤖', '📊']) assert.ok(emXml.includes('<a:t>' + e + '</a:t>'), 'PPTX icon ' + e);
+  await evaluate(`(() => { const s = JSON.parse(${JSON.stringify(emojiSnapshot)}); store.getState().loadDeck(s.deck, s.assets); store.getState().goToSlide(s.current); })()`); await pause(400);
+  console.log('PASS callout emoji picker (quick row + ⋯, full searchable picker, categories, multi-codepoint emoji, undo/redo, keyboard/focus, rendering, duplicate/paste, persistence, PPTX)');
   // Todo block (/todo): semantic node with a checked attribute; node-UI checkbox; presentation-only checked look.
   await evaluate('store.getState().addSlide()'); await pause();
   await evaluate(`store.getState().addElements([defaults.newText(64, 300, {w: 760})], {edit: true})`);
