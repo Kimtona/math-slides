@@ -143,21 +143,28 @@ export function subtitleElement(slideId: string, which: 'current' | 'next'): Tex
 }
 
 export const REFERENCES_SLIDE_ID = 'references';
+export const REFERENCES_TITLE = 'References';
+export const REFERENCES_CONT_TITLE = 'References (cont.)';
 
-/** References slide (system-managed): title (h2) + list of full citations (body). */
-export function newReferencesSlide(): Slide {
-  const s: Slide = { ...newSlide(), id: REFERENCES_SLIDE_ID, kind: 'references' };
+/** Deterministic ids of the generated References slides: `references`, `references-2`, `references-3`, ... (page is 1-based). */
+export const referencesSlideId = (page: number) => (page <= 1 ? REFERENCES_SLIDE_ID : `${REFERENCES_SLIDE_ID}-${page}`);
+export const referencesTitleText = (page: number) => (page <= 1 ? REFERENCES_TITLE : REFERENCES_CONT_TITLE);
+
+/** A generated References slide (system-managed): title (h2) + list of full citations (body). `page` 1 is "References", later ones "References (cont.)". */
+export function newReferencesSlide(page = 1): Slide {
+  const id = referencesSlideId(page);
+  const s: Slide = { ...newSlide(), id, kind: 'references' };
   const x = 64, y = 40, w = SLIDE_W - 128;
-  const title = newText(x, y, { w, doc: textDoc('References'), style: { fontSize: TYPOGRAPHY.h2 } });
-  title.id = `${REFERENCES_SLIDE_ID}-title`;
+  const title = newText(x, y, { w, doc: textDoc(referencesTitleText(page)), style: { fontSize: TYPOGRAPHY.h2 } });
+  title.id = `${id}-title`;
   title.role = 'references-title';
-  s.elements.push(title, referencesListElement());
+  s.elements.push(title, referencesListElement(id));
   return s;
 }
 
-export function referencesListElement(): TextElement {
+export function referencesListElement(slideId = REFERENCES_SLIDE_ID): TextElement {
   const el = newText(64, 40 + Math.round(TYPOGRAPHY.h2 * 1.35) + 28, { w: SLIDE_W - 128, style: { fontSize: TYPOGRAPHY.body, lineHeight: 1.4 } });
-  el.id = `${REFERENCES_SLIDE_ID}-list`;
+  el.id = `${slideId}-list`;
   el.role = 'references-list';
   return el;
 }

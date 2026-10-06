@@ -1,6 +1,6 @@
 import { produce, type Draft } from 'immer';
 import type { Deck, PMNode, Section, Slide, TextElement } from './types';
-import { newReferencesSlide, newSubtitleSlide, referencesListElement, subtitleElement, subtitleSlideId } from './defaults';
+import { newReferencesSlide, newSubtitleSlide, referencesListElement, referencesSlideId, referencesTitleText, subtitleElement, subtitleSlideId } from './defaults';
 import { plainText } from '../editor/docUtils';
 import { displayCitation } from '../citations/format';
 
@@ -111,34 +111,54 @@ function firstAuthorKey(deck: Deck, id: string) {
   return (a.split(/\s+/).pop() ?? '').toLowerCase() + ' ' + (deck.citations?.[id]?.year ?? '');
 }
 
+/** The generated References slides, in deck order. They are recognised by `kind: 'references'`; their ids are `referencesSlideId(page)`. */
+export const referencesSlides = (deck: Deck) => deck.slides.filter((s) => s.kind === 'references');
+
+/** Citation ids → pages of citation ids (one generated References slide each). A single page for now. */
+function paginateReferences(ids: string[]): string[][] {
+  return ids.length ? [ids] : [];
+}
+
+const textRole = (s: Draft<Slide>, role: string) => s.elements.find((e) => e.type === 'text' && e.role === role) as Draft<TextElement> | undefined;
+
 function reconcileReferences(d: Draft<Deck>) {
-  const used = usedCitations(d as Deck);
-  let idx = d.slides.findIndex((s) => s.kind === 'references');
-  if (!used.length) {
-    // Remove the References slide unless the user added their own content to it.
-    if (idx >= 0 && d.slides[idx].elements.every((e) => isManagedText(e))) d.slides.splice(idx, 1);
-    else if (idx >= 0) {
-      const list = d.slides[idx].elements.find((e) => e.type === 'text' && e.role === 'references-list') as Draft<TextElement> | undefined;
-      if (list && !same(list.doc, docOf(para('')))) list.doc = docOf(para('')) as Draft<PMNode>;
+  const sorted = [...usedCitations(d as Deck)].sort((a, b) => firstAuthorKey(d as Deck, a).localeCompare(firstAuthorKey(d as Deck, b)));
+  const pages = paginateReferences(sorted);
+  // Page n lives on slide `references-n`; the first existing References slide stands in for page 1 (older decks, any id).
+  const existing = d.slides.filter((s) => s.kind === 'references');
+  const slideFor = (page: number) => existing.find((s) => s.id === referencesSlideId(page))
+    ?? (page === 1 ? existing.find((s) => !/^references-\d+$/.test(s.id)) : undefined);
+
+  const placed: Draft<Slide>[] = [];
+  pages.forEach((ids, i) => {
+    const page = i + 1;
+    let slide = slideFor(page);
+    if (!slide) {
+      // New page: right after the previous page; the first one goes last, but before a trailing Thank You slide.
+      let at = page > 1 ? d.slides.indexOf(placed[placed.length - 1]) + 1 : d.slides.length;
+      if (page === 1) while (at > 0 && d.slides[at - 1].kind === 'thanks') at--;
+      d.slides.splice(at, 0, newReferencesSlide(page) as Draft<Slide>);
+      slide = d.slides[at];
     }
-    return;
+    placed.push(slide);
+    let list = textRole(slide, 'references-list');
+    if (!list) { slide.elements.push(referencesListElement(slide.id) as Draft<TextElement>); list = textRole(slide, 'references-list')!; }
+    const title = textRole(slide, 'references-title');
+    const titleDoc = docOf(para(referencesTitleText(page)));
+    if (title && !same(title.doc, titleDoc)) title.doc = titleDoc as Draft<PMNode>;
+    const doc = docOf(...ids.map((id) => {
+      const c = d.citations![id];
+      return para(displayCitation(c), [{ type: 'link', attrs: { href: c.url } }]);
+    }));
+    if (!same(list.doc, doc)) list.doc = doc as Draft<PMNode>;
+  });
+
+  // References slides no longer needed: removed when they only hold generated text, otherwise kept (list emptied) so user content survives.
+  for (const s of existing) {
+    if (placed.includes(s)) continue;
+    if (s.elements.every((e) => isManagedText(e))) d.slides.splice(d.slides.indexOf(s), 1);
+    else { const list = textRole(s, 'references-list'); if (list && !same(list.doc, docOf(para('')))) list.doc = docOf(para('')) as Draft<PMNode>; }
   }
-  if (idx < 0) {
-    // New References slide: last, but before a trailing Thank You slide.
-    let at = d.slides.length;
-    while (at > 0 && d.slides[at - 1].kind === 'thanks') at--;
-    d.slides.splice(at, 0, newReferencesSlide() as Draft<Slide>);
-    idx = at;
-  }
-  const slide = d.slides[idx];
-  let list = slide.elements.find((e) => e.type === 'text' && e.role === 'references-list') as Draft<TextElement> | undefined;
-  if (!list) { slide.elements.push(referencesListElement() as Draft<TextElement>); list = slide.elements[slide.elements.length - 1] as Draft<TextElement>; }
-  const sorted = [...used].sort((a, b) => firstAuthorKey(d as Deck, a).localeCompare(firstAuthorKey(d as Deck, b)));
-  const doc = docOf(...sorted.map((id) => {
-    const c = d.citations![id];
-    return para(displayCitation(c), [{ type: 'link', attrs: { href: c.url } }]);
-  }));
-  if (!same(list.doc, doc)) list.doc = doc as Draft<PMNode>;
 }
 
 /** Bring Sub-title and References slides in line with the TOC and citation usage. */

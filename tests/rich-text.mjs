@@ -894,6 +894,34 @@ try {
   assert.equal(await refText(), 'Vaswani, A. et al. (2017). Attention Is All You Need. arXiv:1706.03762.', 'stale stored fullCitation is ignored');
   assert.equal(await evaluate("store.getState().deck.citations['arxiv:1706.03762'].status"), 'ok', 'no refetch needed');
   console.log('PASS compact References author format (1/2/3+/many authors, et al. punctuation, derived from structured metadata, stale stored text ignored)');
+  // Generated References slides are identified by kind + deterministic ids (no single-slide assumption).
+  assert.deepEqual(await evaluate(`(async()=>{const d=await import('/src/model/defaults.ts'); const st=await import('/src/model/structure.ts'); const s2=d.newReferencesSlide(2);
+    const deck=store.getState().deck; return {ids:[1,2,3].map(d.referencesSlideId), kind:s2.kind, id:s2.id, els:s2.elements.map(e=>[e.id,e.role,e.doc.content[0]?.content?.[0]?.text]), found:st.referencesSlides(deck).map(s=>s.id), first:d.newReferencesSlide().elements[0].doc.content[0].content[0].text, stable: st.reconcileStructure(null, deck) === deck};})()`),
+    { ids: ['references', 'references-2', 'references-3'], kind: 'references', id: 'references-2', els: [['references-2-title', 'references-title', 'References (cont.)'], ['references-2-list', 'references-list', null]], found: ['references'], first: 'References', stable: true });
+  const refSlide = () => evaluate("store.getState().deck.slides.find(s=>s.kind==='references')");
+  // The managed slide cannot be deleted while citations exist.
+  await evaluate("store.getState().deleteSlide('references')");
+  assert.equal(await evaluate("store.getState().deck.slides.filter(s=>s.kind==='references').length"), 1, 'deletion protected while citations exist');
+  // User content on the References slide survives citation removal; the list is emptied, and refilled when the citation returns.
+  await evaluate(`store.getState().commit(d=>{d.slides.find(s=>s.kind==='references').elements.push(defaults.newText(64,600,{doc:defaults.textDoc('my own note')}));})`);
+  const holders = await evaluate("store.getState().deck.slides.filter(s=>s.citations?.includes('arxiv:1706.03762')).map(s=>s.id)");
+  for (const id of holders) await evaluate(`store.getState().removeCitation(${JSON.stringify(id)}, 'arxiv:1706.03762')`);
+  let rs = await refSlide();
+  assert.ok(rs, 'References slide kept because it holds user content');
+  assert.equal(rs.elements.find(e => e.role === 'references-list').doc.content.map(p => p.content?.length ?? 0).join(), '0', 'generated list emptied');
+  assert.ok(rs.elements.some(e => e.type === 'text' && !e.role), 'user element intact');
+  await evaluate(`store.getState().addCitations(${JSON.stringify(holders[0])}, [store.getState().deck.citations['arxiv:1706.03762']])`);
+  rs = await refSlide();
+  assert.equal(rs.id, 'references', 'same slide id reused'); assert.ok(rs.elements.some(e => e.type === 'text' && !e.role), 'user element still there');
+  assert.equal(await refText(), 'Vaswani, A. et al. (2017). Attention Is All You Need. arXiv:1706.03762.');
+  await evaluate(`store.getState().commit(d=>{const s=d.slides.find(s=>s.kind==='references'); s.elements=s.elements.filter(e=>e.role);})`);
+  // Without user content the slide disappears with its last citation.
+  for (const id of holders) await evaluate(`store.getState().removeCitation(${JSON.stringify(id)}, 'arxiv:1706.03762')`);
+  assert.equal(await evaluate("store.getState().deck.slides.filter(s=>s.kind==='references').length"), 0, 'managed-only References slide removed');
+  await evaluate(`store.getState().addCitations(${JSON.stringify(holders[0])}, [store.getState().deck.citations['arxiv:1706.03762']])`);
+  assert.equal(await evaluate("store.getState().deck.slides.filter(s=>s.kind==='references').length"), 1, 'slide returns with the citation');
+  assert.equal(await evaluate('store.getState().deck.slides.at(-2).kind'), 'references');
+  console.log('PASS References slide identification (kind + deterministic ids), deletion protection, user content kept, lifecycle');
   // Presentation Theme Color: presentation-level, derived decorations, readable foregrounds.
   await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause();
   const slideIds = await evaluate("({title: store.getState().deck.slides[0].id, content: store.getState().deck.slides[1].id, sub: store.getState().deck.slides.find(s => s.kind === 'subtitle').id})");
