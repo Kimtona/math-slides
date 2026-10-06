@@ -41,6 +41,8 @@ export interface TextElement extends ElementBase {
   doc: PMNode;
   style: TextStyle;
   role?: TextRole;
+  /** Instance border color (#rrggbb), drawn on the box bounds. Absent = no border. */
+  borderColor?: string;
 }
 
 /**
@@ -67,6 +69,8 @@ export interface ImageElement extends ElementBase {
    * Absent / empty = no caption (older files have none); '' only exists while it is being edited.
    */
   caption?: string;
+  /** Instance border color (#rrggbb), drawn on the image bounds. Absent = no border. */
+  borderColor?: string;
 }
 
 export type ShapeKind = 'rect' | 'roundRect' | 'ellipse' | 'blockArrow';

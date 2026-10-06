@@ -1034,6 +1034,144 @@ try {
   assert.equal(await evaluate("(() => { const r = defaults.newShape('rect', 0, 0); return 'shaft' in r || 'head' in r; })()"), false);
   await evaluate(`(() => { const s = JSON.parse(${JSON.stringify(arrowSnapshot)}); store.getState().loadDeck(s.deck, s.assets); store.getState().goToSlide(s.current); })()`); await pause(400);
   console.log('PASS block arrow (menu item, defaults, two adjustment handles, clamping, one undo step per drag, resize keeps proportions, fill/stroke, duplicate/paste/delete, thumbnail/presenter/print geometry, persistence, PPTX freeform)');
+  // Instance Background palette + Instance Border (text boxes incl. equations/code, images).
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause();
+  const borderSnapshot = await evaluate('JSON.stringify({deck: store.getState().deck, assets: store.getState().assets, current: store.getState().currentSlideId})');
+  await evaluate('store.getState().addSlide()'); await pause();
+  const bSlideId = await evaluate('store.getState().currentSlideId');
+  const bAsset = await evaluate('Object.keys(store.getState().assets)[0]');
+  await evaluate(`(() => {
+    const T = defaults.newText(64, 60, {w: 480, doc: defaults.textDoc('Hello border box, long enough to wrap onto a second line of text')});
+    const E = defaults.newText(64, 260, {w: 480, doc: {type: 'doc', content: [{type: 'mathBlock', attrs: {latex: 'E=mc^2'}}]}});
+    const C = defaults.newText(64, 400, {w: 480, doc: {type: 'doc', content: [{type: 'codeBlock', attrs: {language: 'python', fontSize: 16}, content: [{type: 'text', text: 'print(1)'}]}]}});
+    const I = {id: 'b-img', type: 'image', assetId: ${JSON.stringify(bAsset)}, x: 700, y: 80, w: 300, h: 150};
+    const R = defaults.newShape('rect', 700, 300); const K = defaults.newShape('blockArrow', 700, 480);
+    window.__b = {T: T.id, E: E.id, C: C.id, I: I.id, R: R.id, K: K.id};
+    store.getState().addElements([T, E, C, I, R, K]); store.getState().select([]);
+  })()`); await pause(500);
+  const B = await evaluate('window.__b');
+  const bEl = (id) => evaluate(`store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements.find((e) => e.id === '${id}')`);
+  const outline = (root, id) => evaluate(`(() => { const e = document.querySelector('${root} [data-el-id="${id}"]'); const c = getComputedStyle(e); return c.outlineStyle === 'none' ? 'none' : [c.outlineWidth, c.outlineStyle, c.outlineColor, c.outlineOffset].join(' '); })()`);
+  const bSelect = async (id) => { await evaluate(`store.getState().select(['${id}'])`); await pause(250); };
+  const chooseSwatch = async (btnTitle, label) => {
+    await click(`.propsbar button[title^="${btnTitle}"]`);
+    await evaluate(`document.querySelector('.text-palette button[aria-label="${label}"]').click()`); await pause(250);
+  };
+  const chooseNone = async (btnTitle) => {
+    await click(`.propsbar button[title^="${btnTitle}"]`);
+    await evaluate("[...document.querySelectorAll('.text-palette .palette-other')].find((b) => b.textContent === '없음').click()"); await pause(250);
+  };
+  // Toolbar: 테두리 directly right of 배경, both on the shared palette.
+  await bSelect(B.T);
+  assert.equal(await evaluate(`(() => { const a = document.querySelector('.propsbar button[title^="상자 배경"]'), b = document.querySelector('.propsbar button[title^="상자 테두리"]'); return a.parentElement.nextElementSibling === b.parentElement && [...a.querySelectorAll('.small-label')].concat([...b.querySelectorAll('.small-label')]).map((e) => e.textContent).join(); })()`), '배경,테두리', '테두리 directly right of 배경');
+  assert.deepEqual(await evaluate("(() => { const a = document.querySelector('.propsbar button[title^=\"상자 배경\"]').closest('.pop-wrap'); return [a.querySelector('.small-label').textContent, a.nextElementSibling.querySelector('.small-label').textContent]; })()"), ['배경', '테두리']);
+  await click('.propsbar button[title^="상자 배경"]');
+  assert.deepEqual(await evaluate("[document.querySelectorAll('.text-palette .theme-column').length, document.querySelectorAll('.text-palette .standard-colors .text-swatch').length, [...document.querySelectorAll('.text-palette .palette-other')].map((b) => b.textContent).join()]"), [10, 9, '없음,Other Colors...'], 'Background uses the standard palette (Theme / Standard / none / Other)');
+  assert.equal(await evaluate("document.querySelectorAll('.pop .pal').length"), 0, 'old 7-color picker is gone');
+  await click('.propsbar button[title^="상자 배경"]'); // close
+  await chooseSwatch('상자 배경', 'Standard Yellow');
+  assert.equal((await bEl(B.T)).style.fill, '#FACC15');
+  await chooseNone('상자 배경');
+  assert.equal((await bEl(B.T)).style.fill, null, '없음 clears the background');
+  await evaluate(`store.getState().updateElements(['${B.T}'], (e) => { e.style.fill = '#BFBFBF'; })`); await pause(200);
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.slide.editable [data-el-id="${B.T}"]')).backgroundColor`), 'rgb(191, 191, 191)', 'stored (old-palette) background colors render unchanged');
+  await evaluate(`store.getState().updateElements(['${B.T}'], (e) => { e.style.fill = null; })`);
+  // Border: color = on, another color = changed, 없음 = off. Geometry untouched.
+  assert.equal('borderColor' in await bEl(B.T), false, 'no border by default'); assert.equal(await outline('.slide.editable', B.T), 'none');
+  const dims = () => evaluate(`(() => { const e = document.querySelector('.slide.editable [data-el-id="${B.T}"]'); return [e.offsetWidth, e.offsetHeight, e.querySelector('.tb-content').getBoundingClientRect().height].join(); })()`);
+  const dims0 = await dims();
+  await chooseSwatch('상자 테두리', 'Standard Red');
+  assert.equal((await bEl(B.T)).borderColor, '#DC2626');
+  assert.equal(await outline('.slide.editable', B.T), '2px solid rgb(220, 38, 38) -1px');
+  assert.equal(await dims(), dims0, 'border does not change size or wrapping');
+  await chooseSwatch('상자 테두리', 'Standard Blue');
+  assert.equal((await bEl(B.T)).borderColor, '#2563EB');
+  // Independence.
+  await chooseSwatch('상자 배경', 'Standard Yellow');
+  assert.deepEqual([(await bEl(B.T)).style.fill, (await bEl(B.T)).borderColor], ['#FACC15', '#2563EB'], 'background + border');
+  await chooseNone('상자 배경');
+  assert.deepEqual([(await bEl(B.T)).style.fill, (await bEl(B.T)).borderColor], [null, '#2563EB'], 'no background + border');
+  await chooseSwatch('상자 배경', 'Standard Yellow'); await chooseNone('상자 테두리');
+  assert.deepEqual([(await bEl(B.T)).style.fill, 'borderColor' in await bEl(B.T)], ['#FACC15', false], 'background + no border'); assert.equal(await outline('.slide.editable', B.T), 'none');
+  await chooseNone('상자 배경');
+  // Undo / redo.
+  await chooseSwatch('상자 테두리', 'Standard Red'); await chooseSwatch('상자 테두리', 'Standard Green');
+  await evaluate('store.getState().undo()'); await pause(200);
+  assert.equal((await bEl(B.T)).borderColor, '#DC2626', 'undo restores the previous border');
+  await evaluate('store.getState().undo()'); await pause(200);
+  assert.equal('borderColor' in await bEl(B.T), false, 'undo to no border');
+  await evaluate('store.getState().redo(); store.getState().redo()'); await pause(200);
+  assert.equal((await bEl(B.T)).borderColor, '#16A34A');
+  await chooseNone('상자 테두리'); await evaluate('store.getState().undo()'); await pause(200);
+  assert.equal((await bEl(B.T)).borderColor, '#16A34A', '없음 is undoable');
+  // Selection frame and handles coexist with the border; deselect keeps the border.
+  assert.deepEqual(await evaluate("[document.querySelectorAll('.sel-frame').length, document.querySelectorAll('.handle').length]"), [1, 6]);
+  assert.equal(await outline('.slide.editable', B.T), '2px solid rgb(22, 163, 74) -1px');
+  const bScale = await evaluate("document.querySelector('.slide.editable').getBoundingClientRect().width / 1280");
+  const dragH = async (sel, dx) => {
+    const r = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()`);
+    await send('Input.dispatchMouseEvent', {type: 'mousePressed', button: 'left', clickCount: 1, ...r});
+    for (const f of [0.3, 1]) await send('Input.dispatchMouseEvent', {type: 'mouseMoved', button: 'left', buttons: 1, x: r.x + dx * bScale * f, y: r.y});
+    await send('Input.dispatchMouseEvent', {type: 'mouseReleased', button: 'left', clickCount: 1, x: r.x + dx * bScale, y: r.y}); await pause(300);
+  };
+  const w0 = (await bEl(B.T)).w;
+  await dragH('.handle.h-e', 60);
+  assert.equal((await bEl(B.T)).w, w0 + 60, 'resize works with a border'); assert.equal((await bEl(B.T)).borderColor, '#16A34A');
+  await evaluate("store.getState().select([])"); await pause(250);
+  assert.equal(await evaluate("document.querySelectorAll('.sel-frame').length"), 0);
+  assert.equal(await outline('.slide.editable', B.T), '2px solid rgb(22, 163, 74) -1px', 'border stays when deselected');
+  // Equation, code block, image.
+  for (const [k, id] of [['E', B.E], ['C', B.C], ['I', B.I]]) {
+    await bSelect(id);
+    await chooseSwatch('상자 테두리', 'Standard Purple');
+    assert.equal((await bEl(id)).borderColor, '#9333EA', k + ' supports a border');
+    assert.equal(await outline('.slide.editable', id), '2px solid rgb(147, 51, 234) -1px');
+  }
+  // Shapes keep their own stroke model: no instance Border control.
+  for (const id of [B.R, B.K]) {
+    await bSelect(id);
+    assert.equal(await evaluate("!!document.querySelector('.propsbar button[title^=\"상자 테두리\"]')"), false, 'no duplicate Border on shapes');
+    assert.equal(await evaluate("!!document.querySelector('.propsbar button[title^=\"테두리 (Border)\"]')"), true, 'shape stroke control unchanged');
+  }
+  // Duplicate / copy-paste / thumbnails / presenter / print.
+  await bSelect(B.T);
+  await evaluate("import('/src/canvas/insert.ts').then((m) => m.duplicateSelection())"); await pause(300);
+  const dupe = await evaluate("(() => { const s = store.getState(); const els = s.deck.slides.find((x) => x.id === s.currentSlideId).elements.filter((e) => e.borderColor === '#16A34A'); return els.length; })()");
+  assert.equal(dupe, 2, 'duplicate keeps the border');
+  const copiedB = await evaluate("import('/src/canvas/insert.ts').then((m) => m.copySelection())");
+  await evaluate(`import('/src/canvas/insert.ts').then((m) => m.pasteElements(${JSON.stringify(copiedB)}))`); await pause(300);
+  assert.equal(await evaluate("(() => { const s = store.getState(); return s.deck.slides.find((x) => x.id === s.currentSlideId).elements.filter((e) => e.borderColor === '#16A34A').length; })()"), 3, 'paste keeps the border');
+  await evaluate(`(() => { const s = store.getState(); s.select(s.deck.slides.find((x) => x.id === s.currentSlideId).elements.filter((e) => e.borderColor === '#16A34A' && e.id !== '${B.T}').map((e) => e.id)); s.deleteSelection(); })()`); await pause(200);
+  await evaluate('store.getState().select([])'); await pause(300);
+  await screenshot('instance-border');
+  assert.equal(await outline('.thumb.current', B.T), '2px solid rgb(22, 163, 74) -1px', 'thumbnail');
+  assert.equal(await outline('.thumb.current', B.I), '2px solid rgb(147, 51, 234) -1px', 'thumbnail image');
+  await evaluate('store.setState({presenting: true})'); await pause(400);
+  assert.equal(await outline('.presenter', B.T), '2px solid rgb(22, 163, 74) -1px', 'presenter'); await key('Escape');
+  await evaluate("store.setState({exportMode: 'print'})"); await pause(500);
+  assert.equal(await outline('#print-root', B.T), '2px solid rgb(22, 163, 74) -1px', 'print/PDF');
+  assert.equal(await outline('#print-root', B.I), '2px solid rgb(147, 51, 234) -1px', 'print/PDF image');
+  await evaluate("store.setState({exportMode: null})"); await pause(300);
+  // Persistence and older elements.
+  const borderFile = await evaluate('JSON.stringify(store.getState().deck)');
+  const savedB = JSON.parse(borderFile).slides.find((s) => s.id === bSlideId).elements;
+  assert.deepEqual([savedB.find((e) => e.id === B.T).borderColor, savedB.find((e) => e.id === B.I).borderColor, 'borderColor' in savedB.find((e) => e.id === B.R)], ['#16A34A', '#9333EA', false]);
+  await evaluate(`store.getState().loadDeck(JSON.parse(${JSON.stringify(borderFile)}), store.getState().assets); store.getState().goToSlide(${JSON.stringify(bSlideId)})`); await pause(400);
+  assert.equal(await outline('.slide.editable', B.T), '2px solid rgb(22, 163, 74) -1px', 'reopened keeps the border');
+  assert.equal(await outline('.slide.editable', B.R), 'none', 'elements without border metadata render as before');
+  // PPTX: native outline rectangles (text box + image).
+  const borderPptx = await evaluate('persist.safeName(store.getState().deck.title)');
+  await evaluate("import('/src/export/run.ts').then((m) => m.exportPptx())");
+  await until(() => evaluate(`testFiles[${JSON.stringify(borderPptx + '.pptx')}]?.length > 1000`), 'PPTX export (border)', 30000);
+  const borderZip = await JSZip.loadAsync(Buffer.from(await evaluate(`testFiles[${JSON.stringify(borderPptx + '.pptx')}]`)));
+  const borderNo = JSON.parse(borderFile).slides.findIndex((s) => s.id === bSlideId) + 1;
+  const borderXml = await borderZip.file('ppt/slides/slide' + borderNo + '.xml').async('string');
+  const bShapes = [...borderXml.matchAll(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?name="Instance Border"[\s\S]*?<\/p:sp>/g)].map((m) => m[0]);
+  assert.equal(bShapes.length, 4, 'text, equation, code and image borders are native shapes: ' + bShapes.length);
+  assert.ok(bShapes.every((x) => x.includes('<a:ln w="19050"')) && bShapes.some((x) => x.includes('val="16A34A"')) && bShapes.some((x) => x.includes('val="9333EA"')), '1.5pt lines in the chosen colors');
+  assert.ok(bShapes.every((x) => x.includes('<a:noFill/>') || x.includes('FACC15') === false), 'no background fill unless chosen');
+  await evaluate(`(() => { const s = JSON.parse(${JSON.stringify(borderSnapshot)}); store.getState().loadDeck(s.deck, s.assets); store.getState().goToSlide(s.current); })()`); await pause(400);
+  console.log('PASS instance background palette + border (shared palette, 없음, independence, text/equation/code/image, shapes untouched, undo/redo, selection coexistence, resize, duplicate/paste, thumbnail/presenter/print, persistence, PPTX)');
   // Todo block (/todo): semantic node with a checked attribute; node-UI checkbox; presentation-only checked look.
   await evaluate('store.getState().addSlide()'); await pause();
   await evaluate(`store.getState().addElements([defaults.newText(64, 300, {w: 760})], {edit: true})`);

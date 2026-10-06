@@ -14,6 +14,9 @@ export const TYPOGRAPHY = {
   caption: 14,
 } as const;
 
+/** Instance border (text boxes, images): one thin solid line, centered on the element bounds (px on the 1280×720 slide = 1.5pt). */
+export const INSTANCE_BORDER_WIDTH = 2;
+
 export const CAPTION_COLOR = '#6B7280';
 /** Gap between an image's bottom edge and its caption. */
 export const CAPTION_GAP = 6;

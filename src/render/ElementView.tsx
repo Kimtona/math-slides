@@ -8,7 +8,7 @@ import { themeLayout, themedTextColor, todoAccent } from '../model/theme';
 import { shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { slideFontVars } from '../model/fonts';
 import { blockArrowOutline } from '../model/blockArrow';
-import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, TYPOGRAPHY } from '../model/typography';
+import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 
 export function textBoxStyle(el: TextElement): CSSProperties {
   return {
@@ -133,8 +133,17 @@ export function useThemedColor(slide: Slide, el: SlideElement): string | null {
   return themedTextColor({ themeColor, titleElementId }, slide, el);
 }
 
+/**
+ * Persistent instance border: an outline centered on the element bounds (half inside, half outside), so it never
+ * changes the box size or text wrapping and stays visible next to the (inside) blue selection frame.
+ */
+export function instanceBorderStyle(el: SlideElement): CSSProperties {
+  if ((el.type !== 'text' && el.type !== 'image') || !el.borderColor) return {};
+  return { outline: `${INSTANCE_BORDER_WIDTH}px solid ${el.borderColor}`, outlineOffset: -INSTANCE_BORDER_WIDTH / 2 };
+}
+
 export function elementBoxStyle(el: SlideElement, fg?: string | null): CSSProperties {
-  const base: CSSProperties = { left: el.x, top: el.y, width: el.w };
+  const base: CSSProperties = { left: el.x, top: el.y, width: el.w, ...instanceBorderStyle(el) };
   if (el.type === 'text') return { ...base, ...textBoxStyle(el), ...(fg ? { color: fg } : {}), minHeight: el.style.fontSize * el.style.lineHeight };
   return { ...base, height: el.h };
 }

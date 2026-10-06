@@ -33,6 +33,16 @@ function useEditorTick() {
   }, []);
 }
 
+/** Instance border: picking a color turns the border on, 없음 removes it (text boxes and images). */
+function BorderButton({ el }: { el: TextElement | ImageElement }) {
+  const set = (c: string | null) => useStore.getState().updateElements([el.id], (d) => {
+    const t = d as TextElement | ImageElement;
+    if (c) t.borderColor = c; else delete t.borderColor;
+  });
+  return <PaletteColorButton title="상자 테두리" label={<span className="small-label">테두리</span>} value={el.borderColor ?? null}
+    onChange={set} onNone={() => set(null)} />;
+}
+
 /** Compact font dropdown. `value` null = mixed fonts in the selection. */
 function FontButton({ title, value, onChange }: { title: string; value: SlideFont | null; onChange: (f: SlideFont) => void }) {
   return (
@@ -93,7 +103,11 @@ function TextProps({ el, editing, box = true }: { el: TextElement; editing: bool
           </div>
         )}
       </Popover>
-      {box && <ColorButton title="상자 배경" label={<span className="small-label">배경</span>} allowNone value={el.style.fill} onChange={(c) => setTextStyle({ fill: c })} />}
+      {box && <>
+        <PaletteColorButton title="상자 배경" label={<span className="small-label">배경</span>} value={el.style.fill}
+          onChange={(c) => setTextStyle({ fill: c })} onNone={() => setTextStyle({ fill: null })} />
+        <BorderButton el={el} />
+      </>}
     </>
   );
 }
@@ -178,6 +192,7 @@ function ImageProps({ el }: { el: ImageElement }) {
       {el.caption === undefined
         ? <Btn wide title="이미지 캡션 추가" onClick={() => st.updateElements([el.id], (d) => { (d as ImageElement).caption = ''; })}>Caption</Btn>
         : <Btn wide className="active" title="이미지 캡션 삭제" onClick={() => st.updateElements([el.id], (d) => { delete (d as ImageElement).caption; })}>Remove Caption</Btn>}
+      <BorderButton el={el} />
       <span className="hint">드래그 = 비율 유지 · ⌥ Option = 자유 변형 · ⇧ Shift = 크롭 · 더블클릭 = 크롭 편집</span>
     </>
   );

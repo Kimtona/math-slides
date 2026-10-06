@@ -2,7 +2,7 @@ import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
 import type { Asset, Deck, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
 import { sourceRect } from '../model/imageCrop';
-import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, TYPOGRAPHY } from '../model/typography';
+import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 import { themeLayout } from '../model/theme';
 import { shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { isDocEmpty } from '../editor/docUtils';
@@ -365,8 +365,14 @@ function quoteContentRect(quote: Element, origin: DOMRect): Rect {
 
 function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect) {
   const boxRect = relRect(dom, origin);
-  if (el.style.fill) {
-    s.addShape('rect', { x: IN(boxRect.x), y: IN(boxRect.y), w: IN(boxRect.w), h: IN(boxRect.h), fill: { color: hex(el.style.fill) } });
+  if (el.style.fill || el.borderColor) {
+    // Background and/or instance border as one native rectangle (the border is centered on the bounds, like the on-screen outline).
+    s.addShape('rect', {
+      x: IN(boxRect.x), y: IN(boxRect.y), w: IN(boxRect.w), h: IN(boxRect.h),
+      fill: el.style.fill ? { color: hex(el.style.fill) } : { type: 'none' },
+      ...(el.borderColor ? { line: { color: hex(el.borderColor), width: PT(INSTANCE_BORDER_WIDTH) } } : {}),
+      objectName: el.borderColor ? 'Instance Border' : undefined,
+    });
   }
   const content = dom.querySelector('.tb-content');
   if (!content) return;
@@ -494,8 +500,14 @@ async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset
   if (!a) return;
   const data = await imageData(a);
   addCaption(s, el, slideDom, origin);
+  // Instance border: a native outline-only rectangle over the picture's frame.
+  const border = () => el.borderColor && s.addShape('rect', {
+    x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h), fill: { type: 'none' },
+    line: { color: hex(el.borderColor), width: PT(INSTANCE_BORDER_WIDTH) }, objectName: 'Instance Border',
+  });
   if (!el.crop) {
     s.addImage({ data, x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h) });
+    border();
     return;
   }
   // Native PowerPoint crop (<a:srcRect>): the full-resolution original is embedded and only
@@ -506,6 +518,7 @@ async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset
     data, x: IN(el.x), y: IN(el.y), w: IN(R.w), h: IN(R.h),
     sizing: { type: 'crop', x: IN(el.x - R.x), y: IN(el.y - R.y), w: IN(el.w), h: IN(el.h) },
   });
+  border();
 }
 
 // ---------- XML clean-up ----------
