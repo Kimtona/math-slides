@@ -1,3 +1,5 @@
+import { parseHex } from './colors';
+
 /**
  * User-scoped preferences (pure model). These belong to the local MathSlides installation, never to a
  * presentation: they are not part of `Deck`, not serialized into `.mslides`, not in the undo history.
@@ -29,11 +31,16 @@ export const DEFAULT_MATH_FAVORITES: readonly MathFavorite[] = [
 const MAX_MATH_FAVORITES = 100;
 const MAX_FAVORITE_LENGTH = 2000;
 
+/** My Colors: the user's saved custom colors (no built-in defaults; [] is the normal initial state). Bounded, newest first. */
+export const MAX_SAVED_COLORS = 30;
+
 export interface UserPrefs {
   /** Exactly QUICK_EMOJI_SLOTS entries when present; absent = defaults. */
   quickEmojis?: string[];
   /** Math Favorites (the `자주 사용` palette tab); absent = DEFAULT_MATH_FAVORITES, [] = the user removed them all. */
   favoriteMathExpressions?: MathFavorite[];
+  /** My Colors as normalized `#RRGGBB` strings, newest first; absent = none. Shared by every color palette. */
+  savedColors?: string[];
   /** Fields written by other versions of the app are carried along untouched. */
   [unknown: string]: unknown;
 }
@@ -79,6 +86,18 @@ export function resolveMathFavorites(raw: unknown): MathFavorite[] {
   return raw.slice(0, MAX_MATH_FAVORITES).flatMap((r) => { const f = resolveMathFavorite(r); return f ? [f] : []; });
 }
 
+/** Not an array → []; entries are normalized with the app's HEX parser, unusable ones and duplicates dropped, capped. */
+export function resolveSavedColors(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const v of raw) {
+    const hex = typeof v === 'string' ? parseHex(v) : null;
+    if (hex && !out.includes(hex)) out.push(hex);
+    if (out.length >= MAX_SAVED_COLORS) break;
+  }
+  return out;
+}
+
 /** The complete LaTeX a favorite stands for; a favorite "matches" an expression when this equals it exactly (ends trimmed). */
 export const mathFavoriteText = (f: MathFavorite) => f.pre + (f.post ?? '');
 export const isMathFavoriteText = (list: readonly MathFavorite[], latex: string) => { const t = latex.trim(); return !!t && list.some((f) => mathFavoriteText(f) === t); };
@@ -86,9 +105,10 @@ export const isMathFavoriteText = (list: readonly MathFavorite[], latex: string)
 /** Parse whatever was stored (possibly missing or malformed) into a prefs object; never throws. */
 export function normalizeUserPrefs(raw: unknown): UserPrefs {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
-  const { quickEmojis, favoriteMathExpressions, ...rest } = raw as Record<string, unknown>;
+  const { quickEmojis, favoriteMathExpressions, savedColors, ...rest } = raw as Record<string, unknown>;
   const prefs: UserPrefs = { ...rest };
   if (quickEmojis !== undefined) prefs.quickEmojis = resolveQuickEmojis(quickEmojis);
   if (favoriteMathExpressions !== undefined) prefs.favoriteMathExpressions = resolveMathFavorites(favoriteMathExpressions);
+  if (savedColors !== undefined) prefs.savedColors = resolveSavedColors(savedColors);
   return prefs;
 }

@@ -1572,9 +1572,9 @@ try {
   const themeBefore = await evaluate('store.getState().deck.themeColor');
   const fullPalette = () => evaluate("({full: !!document.querySelector('.text-palette'), sections: [...document.querySelectorAll('.text-palette .palette-heading')].map(e => e.textContent).join(), quick: !!document.querySelector('.highlight-palette')})");
   await click('.propsbar button[title^="Theme:"]');
-  assert.equal((await fullPalette()).sections, 'Theme Colors,Standard Colors', 'Theme uses the full palette'); await key('Escape'); await pause();
+  assert.equal((await fullPalette()).sections, 'Theme Colors,Standard Colors,My Colors', 'Theme uses the full palette'); await key('Escape'); await pause();
   await click('.propsbar button[title^="슬라이드 배경"]');
-  assert.deepEqual(await fullPalette(), {full: true, sections: 'Theme Colors,Standard Colors', quick: false}, 'Slide Background uses the full palette');
+  assert.deepEqual(await fullPalette(), {full: true, sections: 'Theme Colors,Standard Colors,My Colors', quick: false}, 'Slide Background uses the full palette');
   await click('button[aria-label="Blue shade 4"]'); await pause();
   assert.equal(await evaluate('store.getState().deck.slides.find(s => s.id === store.getState().currentSlideId).background'), '#2563EB', 'background color applied');
   assert.equal(await evaluate('store.getState().deck.themeColor'), themeBefore, 'Theme is independent of the background');
@@ -1585,7 +1585,7 @@ try {
   await evaluate(`store.getState().goToSlide('${shapeSlideId}'); store.getState().select(['${sB}'])`); await pause(300);
   const strokeBefore = (await shapeNow(sB)).stroke, fillBefore = (await shapeNow(sB)).fill;
   await click('.propsbar button[title^="테두리 (Border)"]');
-  assert.deepEqual(await fullPalette(), {full: true, sections: 'Theme Colors,Standard Colors', quick: false}, 'Shape Border uses the full palette');
+  assert.deepEqual(await fullPalette(), {full: true, sections: 'Theme Colors,Standard Colors,My Colors', quick: false}, 'Shape Border uses the full palette');
   await click('button[aria-label="Purple shade 4"]'); await pause();
   assert.equal((await shapeNow(sB)).stroke, '#7C3AED', 'border color applied');
   assert.equal((await shapeNow(sB)).fill, fillBefore, 'fill is independent of the border');

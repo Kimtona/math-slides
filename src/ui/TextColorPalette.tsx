@@ -1,7 +1,8 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { HIGHLIGHT_COLORS, parseHex, sameColor, STANDARD_COLORS, THEME_COLORS } from '../model/colors';
 import { captureTextSelection, setHighlight, setTextColor } from './textFormat';
 import { Icons, Popover } from './controls';
+import { getSavedColors, removeSavedColor, saveColor, subscribeUserPrefs } from '../store/userPrefs';
 
 function Swatch({ color, label, value, apply }: { color: string; label: string; value: string | null; apply: (color: string) => void }) {
   return <button type="button" className={`text-swatch${sameColor(value, color) ? ' selected' : ''}`}
@@ -9,10 +10,30 @@ function Swatch({ color, label, value, apply }: { color: string; label: string; 
     onClick={() => apply(color)} />;
 }
 
+/** The user's saved colors (a user-level preference, one list for every palette) as ordinary swatches. */
+function SavedColorSwatches({ value, apply, remove }: { value: string | null; apply: (color: string) => void; remove?: boolean }) {
+  const saved = useSyncExternalStore(subscribeUserPrefs, getSavedColors);
+  return <>{saved.map((c) => remove
+    ? <button type="button" key={c} className="text-swatch removing" style={{ background: c }} title={`삭제 (${c})`} aria-label={`Remove ${c}`} onClick={() => removeSavedColor(c)} />
+    : <Swatch key={c} color={c} label={`My Color`} value={value} apply={apply} />)}</>;
+}
+
+/** My Colors row for palettes that only offer saved colors (Highlight, Shape Fill); hidden while the user has none. */
+function SavedColorsRow({ value, apply }: { value: string | null; apply: (color: string) => void }) {
+  const saved = useSyncExternalStore(subscribeUserPrefs, getSavedColors);
+  if (!saved.length) return null;
+  return <><div className="palette-heading">My Colors</div><div className="my-colors"><SavedColorSwatches value={value} apply={apply} /></div></>;
+}
+
 function ColorPalette({ value, apply, close, noneLabel, onNone }: { value: string | null; apply: (color: string) => void; close: () => void; noneLabel?: string; onNone?: () => void }) {
   const [custom, setCustom] = useState(false);
   const [hex, setHex] = useState(value || '#3B82F6');
+  const [manage, setManage] = useState(false);
   const valid = parseHex(hex);
+  const saved = useSyncExternalStore(subscribeUserPrefs, getSavedColors);
+  // Chromium's EyeDropper (native screen sampler); simply absent where unsupported.
+  const eyeDropper = (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper;
+  const pick = () => { if (eyeDropper) new eyeDropper().open().then((r) => setHex(parseHex(r.sRGBHex) ?? r.sRGBHex)).catch(() => {}); };
   const choose = (color: string) => { apply(color); close(); };
   return <div className="text-palette" role="dialog" aria-label="Text Color" onKeyDown={(e) => {
     e.stopPropagation();
@@ -29,6 +50,13 @@ function ColorPalette({ value, apply, close, noneLabel, onNone }: { value: strin
     <div className="palette-heading">Standard Colors</div>
     <div className="standard-colors">{STANDARD_COLORS.map((c) =>
       <Swatch key={c.name} color={c.hex} label={`Standard ${c.name}`} value={value} apply={choose} />)}</div>
+    <div className="palette-heading palette-heading-row">My Colors
+      {saved.length > 0 && <button type="button" className={'palette-tool' + (manage ? ' on' : '')} title={manage ? '편집 완료' : '저장한 색 편집'} aria-pressed={manage} onClick={() => setManage(!manage)}>{manage ? '완료' : '✎'}</button>}
+    </div>
+    <div className="my-colors">
+      <SavedColorSwatches value={value} apply={choose} remove={manage} />
+      <button type="button" className="text-swatch add" title="내 색 추가 — HEX 또는 스포이트" aria-label="Add to My Colors" onClick={() => { setCustom(true); setManage(false); }}>+</button>
+    </div>
     {onNone && <button className="palette-other" onClick={() => { onNone(); close(); }}>{noneLabel ?? 'None'}</button>}
     <button className="palette-other" onClick={() => setCustom(!custom)} aria-expanded={custom}>Other Colors...</button>
     {custom && <form className="custom-color" onSubmit={(e) => { e.preventDefault(); if (valid) choose(valid); }}>
@@ -37,6 +65,12 @@ function ColorPalette({ value, apply, close, noneLabel, onNone }: { value: strin
         <input aria-label="HEX color" value={hex} placeholder="#3B82F6" spellCheck={false} aria-invalid={!valid}
           onChange={(e) => setHex(e.target.value)} />
         <button type="submit" disabled={!valid}>Apply</button>
+      </div>
+      <div className="custom-color-row custom-color-actions">
+        <span className="custom-preview" aria-label="Current color" style={{ background: valid ?? 'transparent' }} />
+        {eyeDropper && <button type="button" className="eyedropper" title="스포이트 — 화면에서 색 선택" aria-label="Eyedropper" onClick={pick}>{Icons.eyedropper}</button>}
+        <button type="button" className="save-color" disabled={!valid || saved.includes(valid)} title={valid && saved.includes(valid) ? '이미 저장됨' : 'My Colors에 저장'}
+          onClick={() => valid && saveColor(valid)}>{valid && saved.includes(valid) ? '★ 저장됨' : '☆ 저장'}</button>
       </div>
       {!valid && <div className="color-error" role="alert">Enter 3 or 6 HEX digits, e.g. #3B82F6.</div>}
     </form>}
@@ -87,6 +121,7 @@ export function ShapeFillButton({ value, onChange }: { value: string | null; onC
         <div className="palette-heading">Fill</div>
         <div className="highlight-colors">{HIGHLIGHT_COLORS.map((c) =>
           <Swatch key={c.name} color={c.hex} label={`Fill ${c.name}`} value={value} apply={apply} />)}</div>
+        <SavedColorsRow value={value} apply={apply} />
         <button className="palette-other" onClick={() => apply(null)}>None / Remove Fill</button>
       </div>;
     }}
@@ -106,6 +141,7 @@ export function HighlightButton({ value }: { value: string | null }) {
         <div className="palette-heading">Highlight</div>
         <div className="highlight-colors">{HIGHLIGHT_COLORS.map((c) =>
           <Swatch key={c.name} color={c.hex} label={`Highlight ${c.name}`} value={value} apply={apply} />)}</div>
+        <SavedColorsRow value={value} apply={apply} />
         <button className="palette-other" onClick={() => apply(null)}>None / Remove Highlight</button>
       </div>;
     }}

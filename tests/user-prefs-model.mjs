@@ -70,5 +70,22 @@ try {
   off2();
   assert.equal(JSON.stringify(useStore.getState().deck), before2); assert.equal(useStore.getState().saveState, save2); assert.equal(useStore.getState().past.length, past2, 'favorites never touch presentation state');
   assert.ok(!before2.includes('favoriteMathExpressions'));
+  // ---- My Colors (saved colors) ----
+  assert.deepEqual(m.resolveSavedColors(undefined), [], 'default is empty'); for (const bad of [null, 'x', 5, {}]) assert.deepEqual(m.resolveSavedColors(bad), [], 'non-array -> []');
+  assert.deepEqual(m.resolveSavedColors(['#7c3aed', '7C3AED', '#0f0', 'nope', 5, null, '#12345', '#F97316']), ['#7C3AED', '#00FF00', '#F97316'], 'normalized, deduplicated, invalid dropped');
+  assert.equal(m.resolveSavedColors(Array.from({ length: 80 }, (_, i) => '#' + (i * 1000 + 4096).toString(16).padStart(6, '0'))).length, 30, 'bounded');
+  assert.equal(m.normalizeUserPrefs({ quickEmojis: custom }).savedColors, undefined, 'older record without savedColors is fine');
+  assert.deepEqual(m.normalizeUserPrefs({ savedColors: 'bad', quickEmojis: custom }), { savedColors: [], quickEmojis: custom }, 'malformed -> [], other fields kept');
+  const dk = JSON.stringify(useStore.getState().deck), ds = useStore.getState().saveState, dp = useStore.getState().past.length;
+  p.setQuickEmoji(1, '🧠'); p.toggleMathFavorite('zz+1');
+  assert.deepEqual(p.getSavedColors(), [], 'store starts empty');
+  assert.equal(p.getSavedColors(), p.getSavedColors(), 'snapshot is referentially stable');
+  p.saveColor('#7c3aed'); p.saveColor('#F97316'); p.saveColor('7C3AED'); p.saveColor('nope'); p.saveColor('#0f0');
+  assert.deepEqual(p.getSavedColors(), ['#00FF00', '#F97316', '#7C3AED'], 'newest first, normalized, no duplicate, invalid ignored');
+  p.removeSavedColor('#f97316'); assert.deepEqual(p.getSavedColors(), ['#00FF00', '#7C3AED'], 'removal (any case)');
+  for (let i = 0; i < 40; i++) p.saveColor('#' + (0x100000 + i * 37).toString(16)); assert.equal(p.getSavedColors().length, 30, 'cap enforced by the store');
+  assert.equal(p.getQuickEmojis()[1], '🧠', 'quick emojis untouched by saved colors'); assert.equal(p.getMathFavorites()[0].pre, 'zz+1', 'math favorites untouched');
+  p.resetQuickEmojis(); p.resetMathFavorites();
+  assert.equal(JSON.stringify(useStore.getState().deck), dk); assert.equal(useStore.getState().saveState, ds); assert.equal(useStore.getState().past.length, dp, 'saved colors never touch presentation state');
   console.log('PASS user preferences model + store (defaults, fallback, slots, reset, deck untouched)');
 } finally { await server.close(); }

@@ -1,5 +1,6 @@
 import { get, set } from 'idb-keyval';
-import { QUICK_EMOJI_SLOTS, isMathFavoriteText, mathFavoriteText, normalizeUserPrefs, resolveMathFavorites, resolveQuickEmojis, type MathFavorite, type UserPrefs } from '../model/userPrefs';
+import { parseHex } from '../model/colors';
+import { QUICK_EMOJI_SLOTS, isMathFavoriteText, mathFavoriteText, MAX_SAVED_COLORS, normalizeUserPrefs, resolveMathFavorites, resolveQuickEmojis, resolveSavedColors, type MathFavorite, type UserPrefs } from '../model/userPrefs';
 
 /**
  * User-scoped preference store: one versioned IndexedDB record (`prefs:v1`, same storage family as the deck
@@ -67,3 +68,25 @@ export function toggleMathFavorite(latex: string) {
 export const removeMathFavoriteAt = (index: number) => setMathFavorites(getMathFavorites().filter((_, i) => i !== index));
 /** Back to the original `자주 사용` items (the stored override is removed). */
 export const resetMathFavorites = () => update({ favoriteMathExpressions: undefined });
+
+// ---------- My Colors (saved custom colors, shared by every color palette) ----------
+
+let colorCache: { raw: unknown; value: readonly string[] } | null = null;
+/** Stable between changes, so React can subscribe to it. */
+export function getSavedColors(): readonly string[] {
+  const raw = prefs.savedColors;
+  if (!colorCache || colorCache.raw !== raw) colorCache = { raw, value: resolveSavedColors(raw) };
+  return colorCache.value;
+}
+
+/** Explicitly save a color: normalized, newest first, no duplicates (an already-saved color is left where it is), bounded. */
+export function saveColor(color: string) {
+  const hex = parseHex(color);
+  const list = getSavedColors();
+  if (!hex || list.includes(hex)) return;
+  update({ savedColors: [hex, ...list].slice(0, MAX_SAVED_COLORS) });
+}
+export function removeSavedColor(color: string) {
+  const hex = parseHex(color);
+  if (hex) update({ savedColors: getSavedColors().filter((c) => c !== hex) });
+}
