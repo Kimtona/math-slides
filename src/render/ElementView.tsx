@@ -7,6 +7,7 @@ import { isDocEmpty } from '../editor/docUtils';
 import { themeLayout, themedTextColor, todoAccent } from '../model/theme';
 import { shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { slideFontVars } from '../model/fonts';
+import { blockArrowOutline } from '../model/blockArrow';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, TYPOGRAPHY } from '../model/typography';
 
 export function textBoxStyle(el: TextElement): CSSProperties {
@@ -25,7 +26,9 @@ export function ShapeSvg({ el }: { el: ShapeElement }) {
   const w = Math.max(el.w - sw, 0), h = Math.max(el.h - sw, 0);
   return (
     <svg className="shape-svg" width={el.w} height={el.h} viewBox={`0 0 ${el.w} ${el.h}`}>
-      {el.shape === 'ellipse' ? (
+      {el.shape === 'blockArrow' ? (
+        <polygon points={blockArrowOutline(el).map((p) => p.join(',')).join(' ')} strokeLinejoin="round" {...common} />
+      ) : el.shape === 'ellipse' ? (
         <ellipse cx={el.w / 2} cy={el.h / 2} rx={w / 2} ry={h / 2} {...common} />
       ) : (
         <rect x={sw / 2} y={sw / 2} width={w} height={h}

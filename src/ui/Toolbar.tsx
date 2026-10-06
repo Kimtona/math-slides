@@ -56,6 +56,7 @@ export function Toolbar() {
               <MenuItem onClick={() => insertShape('ellipse')} shortcut="O">◯ 타원</MenuItem>
               <MenuItem onClick={() => insertLine(false)} shortcut="L">╱ 선</MenuItem>
               <MenuItem onClick={() => insertLine(true)} shortcut="A">→ 화살표</MenuItem>
+              <MenuItem onClick={() => insertShape('blockArrow')}>⇨ 두꺼운 화살표</MenuItem>
             </div>
           )}
         </Popover>

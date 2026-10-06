@@ -1,5 +1,5 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Box, ImageElement, LineElement, Slide, SlideElement, TextElement } from '../model/types';
+import type { Box, ImageElement, LineElement, ShapeElement, Slide, SlideElement, TextElement } from '../model/types';
 import { clampFrameToSource, coverFrame, cropFrom, cropOf, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { lineBox } from '../model/defaults';
@@ -13,6 +13,7 @@ import { TextEditor } from '../editor/TextEditor';
 import { insertImageFiles, insertTextAt } from './insert';
 import { scaleParagraphSizes } from '../editor/extensions';
 import { slideFontVars } from '../model/fonts';
+import { blockArrowFromHeadDrag, blockArrowFromShaftDrag, blockArrowHandles } from '../model/blockArrow';
 
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'p1' | 'p2';
 const SNAP_PX = 6;
@@ -113,6 +114,27 @@ function startMove(e: React.PointerEvent, el: SlideElement) {
     } else if (wasSelected && !e.shiftKey && s.selection.length > 1) s.select([el.id]);
   });
 }
+
+// ---------- Block Arrow geometry adjustment ----------
+
+/** Drag an adjustment handle of a Block Arrow: changes shaft/head proportions only, never x/y/w/h. One undo step per drag. */
+function startAdjust(e: React.PointerEvent, el: ShapeElement, which: 'shaft' | 'head') {
+  e.stopPropagation();
+  e.preventDefault();
+  const st = useStore.getState();
+  if (st.editingId) st.stopEditing();
+  track(e, (ev) => {
+    const s = useStore.getState();
+    s.beginGesture();
+    const p = toSlide(ev.clientX, ev.clientY);
+    s.updateElements([el.id], (d) => {
+      const a = d as ShapeElement;
+      if (which === 'shaft') a.shaft = round3(blockArrowFromShaftDrag(a, p.y - a.y));
+      else a.head = round3(blockArrowFromHeadDrag(a, p.x - a.x));
+    }, true);
+  }, (_ev, moved) => { if (moved) useStore.getState().endGesture(); });
+}
+const round3 = (v: number) => Math.round(v * 1000) / 1000;
 
 // ---------- resize ----------
 
@@ -482,6 +504,11 @@ function SelectionOverlay({ scale }: { scale: number }) {
         <div key={h} className={`handle h-${h}`} style={{ ...pos(h), width: hs, height: hs, borderWidth: bw }}
           onPointerDown={(e) => startResize(e, el, h)} />
       ))}
+      {el.type === 'shape' && el.shape === 'blockArrow' && !editing && (['shaft', 'head'] as const).map((k) => {
+        const at = blockArrowHandles(el)[k];
+        return <div key={k} className={`handle adjust adjust-${k}`} style={{ left: el.x + at.x, top: el.y + at.y, width: hs * 0.85, height: hs * 0.85, borderWidth: bw }}
+          onPointerDown={(e) => startAdjust(e, el, k)} />;
+      })}
     </>
   );
 }

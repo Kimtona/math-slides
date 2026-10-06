@@ -69,7 +69,7 @@ export interface ImageElement extends ElementBase {
   caption?: string;
 }
 
-export type ShapeKind = 'rect' | 'roundRect' | 'ellipse';
+export type ShapeKind = 'rect' | 'roundRect' | 'ellipse' | 'blockArrow';
 
 export interface ShapeElement extends ElementBase {
   type: 'shape';
@@ -78,6 +78,9 @@ export interface ShapeElement extends ElementBase {
   stroke: string | null;
   strokeWidth: number;
   radius: number; // roundRect corner radius, px
+  /** blockArrow only: shaft thickness (fraction of height) and arrowhead length (fraction of width). Absent = defaults. */
+  shaft?: number;
+  head?: number;
   /** Optional text inside the shape (same rich-text document as text boxes). Absent / empty = no text. */
   doc?: PMNode;
   /** Text defaults (size, color, align, line height); absent = centered body text. */

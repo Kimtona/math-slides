@@ -919,6 +919,121 @@ try {
   // Back to the state the following checks expect.
   await evaluate(`(() => { const s = JSON.parse(${JSON.stringify(fontSnapshot)}); store.getState().loadDeck(s.deck, s.assets); store.getState().goToSlide(s.current); })()`); await pause(400);
   console.log('PASS presentation font (3 bundled fonts, NanumSquare default, top selector overwrites all text and range fonts, selected-text font, new text, thumbnails/presenter/print/PPTX, .mslides persistence, legacy files, undo/redo)');
+  // Block Arrow (두꺼운 화살표): filled shape with two compact geometry-adjustment handles (shaft thickness / head length).
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause();
+  const arrowSnapshot = await evaluate('JSON.stringify({deck: store.getState().deck, assets: store.getState().assets, current: store.getState().currentSlideId})');
+  await evaluate('store.getState().addSlide()'); await pause();
+  const arrowSlideId = await evaluate('store.getState().currentSlideId');
+  await click('.tb-center button[title="도형"]');
+  const shapeMenu = await evaluate("[...document.querySelectorAll('.pop .menu-item')].map((e) => e.textContent)");
+  assert.equal(shapeMenu.length, 6, 'one new item'); assert.ok(shapeMenu[4].includes('화살표') && !shapeMenu[4].includes('두꺼운') && shapeMenu[5].includes('두꺼운 화살표'), 'directly below 화살표: ' + shapeMenu.join('|'));
+  assert.deepEqual(shapeMenu.slice(0, 4).map((t) => t.replace(/[^가-힣]/g, '')), ['사각형', '둥근사각형', '타원', '선'], 'existing items unchanged');
+  await evaluate("[...document.querySelectorAll('.pop .menu-item')].find((e) => e.textContent.includes('두꺼운 화살표')).click()"); await pause(400);
+  const arrowEls = () => evaluate("store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements.filter((e) => e.shape === 'blockArrow')");
+  let [A] = await arrowEls();
+  assert.ok(A, 'inserted'); assert.deepEqual([A.shaft, A.head, A.w, A.h], [0.5, 0.4, 280, 160], 'defaults');
+  assert.equal(A.fill, await evaluate("defaults.newShape('rect', 0, 0).fill"), 'same default fill as other shapes'); assert.equal(A.stroke, null);
+  assert.equal(await evaluate("document.querySelectorAll('.slide.editable .handle.adjust').length"), 2, 'two adjustment handles while selected');
+  assert.equal(await evaluate("document.querySelectorAll('.slide.editable .handle:not(.adjust)').length"), 8, 'normal resize handles stay');
+  const arrowPts = (root) => evaluate(`[...document.querySelectorAll(${JSON.stringify(root + ' [data-el-id="' + A.id + '"] polygon')})].map((p) => p.getAttribute('points'))`);
+  assert.equal((await arrowPts('.slide.editable')).length, 1, 'filled polygon');
+  assert.equal(await evaluate("document.querySelectorAll('.slide.editable [data-el-id=\"" + A.id + "\"] polygon[fill=\"none\"]').length"), 0);
+  // Direct manipulation with real pointer events.
+  const scale = await evaluate("document.querySelector('.slide.editable').getBoundingClientRect().width / 1280");
+  const dragHandle = async (sel, dx, dy) => {
+    const r = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()`);
+    await send('Input.dispatchMouseEvent', {type: 'mousePressed', button: 'left', clickCount: 1, ...r});
+    for (const f of [0.3, 1]) await send('Input.dispatchMouseEvent', {type: 'mouseMoved', button: 'left', buttons: 1, x: r.x + dx * scale * f, y: r.y + dy * scale * f});
+    await send('Input.dispatchMouseEvent', {type: 'mouseReleased', button: 'left', clickCount: 1, x: r.x + dx * scale, y: r.y + dy * scale}); await pause(200);
+  };
+  const cur = async () => (await arrowEls())[0];
+  const geomOf = (a) => [a.x, a.y, a.w, a.h].join();
+  const frame0 = geomOf(A);
+  const histBefore = await evaluate('store.getState().past.length');
+  await dragHandle('.handle.adjust-shaft', 0, -40); // shaft top 40 → 0... clamped via ratio
+  let a = await cur();
+  assert.ok(Math.abs(a.shaft - 1) < 0.2 && a.shaft <= 0.95 && a.shaft > 0.7, 'dragging up thickens the shaft (clamped at 0.95): ' + a.shaft);
+  assert.equal(a.head, 0.4); assert.equal(geomOf(a), frame0, 'adjustment never resizes the element');
+  assert.equal(await evaluate('store.getState().past.length'), histBefore + 1, 'one undo step per drag');
+  await evaluate('store.getState().undo()'); await pause(200);
+  assert.equal((await cur()).shaft, 0.5, 'undo restores the shaft');
+  await evaluate('store.getState().redo()'); await pause(200);
+  assert.ok((await cur()).shaft > 0.7, 'redo');
+  await dragHandle('.handle.adjust-shaft', 0, 400); // far past the axis → minimum thickness
+  assert.equal((await cur()).shaft, 0.1, 'shaft clamps to its minimum');
+  await dragHandle('.handle.adjust-head', -60, 0);
+  a = await cur();
+  assert.ok(a.head > 0.4 && a.head < 0.9 && a.shaft === 0.1, 'dragging left lengthens the head: ' + a.head); assert.equal(geomOf(a), frame0);
+  await dragHandle('.handle.adjust-head', -2000, 0);
+  assert.equal((await cur()).head, 0.9, 'head clamps to its maximum');
+  await dragHandle('.handle.adjust-head', 2000, 0);
+  assert.equal((await cur()).head, 0.1, 'head clamps to its minimum (still a visible head)');
+  // Set a known adjusted shape for the remaining checks.
+  await evaluate(`store.getState().updateElements(['${A.id}'], (e) => { e.shaft = 0.3; e.head = 0.55; })`); await pause(200);
+  // Normal resize keeps the proportions.
+  const preResize = await cur();
+  await dragHandle('.handle.h-e', 60, 0);
+  await dragHandle('.handle.h-s', 0, 40);
+  a = await cur();
+  assert.equal(a.w, preResize.w + 60); assert.equal(a.h, preResize.h + 40); assert.deepEqual([a.shaft, a.head], [0.3, 0.55], 'resize keeps the adjusted proportions');
+  const hand = await evaluate(`(() => { const r = document.querySelector('.handle.adjust-head').getBoundingClientRect(), s = document.querySelector('.slide.editable').getBoundingClientRect(); return (r.x + r.width / 2 - s.x) / ${scale} - ${a.x}; })()`);
+  assert.ok(Math.abs(hand - a.w * 0.45) < 2, 'head handle sits where the head begins');
+  // Styling like other filled shapes.
+  await evaluate(`store.getState().updateElements(['${A.id}'], (e) => { e.stroke = '#7C3AED'; e.strokeWidth = 6; e.fill = '#BAE6FD'; })`); await pause(200);
+  const ptsEditor = (await arrowPts('.slide.editable'))[0];
+  const bb = await evaluate(`(() => { const p = document.querySelector('.slide.editable [data-el-id="${A.id}"] polygon'); const b = p.getBBox(); return [b.x, b.y, b.x + b.width, b.y + b.height]; })()`);
+  assert.ok(bb[0] >= 2.9 && bb[1] >= 2.9 && bb[2] <= a.w - 2.9 && bb[3] <= a.h - 2.9, 'outline (with its stroke) stays inside the element box: ' + bb);
+  assert.equal(await evaluate("document.querySelector('.slide.editable [data-el-id=\"" + A.id + "\"] polygon').getAttribute('stroke')"), '#7C3AED');
+  await screenshot('block-arrow');
+  // Move, duplicate, copy/paste, delete.
+  await evaluate(`store.getState().updateElements(['${A.id}'], (e) => { e.x += 30; e.y += 10; })`);
+  await evaluate("import('/src/canvas/insert.ts').then((m) => m.duplicateSelection())"); await pause(300);
+  let arrows = await arrowEls();
+  assert.equal(arrows.length, 2); assert.deepEqual([arrows[1].shaft, arrows[1].head, arrows[1].stroke], [0.3, 0.55, '#7C3AED'], 'duplicate keeps geometry');
+  const copied = await evaluate("import('/src/canvas/insert.ts').then((m) => m.copySelection())");
+  await evaluate(`import('/src/canvas/insert.ts').then((m) => m.pasteElements(${JSON.stringify(copied)}))`); await pause(300);
+  arrows = await arrowEls();
+  assert.equal(arrows.length, 3); assert.deepEqual([arrows[2].shaft, arrows[2].head], [0.3, 0.55], 'paste keeps geometry');
+  await evaluate('store.getState().deleteSelection()'); await pause(200);
+  assert.equal((await arrowEls()).length, 2, 'delete');
+  await evaluate(`store.getState().updateElements(['${arrows[1].id}'], (e) => { e.x = 700; e.y = 400; })`);
+  await evaluate(`store.getState().select([])`); await pause(200);
+  assert.equal(await evaluate("document.querySelectorAll('.slide.editable .handle.adjust').length"), 0, 'no adjustment UI when not selected');
+  await evaluate(`store.getState().select(['${A.id}'])`); await pause(200);
+  // Same geometry in thumbnail, presenter and print DOM.
+  assert.equal((await arrowPts('.thumb.current'))[0], ptsEditor, 'thumbnail');
+  await evaluate('store.setState({presenting: true})'); await pause(400);
+  assert.equal((await arrowPts('.presenter'))[0], ptsEditor, 'presenter'); await key('Escape');
+  await evaluate("store.setState({exportMode: 'print'})"); await pause(500);
+  assert.equal((await arrowPts('#print-root'))[0], ptsEditor, 'print/PDF');
+  await evaluate("store.setState({exportMode: null})"); await pause(300);
+  // Persistence: schema is just shaft/head on the shape; older shapes have neither.
+  const arrowFile = JSON.parse(await evaluate('JSON.stringify(store.getState().deck)'));
+  const savedA = arrowFile.slides.find((s) => s.id === arrowSlideId).elements.find((e) => e.id === A.id);
+  assert.deepEqual([savedA.shape, savedA.shaft, savedA.head, savedA.fill, savedA.stroke, savedA.w], ['blockArrow', 0.3, 0.55, '#BAE6FD', '#7C3AED', a.w]);
+  await evaluate(`store.getState().loadDeck(JSON.parse(${JSON.stringify(JSON.stringify(arrowFile))}), store.getState().assets); store.getState().goToSlide(${JSON.stringify(arrowSlideId)})`); await pause(400);
+  assert.equal((await arrowPts('.slide.editable'))[0], ptsEditor, 'reopened: identical geometry');
+  // PPTX: exact outline as a freeform.
+  const arrowPptx = await evaluate('persist.safeName(store.getState().deck.title)');
+  await evaluate("import('/src/export/run.ts').then((m) => m.exportPptx())");
+  await until(() => evaluate(`testFiles[${JSON.stringify(arrowPptx + '.pptx')}]?.length > 1000`), 'PPTX export (arrow)', 30000);
+  const arrowZip = await JSZip.loadAsync(Buffer.from(await evaluate(`testFiles[${JSON.stringify(arrowPptx + '.pptx')}]`)));
+  const arrowNo = arrowFile.slides.findIndex((s) => s.id === arrowSlideId) + 1;
+  const arrowXml = await arrowZip.file('ppt/slides/slide' + arrowNo + '.xml').async('string');
+  const cg = [...arrowXml.matchAll(/<a:custGeom>[\s\S]*?<\/a:custGeom>/g)].map((m) => m[0]);
+  assert.equal(cg.length, 2, 'both arrows are freeform shapes');
+  assert.equal((cg[0].match(/<a:lnTo>/g) ?? []).length, 6); assert.match(cg[0], /<a:moveTo>/); assert.match(cg[0], /<a:close/);
+  assert.match(arrowXml, /val="BAE6FD"/); assert.match(arrowXml, /val="7C3AED"/);
+  // The outline in the file matches the on-screen polygon (EMU = px * 9525, offset by half the stroke).
+  const emu = (v) => Math.round(v * 9525);
+  const sw = 6, pw = a.w - sw, ph = a.h - sw, neck = pw * (1 - 0.55), top = (ph * (1 - 0.3)) / 2;
+  const firstPts = [...cg[0].matchAll(/<a:pt x="(\d+)" y="(\d+)"/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  const expected = [[0, top], [neck, top], [neck, 0], [pw, ph / 2], [neck, ph], [neck, ph - top]].map(([x, y]) => [emu(x), emu(y)]);
+  firstPts.slice(0, 6).forEach((p, i) => { assert.ok(Math.abs(p[0] - expected[i][0]) <= 2 && Math.abs(p[1] - expected[i][1]) <= 2, `PPTX vertex ${i}: ${p} vs ${expected[i]}`); });
+  // Existing shapes are unaffected by the new fields.
+  assert.equal(await evaluate("(() => { const r = defaults.newShape('rect', 0, 0); return 'shaft' in r || 'head' in r; })()"), false);
+  await evaluate(`(() => { const s = JSON.parse(${JSON.stringify(arrowSnapshot)}); store.getState().loadDeck(s.deck, s.assets); store.getState().goToSlide(s.current); })()`); await pause(400);
+  console.log('PASS block arrow (menu item, defaults, two adjustment handles, clamping, one undo step per drag, resize keeps proportions, fill/stroke, duplicate/paste/delete, thumbnail/presenter/print geometry, persistence, PPTX freeform)');
   // Todo block (/todo): semantic node with a checked attribute; node-UI checkbox; presentation-only checked look.
   await evaluate('store.getState().addSlide()'); await pause();
   await evaluate(`store.getState().addElements([defaults.newText(64, 300, {w: 760})], {edit: true})`);

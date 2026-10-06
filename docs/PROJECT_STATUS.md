@@ -15,7 +15,7 @@ When this document was written, `main` and `origin/main` were synchronized at `3
 
 MathSlides is an Electron desktop app (React + TipTap + MathJax SVG) for academic slide decks, with a WYSIWYG semantic editor, an editable `.mslides` document format, PDF export, editable PPTX export, presentation mode, thumbnails, autosave, undo/redo and slash commands (`/math`, `/code`, `/callout`, `/block`, `/todo`, `/image`, ...).
 
-Implemented editor features: Code Block, Callout, Academic Blocks, Todo, Image + optional caption, editable text inside shapes, alignment guides (incl. Shift preview), presentation-wide Theme Color, Title Slide insertion, TOC slide, Thank You slide, PowerPoint-style color controls where appropriate, presentation font selection. See `README.md` for usage; source layout: `src/{canvas,editor,export,model,render,store,ui}`, `electron/`, `tests/rich-text.mjs`.
+Implemented editor features: Code Block, Callout, Academic Blocks, Todo, Image + optional caption, editable text inside shapes, alignment guides (incl. Shift preview), presentation-wide Theme Color, Title Slide insertion, TOC slide, Thank You slide, PowerPoint-style color controls where appropriate, presentation font selection. Shapes: Rectangle, Rounded Rectangle, Ellipse, Line/Arrow and an adjustable Block Arrow (`두꺼운 화살표`: `ShapeElement.shape: 'blockArrow'` with optional `shaft`/`head` ratios; geometry in `src/model/blockArrow.ts`, two canvas adjustment handles, exported to PPTX as a freeform). See `README.md` for usage; source layout: `src/{canvas,editor,export,model,render,store,ui}`, `electron/`, `tests/rich-text.mjs`.
 
 ## Desktop document lifecycle
 

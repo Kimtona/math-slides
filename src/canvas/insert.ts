@@ -89,6 +89,7 @@ export function insertMathBox() {
 
 export function insertShape(kind: ShapeKind) {
   const el = newShape(kind, SLIDE_W / 2 - 120, SLIDE_H / 2 - 80);
+  if (kind === 'blockArrow') { el.w = 280; el.x = SLIDE_W / 2 - 140; }
   if (kind === 'ellipse') { el.w = 180; el.h = 180; el.x = SLIDE_W / 2 - 90; el.y = SLIDE_H / 2 - 90; }
   useStore.getState().addElements([el]);
 }

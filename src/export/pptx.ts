@@ -8,6 +8,7 @@ import { shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { isDocEmpty } from '../editor/docUtils';
 import { tokenColor } from '../editor/codeHighlight';
 import { INLINE_CODE_BACKGROUND, INLINE_CODE_FONT } from '../model/textFormatting';
+import { blockArrowParams, blockArrowPoints } from '../model/blockArrow';
 import { DEFAULT_FONT, deckFont, fontFromCss } from '../model/fonts';
 
 // Slide units are CSS px on a 1280×720 canvas = 13.333×7.5in (PowerPoint widescreen).
@@ -396,22 +397,31 @@ function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect
 
 // ---------- shapes, lines, images ----------
 
+/** Block Arrow outline in inches, relative to the (stroke-inset) shape box. */
+function arrowPoints(el: ShapeElement, w: number, h: number) {
+  const { shaft, head } = blockArrowParams(el);
+  return [...blockArrowPoints(w, h, shaft, head).map(([x, y]) => ({ x: IN(x), y: IN(y) })), { close: true as const }];
+}
+
 function addShape(pptx: PptxGenJS, s: Slide, el: ShapeElement, slideDom: Element, origin: DOMRect) {
   const sw = el.stroke ? el.strokeWidth : 0;
   // SVG strokes are drawn inside the element box; PowerPoint centers them on the outline.
   const x = el.x + sw / 2, y = el.y + sw / 2, w = Math.max(1, el.w - sw), h = Math.max(1, el.h - sw);
-  const type = el.shape === 'ellipse' ? pptx.ShapeType.ellipse : el.shape === 'roundRect' ? pptx.ShapeType.roundRect : pptx.ShapeType.rect;
+  const arrow = el.shape === 'blockArrow';
+  const type = arrow ? ('custGeom' as unknown as typeof pptx.ShapeType.rect) : el.shape === 'ellipse' ? pptx.ShapeType.ellipse : el.shape === 'roundRect' ? pptx.ShapeType.roundRect : pptx.ShapeType.rect;
   const geometry = {
     x: IN(x), y: IN(y), w: IN(w), h: IN(h),
     fill: el.fill ? { color: hex(el.fill) } : undefined,
     line: el.stroke ? { color: hex(el.stroke), width: PT(sw) } : undefined,
     rectRadius: el.shape === 'roundRect' ? IN(Math.min(el.radius, w / 2, h / 2)) : undefined,
+    // Block Arrow: exact outline as a freeform (the MathSlides shaft/head proportions have no preset-shape equivalent).
+    ...(arrow ? { points: arrowPoints(el, w, h) } : {}),
   };
   const dom = el.doc && !isDocEmpty(el.doc) ? slideDom.querySelector(`[data-el-id="${el.id}"]`) : null;
   const content = dom?.querySelector('.tb-content');
   if (!dom || !content) { s.addShape(type, geometry); return; }
   const base = { ...el, type: 'text', doc: el.doc, style: shapeTextStyle(el) } as unknown as TextElement;
-  if (content.querySelector('.math-block, .math-inline, pre, blockquote, .callout, .ablock, .todo')) {
+  if (arrow || content.querySelector('.math-block, .math-inline, pre, blockquote, .callout, .ablock, .todo')) {
     // Equations / code / blocks inside a shape: native shape, with the content laid out as in a text box on top.
     s.addShape(type, geometry);
     addTextElement(s, base, dom, origin);

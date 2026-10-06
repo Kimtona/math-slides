@@ -3,6 +3,7 @@ import type { Deck, LineElement, PMNode, ShapeElement, ShapeKind, Slide, TextEle
 import { SLIDE_H, SLIDE_W } from './types';
 import { HIGHLIGHT_COLORS, presetHex } from './colors';
 import { TYPOGRAPHY } from './typography';
+import { BLOCK_ARROW_DEFAULTS } from './blockArrow';
 
 export const uid = () => nanoid(10);
 
@@ -44,7 +45,8 @@ export const shapeTextInset = (el: Pick<ShapeElement, 'shape' | 'w' | 'h'>) =>
   ({ x: SHAPE_TEXT_PADDING + (el.shape === 'ellipse' ? el.w * 0.146 : 0), y: SHAPE_TEXT_PADDING + (el.shape === 'ellipse' ? el.h * 0.146 : 0) });
 
 export function newShape(shape: ShapeKind, x: number, y: number, w = 240, h = 160): ShapeElement {
-  return { id: uid(), type: 'shape', shape, x, y, w, h, fill: HIGHLIGHT_COLORS[0].hex, stroke: null, strokeWidth: 2, radius: 16 };
+  const arrow = shape === 'blockArrow' ? { ...BLOCK_ARROW_DEFAULTS } : {};
+  return { id: uid(), type: 'shape', shape, x, y, w, h, fill: HIGHLIGHT_COLORS[0].hex, stroke: null, strokeWidth: 2, radius: 16, ...arrow };
 }
 
 export function lineBox(l: Pick<LineElement, 'x1' | 'y1' | 'x2' | 'y2'>) {
