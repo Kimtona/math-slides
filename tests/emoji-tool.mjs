@@ -10,6 +10,7 @@ import { spawn } from 'node:child_process';
 import { createServer as netServer } from 'node:net';
 import { createRequire } from 'node:module';
 import { createServer } from 'vite';
+import { testElectronEnv } from './electron-env.mjs';
 import JSZip from 'jszip';
 
 const require = createRequire(import.meta.url);
@@ -40,7 +41,7 @@ async function evaluate(expression) {
   return r.result.value;
 }
 async function launch() {
-  electron = spawn(require('electron'), [wrapper, `--remote-debugging-port=${debugPort}`], { cwd: root, env: { ...process.env, ELECTRON_DEV_URL: 'http://127.0.0.1:5189' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  electron = spawn(require('electron'), [wrapper, `--remote-debugging-port=${debugPort}`], { cwd: root, env: testElectronEnv({ ELECTRON_DEV_URL: 'http://127.0.0.1:5189' }), stdio: ['ignore', 'pipe', 'pipe'] });
   electron.stderr.on('data', () => {});
   const target = await until(async () => (await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json()).find((t) => t.type === 'page'), 'debug target');
   socket = new WebSocket(target.webSocketDebuggerUrl);

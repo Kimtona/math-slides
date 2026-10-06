@@ -12,6 +12,7 @@ import { createServer as netServer } from 'node:net';
 import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import JSZip from 'jszip';
+import { testElectronEnv } from './electron-env.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -109,7 +110,7 @@ async function inject() {
   })()`);
 }
 async function launch({ args = [], env = {} } = {}) {
-  electron = spawn(require('electron'), [wrapper, `--remote-debugging-port=${debugPort}`, ...args], { cwd: root, env: { ...process.env, ELECTRON_DEV_URL: 'http://127.0.0.1:5187', ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
+  electron = spawn(require('electron'), [wrapper, `--remote-debugging-port=${debugPort}`, ...args], { cwd: root, env: testElectronEnv({ ELECTRON_DEV_URL: 'http://127.0.0.1:5187', ...env }), stdio: ['ignore', 'pipe', 'pipe'] });
   electron.stderr.on('data', () => {});
   await connect();
 }

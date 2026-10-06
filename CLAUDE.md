@@ -23,3 +23,17 @@ That document contains the current stable checkpoint, architecture, persistence 
 - Do not amend an already approved checkpoint unless explicitly requested.
 - Do not push unless explicitly requested.
 - For significant UX/lifecycle features, prefer manual validation of the packaged app before creating the remote checkpoint.
+
+## Testing discipline
+
+Avoid excessive test execution during development.
+
+- During implementation, prefer `npm run typecheck` and the smallest relevant focused test.
+- Do not run the full `npm test` suite after every small change.
+- Run `npm run build` when a meaningful implementation stage is complete, not after every edit.
+- Run the full `npm test` suite at most once during final validation before a commit, unless the user explicitly asks otherwise.
+- If the full suite fails, do not repeatedly rerun it. Investigate the failure and rerun only the failing or directly related focused test first. Rerun the full suite after a fix only when needed for final confidence.
+- Do not create long-running polling, sampling, monitoring, retry, or repeated validation loops merely to verify that tests themselves are behaving.
+- Prefer manual UI verification by the user for visual/interaction polish instead of repeatedly exercising the whole GUI suite.
+- If sufficient validation has already been completed on the current tree, do not rerun tests merely because the work is being staged, committed, reorganized into commits, or pushed.
+- Electron GUI tests run with hidden windows (`MATHSLIDES_TEST_HIDDEN`, set by `tests/electron-env.mjs`); set `MATHSLIDES_TEST_VISIBLE=1` to watch a run.

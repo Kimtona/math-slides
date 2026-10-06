@@ -39,7 +39,11 @@ function readDocument(p) {
 function safeDocument(p) {
   try { return readDocument(p); } catch (e) { return { error: String(e.message || e), name: path.basename(p) }; }
 }
+// Automated GUI tests only (tests/electron-env.mjs sets this): the window is created hidden, never raised or focused,
+// and (macOS) the app stays out of the Dock. Unset in every normal, development and packaged launch.
+const TEST_HIDDEN = process.env.MATHSLIDES_TEST_HIDDEN === '1';
 function focusWindow() {
+  if (TEST_HIDDEN) return;
   if (!mainWin || mainWin.isDestroyed()) return;
   if (mainWin.isMinimized()) mainWin.restore();
   mainWin.show();
@@ -91,9 +95,13 @@ function createWindow() {
     title: 'MathSlides',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     backgroundColor: '#eceef1',
-    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true },
+    ...(TEST_HIDDEN ? { show: false } : {}),
+    // A hidden window must still run timers/animation frames at full speed, or the tests would crawl.
+    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, ...(TEST_HIDDEN ? { backgroundThrottling: false } : {}) },
   });
   mainWin = win;
+  // Presentation mode asks the page to go fullscreen, which would pop the hidden test window onto the display.
+  if (TEST_HIDDEN) win.webContents.session.setPermissionRequestHandler((_wc, permission, done) => done(permission !== 'fullscreen'));
   win.on('closed', () => { if (mainWin === win) { mainWin = null; rendererReady = false; } });
   win.webContents.on('did-start-loading', () => { rendererReady = false; }); // reload: the renderer asks again
   if (process.env.ELECTRON_DEV_URL) win.loadURL(process.env.ELECTRON_DEV_URL);
@@ -151,6 +159,7 @@ const template = [
 app.whenReady().then(() => {
   if (!singleInstance) return;
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  if (TEST_HIDDEN && process.platform === 'darwin') app.dock?.hide();
   createWindow();
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
