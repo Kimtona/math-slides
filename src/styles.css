@@ -299,7 +299,8 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .marquee { position: absolute; border-style: solid; border-color: var(--accent); background: rgba(47,111,235,.08); pointer-events: none; }
 
 /* ---------- slash menu & math popover ---------- */
-.slash-menu { position: fixed; z-index: 200; width: 260px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 32px rgba(0,0,0,.16); padding: 6px; font-family: var(--ui-font); }
+.slash-menu { position: fixed; z-index: 200; width: 260px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 32px rgba(0,0,0,.16); padding: 6px; font-family: var(--ui-font); display: flex; flex-direction: column; }
+.slash-list { position: relative; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
 .slash-title { color: var(--muted); font-size: 11px; padding: 4px 8px 6px; }
 .slash-item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
 .slash-item.active { background: #f1f3f5; }

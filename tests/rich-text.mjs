@@ -316,6 +316,54 @@ try {
   await evaluate('store.getState().stopEditing()');
   await evaluate(`store.getState().commit(d=>{d.slides[1].elements = d.slides[1].elements.filter(e => e.id !== ${JSON.stringify(palEl)});})`);
   console.log('PASS math palette (hidden by default, caret/selection insertion, templates, focus, Escape/outside click)');
+  // Slash menu: bounded height, scrolling list, keyboard-active item kept visible, viewport-contained.
+  await evaluate(`store.getState().addElements([defaults.newText(700,640,{w:400})],{edit:true})`);
+  await until(() => evaluate('!!active()'), 'Slash menu text editor');
+  const slashEl = await evaluate('store.getState().editingId');
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 4, y: 4 }); // keep the pointer off the menu (hover selects)
+  await send('Input.insertText', {text:'/'}); await pause();
+  const menuInfo = () => evaluate(`(() => { const m = document.querySelector('.slash-menu'), l = m && m.querySelector('.slash-list'); if (!l) return null;
+    const lr = l.getBoundingClientRect(), a = l.querySelector('.slash-item.active'), ar = a.getBoundingClientRect(), mr = m.getBoundingClientRect();
+    return { n: l.children.length, scrollable: l.scrollHeight > l.clientHeight, overflowX: getComputedStyle(l).overflowX, scrollTop: l.scrollTop, active: a.querySelector('.slash-name').textContent,
+      visible: ar.top >= lr.top - 1 && ar.bottom <= lr.bottom + 1, inViewport: mr.top >= 0 && mr.bottom <= innerHeight, menuH: mr.height, pageScroll: [document.scrollingElement.scrollTop, document.querySelector('.stage, .canvas-area, main')?.scrollTop ?? 0] }; })()`);
+  await until(menuInfo, 'slash menu open');
+  let mi = await menuInfo();
+  assert.equal(mi.n, 9, 'all commands listed');
+  assert.ok(mi.menuH <= 340 + 1, 'menu height bounded');
+  assert.ok(mi.scrollable, 'list scrolls when it exceeds the maximum height'); assert.equal(mi.overflowX, 'hidden'); assert.ok(mi.inViewport, 'menu inside the viewport');
+  assert.equal(mi.active, 'Block equation');
+  const names = [];
+  for (let i = 0; i < 8; i++) { await key('ArrowDown'); await pause(60); mi = await menuInfo(); names.push(mi.active); assert.ok(mi.visible, 'active item visible going down: ' + mi.active); }
+  assert.equal(names.at(-1), 'Numbered list'); assert.ok(mi.scrollTop > 0, 'list scrolled down');
+  assert.deepEqual(mi.pageScroll, [0, 0], 'keyboard navigation does not scroll the page');
+  for (let i = 0; i < 8; i++) { await key('ArrowUp'); await pause(60); mi = await menuInfo(); assert.ok(mi.visible, 'active item visible going up: ' + mi.active); }
+  assert.equal(mi.active, 'Block equation'); assert.equal(mi.scrollTop, 0, 'scrolled back to the top');
+  await key('ArrowUp'); await pause(60); mi = await menuInfo(); // wraps to the last command
+  assert.equal(mi.active, 'Numbered list'); assert.ok(mi.visible, 'wrap-around keeps the last item visible');
+  // Wheel over the list scrolls the list and keeps the menu open.
+  await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await pause(60);
+  const lr = await evaluate(`(() => { const r = document.querySelector('.slash-list').getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()`);
+  await send('Input.dispatchMouseEvent', { type: 'mouseWheel', ...lr, deltaX: 0, deltaY: 120 }); await pause(200);
+  mi = await menuInfo();
+  assert.ok(mi && mi.scrollTop > 0, 'wheel scrolls the list and does not close the menu');
+  // Mouse selection of a command that needed scrolling to reach.
+  await evaluate(`[...document.querySelectorAll('.slash-item')].find((e) => e.querySelector('.slash-name').textContent === 'Bulleted list').click()`); await pause();
+  assert.equal(await evaluate("document.querySelectorAll('.slash-menu').length"), 0, 'click selects and closes');
+  assert.deepEqual((await doc()).content.map((n) => n.type), ['bulletList'], 'click ran the command');
+  // Enter runs the active command; Escape closes without running anything.
+  await evaluate('active().commands.clearContent()'); await pause();
+  await send('Input.insertText', {text:'/'}); await pause(); await until(menuInfo, 'slash menu reopened');
+  for (let i = 0; i < 8; i++) await key('ArrowDown');
+  await pause(60); await key('Enter'); await pause();
+  assert.deepEqual((await doc()).content.map((n) => n.type), ['orderedList'], 'Enter runs the active (scrolled-to) command');
+  await evaluate('active().commands.clearContent()'); await pause();
+  await send('Input.insertText', {text:'/'}); await pause(); await until(menuInfo, 'slash menu reopened again');
+  await key('Escape'); await pause();
+  assert.equal(await evaluate("document.querySelectorAll('.slash-menu').length"), 0, 'Escape closes the menu');
+  assert.ok((await doc()).content.every((n) => n.type === 'paragraph'), 'Escape inserts nothing');
+  await evaluate('store.getState().stopEditing()');
+  await evaluate(`store.getState().commit(d=>{d.slides[1].elements = d.slides[1].elements.filter(e => e.id !== ${JSON.stringify(slashEl)});})`);
+  console.log('PASS slash menu (bounded height, scrollable list, keyboard auto-scroll up/down/wrap, wheel, click, Enter, Escape, viewport)');
   // Code Block (/code at line start) and Quote ("| " at line start), typed in a fresh box on the content slide.
   await evaluate(`store.getState().addElements([defaults.newText(64,330,{w:900})],{edit:true})`);
   await until(() => evaluate('!!active()'), 'Block text editor');

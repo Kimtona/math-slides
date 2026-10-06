@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/core';
 import { insertMath } from './mathNodes';
@@ -45,13 +45,18 @@ function filter(q: string, lineStart: boolean, inside: string[] = []) {
     .sort((a, b) => rank(a) - rank(b));
 }
 
-interface MenuState { from: number; to: number; query: string; x: number; y: number; lineStart: boolean; inside: string[] }
+/** Longest the menu grows before its command list scrolls; it also never exceeds the room on its side of the caret. */
+const MENU_MAX = 340, MENU_GAP = 6, MENU_MARGIN = 8;
+
+interface MenuState { from: number; to: number; query: string; x: number; y: number; top: number; lineStart: boolean; inside: string[] }
 
 /** Notion-like "/" command menu. `keyRef.current` is called from the editor's handleKeyDown. */
 export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { current: ((e: KeyboardEvent) => boolean) | null } }) {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [index, setIndex] = useState(0);
   const dismissedAt = useRef<number | null>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const keyNav = useRef(false); // only keyboard moves scroll the list; hover must not make it jump
 
   useEffect(() => {
     const update = () => {
@@ -74,7 +79,7 @@ export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { curren
       const c = view.coordsAtPos(from);
       setMenu((prev) => {
         if (!prev || prev.query !== m[1]) setIndex(0);
-        return { from, to: $from.pos, query: m[1], x: c.left, y: c.bottom, lineStart, inside };
+        return { from, to: $from.pos, query: m[1], x: c.left, y: c.bottom, top: c.top, lineStart, inside };
       });
     };
     editor.on('transaction', update);
@@ -85,8 +90,8 @@ export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { curren
 
   keyRef.current = (e: KeyboardEvent) => {
     if (!menu || !items.length) return false;
-    if (e.key === 'ArrowDown') { setIndex((i) => (i + 1) % items.length); return true; }
-    if (e.key === 'ArrowUp') { setIndex((i) => (i - 1 + items.length) % items.length); return true; }
+    if (e.key === 'ArrowDown') { keyNav.current = true; setIndex((i) => (i + 1) % items.length); return true; }
+    if (e.key === 'ArrowUp') { keyNav.current = true; setIndex((i) => (i - 1 + items.length) % items.length); return true; }
     if (e.key === 'Enter' || e.key === 'Tab') {
       const it = items[Math.min(index, items.length - 1)];
       setMenu(null);
@@ -97,10 +102,27 @@ export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { curren
     return false;
   };
 
+  // Keep the keyboard-active command inside the list's visible area (scrolls the list only, never the page).
+  useLayoutEffect(() => {
+    if (!keyNav.current) return;
+    keyNav.current = false;
+    const box = list.current, el = box?.children[Math.min(index, items.length - 1)] as HTMLElement | undefined;
+    if (!box || !el) return;
+    if (el.offsetTop < box.scrollTop) box.scrollTop = el.offsetTop;
+    else if (el.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = el.offsetTop + el.offsetHeight - box.clientHeight;
+  }, [index, items.length]);
+
   if (!menu || !items.length) return null;
+  // Below the caret by default; flipped above it when there is little room below and more above.
+  const below = window.innerHeight - (menu.y + MENU_GAP) - MENU_MARGIN, above = menu.top - MENU_GAP - MENU_MARGIN;
+  const flip = below < 220 && above > below;
+  const place = flip
+    ? { bottom: window.innerHeight - menu.top + MENU_GAP, maxHeight: Math.min(MENU_MAX, above) }
+    : { top: menu.y + MENU_GAP, maxHeight: Math.min(MENU_MAX, below) };
   return createPortal(
-    <div className="slash-menu" style={{ left: menu.x, top: menu.y + 6 }} onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.stopPropagation()}>
+    <div className="slash-menu" style={{ left: menu.x, ...place }} onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.stopPropagation()}>
       <div className="slash-title">Commands</div>
+      <div className="slash-list" ref={list}>
       {items.map((it, i) => (
         <div key={it.title} className={`slash-item ${i === index ? 'active' : ''}`}
           onMouseEnter={() => setIndex(i)}
@@ -109,6 +131,7 @@ export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { curren
           <span><div className="slash-name">{it.title}</div><div className="slash-hint">{it.hint}</div></span>
         </div>
       ))}
+      </div>
     </div>,
     document.body,
   );
