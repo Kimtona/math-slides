@@ -312,6 +312,18 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .math-input:focus { outline: none; border-color: var(--accent); background: #fff; }
 .math-popover-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
 .math-help { color: var(--muted); font-size: 11px; }
+.math-pal-btn { border: 1px solid var(--line); background: #fff; border-radius: 5px; width: 24px; height: 22px; padding: 0; margin-left: auto; cursor: pointer; font-size: 13px; line-height: 1; color: var(--muted); font-family: 'Times New Roman', serif; }
+.math-pal-btn:hover, .math-pal-btn.on { background: #eef0f2; color: var(--ink); }
+.math-palette { position: absolute; left: 0; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid #d9dce0; border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.16); padding: 4px 6px 6px; }
+.math-palette.flip { top: auto; bottom: calc(100% + 6px); }
+.math-pal-tabs { display: flex; gap: 2px; padding: 2px 0 4px; border-bottom: 1px solid var(--line); }
+.math-pal-tabs button { border: 0; background: none; padding: 3px 8px; border-radius: 5px; cursor: pointer; font: inherit; font-size: 12px; color: var(--muted); }
+.math-pal-tabs button:hover { background: #eef0f2; }
+.math-pal-tabs button.on { background: #eef0f2; color: var(--ink); font-weight: 600; }
+.math-pal-grid { display: grid; grid-template-columns: repeat(8, 1fr); padding-top: 4px; max-height: 190px; overflow-y: auto; }
+.math-pal-cell { border: 0; background: none; padding: 0; height: 38px; border-radius: 6px; cursor: pointer; font-size: 16px; color: var(--ink); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.math-pal-cell:hover { background: #eef0f2; }
+.math-pal-cell svg { max-width: 100%; }
 .math-err-msg { color: #cf222e; font-size: 12px; }
 
 /* ---------- notes ---------- */

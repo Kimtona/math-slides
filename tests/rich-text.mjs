@@ -261,6 +261,61 @@ try {
   await evaluate('store.getState().stopEditing()');
   assert.equal(await evaluate("!!document.querySelector('.slide.editable .math-block svg')"), true);
   console.log('PASS Title/Content templates, heading shortcuts and /math');
+  // Math Palette (Ω in the equation popover): hidden by default, cursor-aware insertion, focus kept in the textarea.
+  await evaluate(`store.getState().addElements([defaults.newText(700,600,{w:400})],{edit:true})`);
+  await until(() => evaluate('!!active()'), 'Palette text editor');
+  const palEl = await evaluate('store.getState().editingId');
+  await send('Input.insertText', {text:'/math'}); await pause(); await key('Enter'); await pause();
+  assert.equal(await evaluate("!!document.querySelector('.math-popover .math-input')"), true);
+  assert.equal(await evaluate("document.querySelectorAll('.math-palette').length"), 0, 'palette hidden by default');
+  const taState = () => evaluate("(() => { const t = document.querySelector('.math-input'); return { v: t.value, s: t.selectionStart, e: t.selectionEnd, focus: document.activeElement === t }; })()");
+  const setTa = (v, s, e = s) => evaluate(`(() => { const t = document.querySelector('.math-input'); t.focus(); const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; set.call(t, ${JSON.stringify(v)}); t.dispatchEvent(new Event('input', {bubbles: true})); t.setSelectionRange(${s}, ${e}); })()`);
+  const pal = (title) => evaluate(`(() => { const b = [...document.querySelectorAll('.math-pal-cell')].find((c) => c.title === ${JSON.stringify(title)}); if (!b) throw Error('no cell ' + ${JSON.stringify(title)}); b.dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true})); b.click(); })()`).then(() => pause());
+  const tab = (cat) => evaluate(`document.querySelector('.math-pal-tabs [data-cat=${cat}]').click()`).then(() => pause());
+  await click('.math-pal-btn'); await pause();
+  assert.equal(await evaluate("document.querySelectorAll('.math-palette').length"), 1, 'Ω opens the palette');
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.math-pal-tabs button')].map(b => b.textContent)"), ['자주 사용', '그리스', '연산', '스타일', '구조']);
+  assert.equal(await evaluate("[...document.querySelectorAll('.math-pal-cell')].every(c => c.querySelector('svg'))"), true, 'cells show rendered symbols');
+  assert.equal(await evaluate("!!store.getState().mathEdit"), true, 'palette does not close the equation');
+  await setTa('a+b', 1);
+  await pal('rho · \\rho'); // caret insertion, not append
+  assert.deepEqual(await taState(), { v: 'a\\rho+b', s: 5, e: 5, focus: true });
+  await setTa('ab', 1); await pal('rho · \\rho'); // would fuse with the next letter: separated by a space
+  assert.deepEqual(await taState(), { v: 'a\\rho b', s: 6, e: 6, focus: true });
+  await setTa('x+y', 0, 1);
+  await tab('style'); await pal('bold · \\mathbf{}'); // selection wrapped
+  assert.deepEqual(await taState(), { v: '\\mathbf{x}+y', s: 10, e: 10, focus: true });
+  await setTa('x', 0, 1); await pal('hat · \\hat{}');
+  assert.equal((await taState()).v, '\\hat{x}');
+  await setTa('', 0); await pal('text · \\text{}'); // empty template: caret inside the braces
+  assert.deepEqual(await taState(), { v: '\\text{}', s: 6, e: 6, focus: true });
+  await send('Input.insertText', {text: 'if'}); await pause();
+  assert.equal((await taState()).v, '\\text{if}', 'typing continues inside the template');
+  await tab('struct'); await setTa('', 0); await pal('fraction · \\frac{}{}');
+  assert.deepEqual(await taState(), { v: '\\frac{}{}', s: 6, e: 6, focus: true });
+  await setTa('n', 0, 1); await pal('fraction · \\frac{}{}');
+  assert.deepEqual(await taState(), { v: '\\frac{n}{}', s: 9, e: 9, focus: true }, 'selection becomes the numerator, caret in the denominator');
+  await setTa('x', 0, 1); await pal('norm · \\lVert x\\rVert');
+  assert.equal((await taState()).v, '\\lVert x\\rVert');
+  await setTa('', 0); await pal('cases · \\begin{cases}');
+  assert.deepEqual(await evaluate("(() => { const t = document.querySelector('.math-input'); return [t.value.startsWith('\\\\begin{cases} '), t.selectionStart, t.value.endsWith('\\\\end{cases}')]; })()"), [true, 14, true], 'cases caret in the first cell');
+  await setTa('', 0); await pal('matrix · \\begin{pmatrix}');
+  assert.equal((await taState()).s, '\\begin{pmatrix} '.length);
+  assert.equal(await evaluate("document.querySelector('.math-input').value === store.getState().deck.slides[1].elements.find(e => e.id === " + JSON.stringify(palEl) + ").doc.content[0].attrs.latex"), true, 'node updated live');
+  // Escape closes only the palette; a second Escape commits the equation (unchanged behavior).
+  await key('Escape'); await pause();
+  assert.equal(await evaluate("document.querySelectorAll('.math-palette').length"), 0, 'Escape closes the palette');
+  assert.equal(await evaluate("!!store.getState().mathEdit"), true, 'Escape on the palette keeps the equation editor open');
+  await click('.math-pal-btn'); await pause(); // reopen, then click elsewhere in the popover
+  await click('.math-popover-foot .math-help'); await pause();
+  assert.equal(await evaluate("document.querySelectorAll('.math-palette').length"), 0, 'outside click closes the palette');
+  assert.equal(await evaluate("!!store.getState().mathEdit"), true, 'outside click inside the popover keeps the equation open');
+  await setTa('a', 1); await send('Input.insertText', {text: 'b'});
+  await key('Enter'); await pause(); // plain Enter still commits
+  assert.equal(await evaluate("!!store.getState().mathEdit"), false, 'Enter commits');
+  await evaluate('store.getState().stopEditing()');
+  await evaluate(`store.getState().commit(d=>{d.slides[1].elements = d.slides[1].elements.filter(e => e.id !== ${JSON.stringify(palEl)});})`);
+  console.log('PASS math palette (hidden by default, caret/selection insertion, templates, focus, Escape/outside click)');
   // Code Block (/code at line start) and Quote ("| " at line start), typed in a fresh box on the content slide.
   await evaluate(`store.getState().addElements([defaults.newText(64,330,{w:900})],{edit:true})`);
   await until(() => evaluate('!!active()'), 'Block text editor');
