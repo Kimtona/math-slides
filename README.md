@@ -2,17 +2,18 @@
 
 > **Write like Notion. Math like Overleaf. Present as slides.**
 
-MathSlides is a compact macOS presentation editor for technical and research talks. You type structure with `#` and `/` commands, write equations in familiar LaTeX, and edit everything directly on the slide.
+MathSlides is a compact macOS presentation editor for technical and research talks. You type structure with `#` and `/` commands, write equations in familiar LaTeX, cite papers by pasting arXiv links, and edit everything directly on the slide.
 
 <p align="center">
   <img src="docs/readme/editor-overview.png" alt="The MathSlides editor with a research slide containing a plotted figure, a diagram made of shapes, and LaTeX equations" width="100%">
 </p>
 
 <p align="center">
-  <a href="#install-on-macos">Install</a> ·
-  <a href="#how-it-works">How it works</a> ·
-  <a href="#math-without-leaving-your-slides">Math</a> ·
+  <a href="#write-like-notion">Write</a> ·
+  <a href="#math-like-overleaf">Math &amp; citations</a> ·
+  <a href="#present-as-slides">Slides</a> ·
   <a href="#made-with-mathslides">Showcase</a> ·
+  <a href="#install-on-macos">Install</a> ·
   <a href="#updating-mathslides">Updating</a> ·
   <a href="#development">Development</a>
 </p>
@@ -21,20 +22,17 @@ MathSlides is a compact macOS presentation editor for technical and research tal
 
 ## Why MathSlides?
 
-Writing in Notion is fast: you type `#` for a heading, `/` for a block, and keep going. Writing math in LaTeX is natural once your fingers know it. But a research presentation usually means switching to a much larger slide tool, digging through formatting menus, and picking font sizes one box at a time.
+Writing in Notion is fast: `#` for a heading, `/` for a block, keep going. LaTeX math is natural once your fingers know it. But building a research talk usually means switching to a much larger slide tool, digging through menus, and picking font sizes one box at a time.
 
-MathSlides combines the parts of those workflows that matter most when you build a talk:
+MathSlides keeps the parts of those workflows that matter for a talk, in one small app that runs locally with no account:
 
-- **Notion-style writing:** Markdown shortcuts and a `/` command menu.
-- **LaTeX math:** typed directly into the slide and rendered as you type.
-- **Direct slide editing:** text, figures, and shapes live on a 16:9 canvas you can drag, resize, and align.
-- **A compact macOS app:** autosave, `.mslides` files, presentation mode, and PDF / PPTX export.
+- **Write like Notion:** a fixed `#` / `##` text scale, a `/` command menu, todo lists, and one-click highlights.
+- **Math like Overleaf:** LaTeX equations rendered as you type, plus arXiv citations that build the References slide for you.
+- **Present as slides:** a 16:9 canvas you edit directly, an outline that generates section slides, a theme color, presentation mode, and PDF / PPTX export.
 
-It runs locally, with no account and no sign-in.
+## Write like Notion
 
-## How it works
-
-### 1. Predictable text hierarchy
+### Predictable text hierarchy
 
 You don't pick font sizes from a menu. Type a Markdown prefix at the start of a line and the line snaps to a fixed size from one shared scale:
 
@@ -42,14 +40,12 @@ You don't pick font sizes from a menu. Type a Markdown prefix at the start of a 
 |---|---|---|
 | `# ` | **80** | Title |
 | `## ` | **50** | Slide heading |
-| `### ` | **30** | Subheading / body of a template |
+| `### ` | **30** | Subheading / template body |
 | `#### ` | **25** | Body text |
 
-<img src="docs/readme/heading-hierarchy.png" alt="Four lines typed with #, ##, ### and #### prefixes, rendered at 80, 50, 30 and 25" width="440">
+Backspace at the start of the line reverts it. The same scale drives the built-in Title and Content templates, so every slide in a deck lines up. (Sizes are px on a 1280×720 slide, which equals pt in the exported 13.33″ widescreen deck.)
 
-Backspace at the start of the line reverts it. The same scale drives the built-in Title and Content slide templates, so every slide in a deck lines up. (Sizes are in px on a 1280×720 slide, which equals pt in the exported 13.33″ widescreen deck.)
-
-### 2. Slash commands
+### Slash commands
 
 Type `/` inside any text box to open the command menu, then keep typing to filter:
 
@@ -64,8 +60,6 @@ Type `/` inside any text box to open the command menu, then keep typing to filte
 </tr>
 </table>
 
-The current commands:
-
 | Command | Inserts |
 |---|---|
 | `/math` | Block equation (LaTeX, rendered live) |
@@ -77,35 +71,76 @@ The current commands:
 | `/image` | Image from a file (drag-and-drop and `⌘V` paste also work) |
 | `/bullet`, `/number` | Bulleted / numbered list (or just type `- ` / `1. `) |
 
-`/code`, `/callout`, `/block`, `/image` and `/todo` are offered at the start of a line. Other Markdown-style shortcuts: `| ` starts a quote, `**bold**` works as you'd expect, and `Tab` / `⇧Tab` indent list items.
+`/code`, `/callout`, `/block`, `/image` and `/todo` are offered at the start of a line. Also: `| ` starts a quote, `**bold**` works as expected, `Tab` / `⇧Tab` indent list items, and the format bar adds colors, six highlight colors, and inline code to a selection.
 
-### 3. Direct canvas editing
+## Math like Overleaf
 
-Everything on a slide is an object you can grab. Click to select, drag to move, and pull the handles to resize. Alignment guides snap to the edges and centers of the slide and of other objects (hold `⌥ Option` to turn snapping off).
+### LaTeX, rendered as you type
 
-<img src="docs/readme/canvas-editing.png" alt="Dragging a rounded box in a diagram, with selection handles and a pink alignment guide" width="620">
-
-- **Text boxes:** click an empty spot (or press `T`). The height follows the content. Dragging a corner scales the font.
-- **Shapes:** rectangle `R`, rounded rectangle, ellipse `O`, line `L`, arrow `A`, and an adjustable block arrow. Double-click a shape to type inside it, including inline math.
-- **Images:** drag in, paste, or `/image`. Corner drag keeps the aspect ratio, `⇧ Shift`+drag crops, and you can add an optional caption.
-- **Arrange:** multi-select, align/distribute, `⌘D` duplicate, `⌘]` / `⌘[` to reorder, arrow keys to nudge, and full undo/redo.
-
-## Math without leaving your slides
-
-Type `/math`, press Enter, and write LaTeX. The equation renders on the slide as you type, and Enter puts you back in your text.
+Type `/math`, press Enter, and write LaTeX. Enter puts you back in your text.
 
 <img src="docs/readme/math-equation.png" alt="The equation popover: LaTeX source in a text field, the rendered fraction directly above it on the slide" width="720">
 
-- **LaTeX in, vector math out.** Equations are rendered by [MathJax 3](https://www.mathjax.org/) to SVG, and the same SVG appears in the editor, in presentation mode, in the PDF, and in the PPTX.
-- **Inline or display.** Use `/math` for display equations. For math inside a sentence, use `$$…$$` or `/inline` (`⌘⇧E` turns selected text into an equation).
-- **Optional helpers.** The `Ω` button opens a small palette of symbols and templates (Greek, operators, `\mathbb{}`, fractions, matrices, `cases`, …). The ☆ button saves the current expression as a favorite, so you can reinsert it from the palette.
+- **Inline or display.** `/math` for display equations; `$$…$$`, `/inline`, or `⌘⇧E` (on selected text) for math inside a sentence, including inside shapes, callouts, and theorem blocks.
+- **Vector everywhere.** Equations are rendered by [MathJax 3](https://www.mathjax.org/) to SVG, and the same SVG is used in the editor, presentation mode, the PDF, and the PPTX.
+- **Optional helpers.** The `Ω` button opens a palette of symbols and templates (Greek, operators, `\mathbb{}`, fractions, matrices, `cases`, …). The ☆ button saves the current expression as a favorite you can reinsert from the palette.
 - **Click to edit** any equation later. While the LaTeX is invalid, the last good render stays visible and the error is shown in the popover.
 
 > **Scope:** this is MathJax's TeX input for *math* (most AMS-style math commands work). It is not a full LaTeX document engine: there is no document preamble, no packages beyond what MathJax provides, no shared macro file, and no Overleaf project import.
 
+### arXiv citations → References slide
+
+Every slide has a reference field in its bottom-right footer. Paste an **arXiv URL** there (or type one and press Enter), and MathSlides turns it into a citation:
+
+<p align="center">
+  <img src="docs/readme/citation-footer.png" alt="Slide footer before and after: a pasted arXiv URL becomes the short citation 'Deep Unsupervised Learning using Nonequilibrium Thermodynamics, Sohl-Dickstein et al., 2015'" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/readme/showcase-references.png" alt="Automatically generated References slide listing three arXiv papers in compact author-year format" width="55%">
+</p>
+
+1. **Paste:** an `arxiv.org/abs/…`, `/pdf/…` or `/html/…` URL (a version such as `v7` is fine).
+2. **Cite:** MathSlides fetches the title, authors, and year from arXiv and shows a short citation linked to the paper. The `×` on a citation removes it from that slide. Other text in the footer stays as a plain note.
+3. **Collect:** a **References** slide is created at the end of the deck (before a Thank-you slide) and kept up to date. Each paper appears once even if cited on several slides, in compact author-year style, sorted by first author. A long list continues on *References (cont.)*, and the slide is removed when no citations remain (unless you added your own content to it).
+
+This workflow is **arXiv-only** for now. Other links, DOI links, and bare arXiv IDs are not converted; they stay as plain footer text. Citations are author-year, not numbered, and fetching the metadata needs a network connection.
+
+## Present as slides
+
+### Direct canvas editing
+
+Everything on a slide is an object you can drag and resize. Alignment guides snap to the edges and centers of the slide and of other objects (hold `⌥ Option` to turn snapping off).
+
+<img src="docs/readme/canvas-editing.png" alt="Dragging a rounded box in a diagram, with selection handles and a pink alignment guide" width="620">
+
+- **Text boxes:** click an empty spot (or press `T`). The height follows the content, and dragging a corner scales the font.
+- **Shapes:** rectangle `R`, rounded rectangle, ellipse `O`, line `L`, arrow `A`, and a block arrow with adjustable shaft and head. Double-click a shape to type inside it.
+- **Images:** drag in, paste, or `/image`. Corner drag keeps the aspect ratio, `⇧ Shift`+drag crops (non-destructively), and you can add a caption.
+- **Arrange:** multi-select, align/distribute, `⌘D` duplicate, `⌘]` / `⌘[` to reorder, arrow keys to nudge, and full undo/redo.
+
+### Outline → section slides
+
+Right-click a slide in the slide list and choose **목차 슬라이드 추가** (*Add contents slide*). Each item you type in its numbered list becomes a section, and MathSlides generates a section slide for it (*Part n. Name*).
+
+<img src="docs/readme/structure-sections.png" alt="An Outline slide with three numbered sections; the slide list shows the generated 'Part 1', 'Part 2' and 'Part 3' section slides" width="100%">
+
+- **Kept in sync:** rename, add, remove, or reorder outline items and the section slides' titles, numbering, and "next part" lines follow. Removing an item removes its section slide.
+- **Placement is manual:** a new section slide is added near the end of the deck (before References). Drag it to where that part begins; content slides are never moved for you.
+- **Linked:** clicking an outline entry jumps to its section slide in the editor, presentation mode, the PDF, and the PPTX.
+
+### Theme color
+
+The **Theme** control in the top bar (with nothing selected) sets one presentation-wide color:
+
+<img src="docs/readme/theme-colors.png" alt="The Theme color palette with theme colors, standard colors, saved My Colors, and a custom HEX field, over a deck themed navy" width="600">
+
+- It colors the title band, content-slide headers, section-slide backgrounds, and a thin footer accent, and keeps text on them readable.
+- **Other Colors…** accepts any HEX value (or the picker/eyedropper), and **☆** saves it to **My Colors** for all your presentations. The same bar sets the presentation font (NanumSquare, Pretendard, Noto Serif KR).
+
 ## Made with MathSlides
 
-A five-slide reading-group deck built in the current app. Every element below is regular MathSlides content: themed templates, typed Markdown shortcuts, slash-command blocks, LaTeX, a plotted figure inserted as an image, shapes, and arXiv citations.
+A reading-group deck built in the current app. Everything below is regular MathSlides content: themed templates, typed Markdown shortcuts, slash-command blocks, LaTeX, a plotted figure inserted as an image, shapes, and arXiv citations. Its References slide is the one shown [above](#arxiv-citations--references-slide).
 
 <p align="center">
   <img src="docs/readme/showcase-equations.png" alt="Slide 'The forward process' with a Definition block, a Remark block, two display equations and a callout" width="100%">
@@ -113,30 +148,19 @@ A five-slide reading-group deck built in the current app. Every element below is
 
 <table>
 <tr>
-<td width="50%"><img src="docs/readme/showcase-title.png" alt="Title slide: Denoising Diffusion Models"></td>
 <td width="50%"><img src="docs/readme/showcase-motivation.png" alt="Slide with highlighted bullet points, a callout, and a todo-style reading plan"></td>
-</tr>
-<tr>
-<td><img src="docs/readme/showcase-figure.png" alt="Slide with a density plot and caption, a three-box diagram with arrows, and bullets with inline math"></td>
-<td><img src="docs/readme/showcase-references.png" alt="Automatically generated References slide with three arXiv papers"></td>
+<td width="50%"><img src="docs/readme/showcase-figure.png" alt="Slide with a density plot and caption, a three-box diagram with arrows, and bullets with inline math"></td>
 </tr>
 </table>
 
-The **References** slide is generated automatically. Paste an arXiv link into a slide's footer, and MathSlides fetches the paper's metadata, shows a short citation on that slide, and keeps a deduplicated bibliography at the end of the deck.
-
 ## Key features
 
-- **Rich text:** bold, italic, underline, strike, text colors (with saved custom colors), six highlight colors, inline code, and lists.
+- **Rich text:** bold, italic, underline, strike, text colors, six highlight colors, inline code, and lists.
 - **Structured blocks:** callouts, Beamer-style theorem/definition blocks, todo lists, quotes, and syntax-highlighted code.
-- **Figures and diagrams:** images with non-destructive crop and captions, plus shapes, lines, arrows, block arrows, and standalone emoji.
-- **Deck structure:** title slides, a presentation-wide theme color, an auto-synced table of contents with section slides, slide numbers, and a Thank-you slide.
-- **Citations:** paste an arXiv URL into the footer to get a linked short citation and an auto-maintained References slide.
-- **Fonts:** NanumSquare (default), Pretendard, and Noto Serif KR are bundled.
-- **Present:** full-screen presentation mode (`⌘↵` / `F5`).
-- **Export:** **PDF** with selectable text and vector equations (`⌘P`), and **PPTX** with editable text boxes and native shapes (`⌘E`).
+- **Figures and diagrams:** images with crop and captions, shapes with text, lines, arrows, adjustable block arrows, and standalone emoji (10 customizable quick emojis plus a full searchable picker).
+- **Present and export:** full-screen presentation mode (`⌘↵` / `F5`), **PDF** with selectable text and vector equations (`⌘P`), and editable **PPTX** with native text boxes, shapes, and speaker notes (`⌘E`).
+- **Personal shortcuts:** saved colors, favorite math expressions, and quick emojis are kept as your preferences across presentations.
 - **Files:** autosave, `.mslides` documents (`⌘S` / `⌘O`) that open from Finder with a double-click, and recovery of displaced work.
-
-<p align="center"><img src="docs/readme/highlight.png" alt="The text formatting bar with the highlight palette open over selected text" width="600"><br><sub>Formatting stays one click away: select text, pick a highlight.</sub></p>
 
 > The app's menus and tooltips are currently in **Korean** (e.g. 내보내기 = Export, 발표 = Present). Slash commands, LaTeX, and keyboard shortcuts are the same in any language.
 
@@ -226,17 +250,12 @@ Contributors: start with [`CLAUDE.md`](CLAUDE.md) and [`docs/PROJECT_STATUS.md`]
 | Equation-only box | `M` or the toolbar's 수식 button |
 | Image | Drag and drop, `⌘V`, `I`, or `/image` (PNG / JPEG / WebP / GIF / SVG) |
 | Image resize / crop | Handle drag keeps ratio · `⌥`+drag free · `⇧`+drag crop · double-click to edit the crop |
-| Shapes | `R` rectangle · `O` ellipse · `L` line · `A` arrow (more in the 도형 menu) |
-| Shape text | Double-click a shape |
 | Snapping | Automatic. Hold `⌥` to disable, hold `⇧` on the idle canvas to preview guides |
 | Undo / redo | `⌘Z` / `⌘⇧Z` |
 | Copy / paste / duplicate | `⌘C` `⌘V` `⌘X` `⌘D`, arrows nudge (`⇧` = 10 px) |
 | Z-order | `⌘]` `⌘[` (with `⇧` = to front/back) |
-| Slides | In the slide list: `Enter` new, `⌘D` duplicate, `⌫` delete, drag to reorder, right-click for Title / Table of Contents / Thank-you slides |
-| Citation | Click the bottom-right footer of a slide and paste an arXiv URL |
-| Present | `⌘↵` / `F5` |
+| Slides | In the slide list: `Enter` new, `⌘D` duplicate, `⌫` delete, drag to reorder, right-click for Title / contents (outline) / Thank-you slides |
 | Save / open | `⌘S` / `⌘O` (`⌘⇧S` Save As) |
-| Export | `⌘P` PDF · `⌘E` PPTX |
 
 </details>
 
