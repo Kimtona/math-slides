@@ -116,13 +116,15 @@ Everything on a slide is an object you can drag and resize, with alignment guide
 
 ### Outline → section slides
 
-Right-click a slide in the slide list and choose **목차 슬라이드 추가** (*Add contents slide*). Each item you type in its numbered list becomes a section, and MathSlides generates a section slide for it (*Part n. Name*).
+Write the outline of your talk once, and MathSlides builds and maintains a section-title slide for every part, much like a Beamer table of contents with section pages.
 
 <img src="docs/readme/structure-sections.png" alt="An Outline slide with three numbered sections; the slide list shows the generated 'Part 1', 'Part 2' and 'Part 3' section slides" width="100%">
 
-- **Kept in sync:** rename, add, remove, or reorder outline items and the section slides' titles, numbering, and "next part" lines follow. Removing an item removes its section slide.
-- **Placement is manual:** a new section slide is added near the end of the deck (before References). Drag it to where that part begins; content slides are never moved for you.
-- **Linked:** clicking an outline entry jumps to its section slide in the editor, presentation mode, the PDF, and the PPTX.
+1. **Outline:** right-click a slide → **목차 슬라이드 추가** (*Add contents slide*) and type your sections as a numbered list: *Motivation, Method, Experiments, …*
+2. **Generated:** each entry gets its own section-title slide, *Part 1. Motivation*, *Part 2. Method*, …, with the next part shown underneath. Rename, add, or reorder entries and these slides update automatically; remove an entry and its slide is deleted.
+3. **Linked:** click an entry to jump to its section slide, in the editor, presentation mode, the PDF, and the PPTX.
+
+Placement in the deck is up to you: new section slides are added near the end (before References), so drag each one to where its part begins.
 
 ### Theme color
 
