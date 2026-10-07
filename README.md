@@ -1,190 +1,260 @@
 # MathSlides
 
-A lightweight WYSIWYG slide editor for academic and research talks. You edit slides visually, like in Canva or PowerPoint, and type equations Notion-style with `/math`. Decks export to **PDF**, with vector text and equations, and to **PPTX**, with editable text boxes.
+> **Write like Notion. Math like Overleaf. Present as slides.**
 
-## Running it
+MathSlides is a compact macOS presentation editor for technical and research talks. You type structure with `#` and `/` commands, write equations in familiar LaTeX, and edit everything directly on the slide.
 
-```bash
-cd ~/math-slides
-npm install          # first time only
+<p align="center">
+  <img src="docs/readme/editor-overview.png" alt="The MathSlides editor with a research slide containing a plotted figure, a diagram made of shapes, and LaTeX equations" width="100%">
+</p>
 
-npm run app          # desktop app (Electron): one-click PDF export with a save dialog
-npm run dist:mac     # packaged macOS build (electron-builder): release/mac-arm64/MathSlides.app + MathSlides-<version>-arm64.dmg (unsigned)
-npm run dist:win     # Windows NSIS installer (.exe) — run on Windows (not validated yet)
-npm run dev          # browser: open http://localhost:5173 (use Chrome)
-```
-
-You can also double-click `MathSlides.command` in Finder to launch the desktop app.
-
-> Fonts: NanumSquare (default), Pretendard and Noto Serif KR are bundled (SIL OFL, see `src/fonts/`). The **글꼴** control (left of Theme, nothing selected) sets the font of every text in the presentation and overrides per-text fonts; the font control next to the text size changes only the selected text. For PPTX files to show the same font in PowerPoint, install the font you used (NanumSquare: [Naver Hangeul fonts](https://hangeul.naver.com/font)). The editor and PDF already embed the fonts, so they look right without it.
-
-## Building and installing the macOS app
-
-```bash
-npm run dist:mac
-```
-
-The build is written to `release/`. On Apple Silicon the main outputs are:
-
-- `release/mac-arm64/MathSlides.app`
-- `release/MathSlides-<version>-arm64.dmg` (the filename includes the current `package.json` version)
-
-To install the local build:
-
-1. Open the generated `.dmg`.
-2. Drag `MathSlides.app` into the **Applications** folder.
-3. Launch MathSlides from Applications (optionally keep it in the Dock).
-
-The macOS build is currently unsigned and not notarized, so macOS may show a security warning the first time you open it. `release/` is generated output and is intentionally ignored by Git.
-
-## Documents and autosave
-
-- **Autosave** is internal (IndexedDB) and never writes your `.mslides` file. It keeps the working presentation, so quitting, reopening the window (Dock) or reloading restores it with the same `Deck.id`.
-- **새 프레젠테이션** creates a new presentation (new `Deck.id`); the previous one is kept in a small internal recovery slot if it contains real changes (blank decks are not kept).
-- **열기** keeps the current presentation in the recovery slot first, keeps the file's `Deck.id`, and makes that file the current file.
-- **저장** writes the current `.mslides` file (the picker appears only when there is none or it can't be written). The current file is remembered across restarts.
-- **다른 이름으로 저장** creates an independent presentation: a new `Deck.id`, written into the new file; the original file is not touched.
-
-`.mslides` is registered as a MathSlides document type in the packaged app (macOS `CFBundleDocumentTypes`; Windows through the installer's file association). Double-clicking a `.mslides` file launches or reuses MathSlides and opens it through the same path as **열기…**: the current presentation is preserved first, the file's `Deck.id` is kept, and Save writes back to that file. The Electron main process only reads/writes `.mslides` documents it was asked to open. The document icon (`build/icons/mslides.icns` / `.ico`, generated from `mslides-doc-1024.png` by `make-doc-icon.cjs`) is bundled with an exported type `com.mathslides.presentation` (declared in `build.mac.extendInfo`), which is what lets Finder show it instead of a generic document. The type conforms to `public.data` (not `public.json`) on purpose: although the file is JSON internally, declaring it as JSON/text makes Finder and Quick Look render the raw JSON as the file's thumbnail.
-
-## How to use it
-
-| Action | How |
-|---|---|
-| Text box | Click an empty spot on the slide (when nothing is selected), or press `T` |
-| Edit text | Click a selected box again, double-click it, or press `Enter` |
-| **Block equation** | Type `/math` in text → `Enter` → type LaTeX (live rendering) → `Enter` |
-| Inline equation | `/inline`, `⌘⇧E` (turns selected text into an equation), or `$$x^2$$` |
-| Edit an equation | Click (or double-click) the equation → the LaTeX popover opens again |
-| Equation-only box | `M` or the toolbar's 수식 button |
-| Image | Drag and drop, `⌘V` (paste a screenshot), or `I`. PNG/JPEG/WebP/GIF/SVG |
-| Shape text | Double-click a shape to type inside it (centered, wraps within the shape, the shape never grows). Supports the usual inline formatting (bold, italic, underline, strike, color, highlight, inline code), multiple lines and undo/redo; Escape or a click outside leaves editing. The text is stored on the shape (`ShapeElement.doc`, optional `textStyle`), so it moves/resizes/deletes with it. PPTX: one native shape holding native editable text |
-| Shape fill | New shapes are filled with the Highlight light yellow (`HIGHLIGHT_COLORS[0]`, `src/model/colors.ts`); the toolbar **채우기** popover offers the same pastel palette as Highlight plus *None / Remove Fill*. Existing shapes keep their saved fill. Border colors are unchanged |
-| Theme color | The slide toolbar's **Theme** control (left of 배경색, same palette as Text Color) sets one presentation-wide color (`Deck.themeColor`, default White = no decorations). It paints derived, non-selectable decorations: a band behind the title on the Title slide, a header band on content slides, a full-color background on section-divider (Sub-title) slides and a thin footer accent. Text on them switches to black/white by contrast (only for default-colored text; colors you chose are kept). Layout lives in `src/model/theme.ts`; PPTX gets native rectangles |
-| Todo | Type `/todo` at the start of a line and press Enter. A checkbox + rich text block: click the box to check/uncheck (checked = filled box in the Theme Color — or the editor blue when the theme is White — with muted gray, struck-through text; your marks are not rewritten). Enter adds a new unchecked todo, Enter on an empty todo or Backspace at its start returns to a paragraph. Stored as a `todoItem` node with a `checked` attribute; PPTX: native checkbox shape + editable text |
-| Image resize | Handle drag = keep aspect ratio · `⌥ Option`+drag = free resize · `⇧ Shift`+drag = **crop** |
-| Crop edit | Double-click the image (or `Enter`): drag = move the image inside the frame, wheel/pinch or blue dots = zoom, white handles = crop frame. `Esc` / `Enter` / outside click = done |
-| Object colors | Shape Fill/Border, line color, and slide background: preset palette |
-| Text color | Toolbar **A** → Theme Colors (base colors + shades), Standard Colors, or Other Colors… (visual picker + 3/6-digit HEX). A selected text range gets its own color; with only a caret, or with the box selected, the box's default color changes (block equations and list markers follow). Striped indicator = mixed colors |
-| Highlight | Highlighter icon next to text color → six light colors or None / Remove Highlight. Selected range → that range; caret only → applies to the text you type next; box selected → the whole box |
-| Inline code | **</>** toggles Notion-style inline code (monospace, muted red, light gray background). Combines with text color (overrides the default red), highlight, and emphasis. ⌘E stays PPTX export |
-| Shapes | `R` rectangle, `O` ellipse, `L` line, `A` arrow |
-| Resize | Text corners scale the font. Shapes: `Shift` = keep aspect ratio |
-| Snapping | Edges and centers of the slide and other objects (hold `Alt` to turn it off). Hold `Shift` on the idle canvas to preview the same alignment guides before placing something (editor-only; not while editing text; Shift-click on empty canvas still places a text box) |
-| Text sizes | At the start of a line: `# ` 80 · `## ` 50 · `### ` 30 · `#### ` 25 (Backspace at the line start reverts). Sizes live in `src/model/typography.ts` |
-| Code block | Type `/code` at the start of a line and press Enter (slash menu). Multi-line monospace code with indentation kept; Enter adds a line, triple Enter or ↓ at the end leaves the block. Separate from inline code. New blocks are 16pt (a property of the block; the font-size field edits it while the caret is inside) and Plain Text. A subtle selector at the block's top-right (editor only) picks Plain Text / Python / C / Bash (no auto-detection); syntax colors are derived from text + language (highlight.js via lowlight), never stored. Tab / Shift+Tab indent / outdent the selected lines by 4 spaces. Languages live in `src/editor/codeHighlight.ts` — add one grammar + list entry to extend |
-| Callout | Type `/callout` at the start of a line and press Enter. A subtle rounded panel with an icon (default 💡) and rich text (marks, math, multi-line; Enter on an empty last line leaves it). Click the icon (editor only) to pick one of 10 presets; the icon is stored on the block, not in its text. Native background shape + editable icon/text in PPTX |
-| Academic block | Type `/block` at the start of a line and press Enter. A Beamer-style block: colored header (type, optional title) over a tinted rich-text body. Click the header's type (editor only) to switch Block / Theorem / Definition / Lemma / Proposition / Example / Remark; type the optional title in the header. Colors follow semantic families (Theorem, Lemma, Proposition share blue; Definition teal; Example green; Remark amber; Block gray) from `src/model/academicBlocks.ts`. `type` and `title` are attributes of one node. PPTX: native header/body shapes with editable text |
-| Image | Toolbar **이미지** and `/image` (line start, Enter) open the same file picker (cancel inserts nothing). Select an image and use **Caption** in the top bar for an optional plain-text caption (14, muted, left-aligned directly below the image, same left edge and width; `Add a caption...` is editor-only). **Remove Caption** deletes it; deleting the image removes both. Stored as `ImageElement.caption`; empty = none. PPTX: native picture plus an editable caption text box |
-| Quote | Type `| ` at the start of a line. Thin left line, no quotation marks; Enter continues the quote, Enter on an empty line leaves it. `P(A | B)` mid-line stays text |
-| Lists | Type `- ` or `1. `, `Tab` / `⇧Tab` to indent |
-| Footer | Slide number `n/total` bottom-left (automatic). Click the bottom-right to type a reference (citation) for that slide |
-| Templates | New presentation = Title Slide; each added slide = Content Slide (title + body). Template boxes are ordinary text boxes |
-| Title | Editing the Title Slide's main title renames the presentation (default export file name) |
-| Table of Contents | Right-click a slide → 목차 슬라이드 추가. Each numbered item is a section and gets its own Sub-title slide ("Part n. …" 80 + next section 30), kept in sync automatically (rename / insert / delete / reorder). Click an entry to jump to its Sub-title slide (double-click to edit). Contents slides are never touched |
-| Citations | Paste or type an arXiv URL (`/abs/`, `/pdf/`, `.pdf`, `v7`) into the bottom-right reference field → short citation ("Title, Vaswani et al., 2017") linked to the paper. A References slide (full APA-style entries, deduplicated by arXiv id) is maintained automatically before an optional Thank You slide (right-click → 감사 슬라이드 추가) |
-| Undo/redo | `⌘Z` / `⌘⇧Z` (while editing text, these undo within the text) |
-| Copy/paste/duplicate | `⌘C` `⌘V` `⌘X` `⌘D`, arrow keys nudge (`Shift` = 10px) |
-| Z-order | `⌘]` `⌘[` (with `⇧` = to front/back) |
-| Slides | Slide list: `Enter` new, `⌘D` duplicate, `⌫` delete, drag to reorder, right-click menu |
-| Present | `⌘Enter` / `F5` |
-| Save/open | Autosaves continuously (IndexedDB). Every launch and ∑ → 새 프레젠테이션 starts a fresh presentation; a launch restores the working presentation; New/Open keep displaced work in a recovery slot (at most 3, shown only as ∑ → 직전 작업 복구). `⌘S` saves a `.mslides` file, `⌘O` opens one |
-| Export | `⌘P` PDF, `⌘E` PPTX |
+<p align="center">
+  <a href="#install-on-macos">Install</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#math-without-leaving-your-slides">Math</a> ·
+  <a href="#made-with-mathslides">Showcase</a> ·
+  <a href="#updating-mathslides">Updating</a> ·
+  <a href="#development">Development</a>
+</p>
 
 ---
 
-## Design
+## Why MathSlides?
 
-### 1. Architecture and tech stack
+Writing in Notion is fast: you type `#` for a heading, `/` for a block, and keep going. Writing math in LaTeX is natural once your fingers know it. But a research presentation usually means switching to a much larger slide tool, digging through formatting menus, and picking font sizes one box at a time.
 
+MathSlides combines the parts of those workflows that matter most when you build a talk:
+
+- **Notion-style writing:** Markdown shortcuts and a `/` command menu.
+- **LaTeX math:** typed directly into the slide and rendered as you type.
+- **Direct slide editing:** text, figures, and shapes live on a 16:9 canvas you can drag, resize, and align.
+- **A compact macOS app:** autosave, `.mslides` files, presentation mode, and PDF / PPTX export.
+
+It runs locally, with no account and no sign-in.
+
+## How it works
+
+### 1. Predictable text hierarchy
+
+You don't pick font sizes from a menu. Type a Markdown prefix at the start of a line and the line snaps to a fixed size from one shared scale:
+
+| You type | Size on the slide | Typical use |
+|---|---|---|
+| `# ` | **80** | Title |
+| `## ` | **50** | Slide heading |
+| `### ` | **30** | Subheading / body of a template |
+| `#### ` | **25** | Body text |
+
+<img src="docs/readme/heading-hierarchy.png" alt="Four lines typed with #, ##, ### and #### prefixes, rendered at 80, 50, 30 and 25" width="440">
+
+Backspace at the start of the line reverts it. The same scale drives the built-in Title and Content slide templates, so every slide in a deck lines up. (Sizes are in px on a 1280×720 slide, which equals pt in the exported 13.33″ widescreen deck.)
+
+### 2. Slash commands
+
+Type `/` inside any text box to open the command menu, then keep typing to filter:
+
+<table>
+<tr>
+<td width="50%" valign="top"><img src="docs/readme/slash-menu.png" alt="The slash command menu listing Block equation, Inline equation, Code block, Callout, Block, Image and more"></td>
+<td width="50%" valign="top"><img src="docs/readme/todo-command.png" alt="Typing /todo filters the menu down to the Todo command"><br><br><img src="docs/readme/todo-result.png" alt="The resulting todo list with one checked item and an inline equation"></td>
+</tr>
+<tr>
+<td align="center"><sub>Type <code>/</code> to see every command.</sub></td>
+<td align="center"><sub><code>/todo</code> + Enter turns the line into a checklist.</sub></td>
+</tr>
+</table>
+
+The current commands:
+
+| Command | Inserts |
+|---|---|
+| `/math` | Block equation (LaTeX, rendered live) |
+| `/inline` | Inline equation (also `⌘⇧E`, or type `$$x^2$$`) |
+| `/todo` | Checklist item. Click the box to check it off; Enter adds the next item |
+| `/callout` | Rounded note panel with an emoji icon (💡 by default, any emoji via the picker) |
+| `/block` | Beamer-style block: Block, Theorem, Definition, Lemma, Proposition, Example, Remark |
+| `/code` | Code block with Plain Text / Python / C / Bash highlighting |
+| `/image` | Image from a file (drag-and-drop and `⌘V` paste also work) |
+| `/bullet`, `/number` | Bulleted / numbered list (or just type `- ` / `1. `) |
+
+`/code`, `/callout`, `/block`, `/image` and `/todo` are offered at the start of a line. Other Markdown-style shortcuts: `| ` starts a quote, `**bold**` works as you'd expect, and `Tab` / `⇧Tab` indent list items.
+
+### 3. Direct canvas editing
+
+Everything on a slide is an object you can grab. Click to select, drag to move, and pull the handles to resize. Alignment guides snap to the edges and centers of the slide and of other objects (hold `⌥ Option` to turn snapping off).
+
+<img src="docs/readme/canvas-editing.png" alt="Dragging a rounded box in a diagram, with selection handles and a pink alignment guide" width="620">
+
+- **Text boxes:** click an empty spot (or press `T`). The height follows the content. Dragging a corner scales the font.
+- **Shapes:** rectangle `R`, rounded rectangle, ellipse `O`, line `L`, arrow `A`, and an adjustable block arrow. Double-click a shape to type inside it, including inline math.
+- **Images:** drag in, paste, or `/image`. Corner drag keeps the aspect ratio, `⇧ Shift`+drag crops, and you can add an optional caption.
+- **Arrange:** multi-select, align/distribute, `⌘D` duplicate, `⌘]` / `⌘[` to reorder, arrow keys to nudge, and full undo/redo.
+
+## Math without leaving your slides
+
+Type `/math`, press Enter, and write LaTeX. The equation renders on the slide as you type, and Enter puts you back in your text.
+
+<img src="docs/readme/math-equation.png" alt="The equation popover: LaTeX source in a text field, the rendered fraction directly above it on the slide" width="720">
+
+- **LaTeX in, vector math out.** Equations are rendered by [MathJax 3](https://www.mathjax.org/) to SVG, and the same SVG appears in the editor, in presentation mode, in the PDF, and in the PPTX.
+- **Inline or display.** Use `/math` for display equations. For math inside a sentence, use `$$…$$` or `/inline` (`⌘⇧E` turns selected text into an equation).
+- **Optional helpers.** The `Ω` button opens a small palette of symbols and templates (Greek, operators, `\mathbb{}`, fractions, matrices, `cases`, …). The ☆ button saves the current expression as a favorite, so you can reinsert it from the palette.
+- **Click to edit** any equation later. While the LaTeX is invalid, the last good render stays visible and the error is shown in the popover.
+
+> **Scope:** this is MathJax's TeX input for *math* (most AMS-style math commands work). It is not a full LaTeX document engine: there is no document preamble, no packages beyond what MathJax provides, no shared macro file, and no Overleaf project import.
+
+## Made with MathSlides
+
+A five-slide reading-group deck built in the current app. Every element below is regular MathSlides content: themed templates, typed Markdown shortcuts, slash-command blocks, LaTeX, a plotted figure inserted as an image, shapes, and arXiv citations.
+
+<p align="center">
+  <img src="docs/readme/showcase-equations.png" alt="Slide 'The forward process' with a Definition block, a Remark block, two display equations and a callout" width="100%">
+</p>
+
+<table>
+<tr>
+<td width="50%"><img src="docs/readme/showcase-title.png" alt="Title slide: Denoising Diffusion Models"></td>
+<td width="50%"><img src="docs/readme/showcase-motivation.png" alt="Slide with highlighted bullet points, a callout, and a todo-style reading plan"></td>
+</tr>
+<tr>
+<td><img src="docs/readme/showcase-figure.png" alt="Slide with a density plot and caption, a three-box diagram with arrows, and bullets with inline math"></td>
+<td><img src="docs/readme/showcase-references.png" alt="Automatically generated References slide with three arXiv papers"></td>
+</tr>
+</table>
+
+The **References** slide is generated automatically. Paste an arXiv link into a slide's footer, and MathSlides fetches the paper's metadata, shows a short citation on that slide, and keeps a deduplicated bibliography at the end of the deck.
+
+## Key features
+
+- **Rich text:** bold, italic, underline, strike, text colors (with saved custom colors), six highlight colors, inline code, and lists.
+- **Structured blocks:** callouts, Beamer-style theorem/definition blocks, todo lists, quotes, and syntax-highlighted code.
+- **Figures and diagrams:** images with non-destructive crop and captions, plus shapes, lines, arrows, block arrows, and standalone emoji.
+- **Deck structure:** title slides, a presentation-wide theme color, an auto-synced table of contents with section slides, slide numbers, and a Thank-you slide.
+- **Citations:** paste an arXiv URL into the footer to get a linked short citation and an auto-maintained References slide.
+- **Fonts:** NanumSquare (default), Pretendard, and Noto Serif KR are bundled.
+- **Present:** full-screen presentation mode (`⌘↵` / `F5`).
+- **Export:** **PDF** with selectable text and vector equations (`⌘P`), and **PPTX** with editable text boxes and native shapes (`⌘E`).
+- **Files:** autosave, `.mslides` documents (`⌘S` / `⌘O`) that open from Finder with a double-click, and recovery of displaced work.
+
+<p align="center"><img src="docs/readme/highlight.png" alt="The text formatting bar with the highlight palette open over selected text" width="600"><br><sub>Formatting stays one click away: select text, pick a highlight.</sub></p>
+
+> The app's menus and tooltips are currently in **Korean** (e.g. 내보내기 = Export, 발표 = Present). Slash commands, LaTeX, and keyboard shortcuts are the same in any language.
+
+---
+
+## Install on macOS
+
+> **There is no prebuilt download yet.** The repository does not publish GitHub Releases or a downloadable `.dmg`. For now you build the app once on your Mac, which takes a few minutes.
+
+**Requirements:** a Mac with **Apple Silicon** (the build targets `arm64`), [Node.js](https://nodejs.org/) (the LTS version is fine), and Git.
+
+**1. Build the app**
+
+```bash
+git clone https://github.com/Kimtona/math-slides.git
+cd math-slides
+npm install
+npm run dist:mac
 ```
-React 18 + TypeScript + Vite        UI
-TipTap (ProseMirror)                rich text inside each text box, /math commands, inline/block math nodes
-MathJax 3 (SVG output)              LaTeX → self-contained SVG paths
-zustand + immer                     document state, snapshot-based undo/redo (structural sharing)
-idb-keyval (IndexedDB)              autosave (deck JSON and images stored separately)
-pptxgenjs + JSZip                   PPTX generation and XML fix-ups
-Electron (optional shell)           webContents.printToPDF → one-click vector PDF
+
+This creates, in the git-ignored `release/` folder:
+
+- `release/MathSlides-<version>-arm64.dmg`
+- `release/mac-arm64/MathSlides.app`
+
+**2. Install it**
+
+Open the `.dmg` and drag **MathSlides** into **Applications**. Then launch it from Applications or the Dock.
+
+**3. First launch**
+
+The app is **not signed or notarized**, so macOS may say it can't verify the developer the first time you open it. If that happens with the build you just made, go to **System Settings → Privacy & Security**, find the message about MathSlides, and click **Open Anyway**. On older macOS versions, right-click **MathSlides.app → Open** also works. You only need to do this once per installed copy.
+
+## Updating MathSlides
+
+**MathSlides has no automatic updater.** The installed app never checks for or downloads new versions, and pulling the repository does **not** change the app in `/Applications`. These are two separate steps:
+
+**A. Update the source**
+
+```bash
+cd math-slides
+git pull
+npm install        # picks up any dependency changes
 ```
 
-**KaTeX or MathJax?** KaTeX is what Notion uses and it's fast, but it outputs HTML + CSS + web fonts, which can't be put into PowerPoint as vector graphics. MathJax's SVG output (`fontCache: 'none'`) is a self-contained set of `<path>`s, so **the same SVG is used in the editor, the PDF, and the PPTX**: what you see is exactly what gets exported. It renders an equation in about 2 ms, so live preview while typing is as smooth as Notion.
+This only updates your local copy of the code. If you run MathSlides from source (`npm run app`), the next launch uses the new code.
 
-### 2. Components and data structures
+**B. Update the installed `/Applications/MathSlides.app`**
 
+1. Rebuild after pulling: `npm run dist:mac`.
+2. Quit MathSlides.
+3. Open the new `release/MathSlides-<version>-arm64.dmg` and drag **MathSlides** into **Applications**, choosing **Replace**.
+4. Relaunch. Because the new build is again unsigned, macOS may ask you to confirm the first launch again.
+
+Your work is not stored inside the app bundle. `.mslides` files are ordinary files wherever you saved them, and the internal autosave/recovery data lives in the app's user-data folder. Replacing `MathSlides.app` leaves both in place.
+
+## Development
+
+```bash
+npm install
+npm run app:dev     # Electron + Vite dev server with hot reload
+npm run app         # production build, then launch in Electron
+npm run dev         # browser only, http://localhost:5173 (use Chrome)
 ```
-src/
-  model/types.ts        Deck / Slide / SlideElement (text | image | shape | line)
-  model/geometry.ts     bounding boxes, snapping
-  model/colors.ts       preset palette (the only place colors are defined)
-  model/typography.ts   TYPOGRAPHY (h1/h2/h3/body) and footer constants, shared by # shortcuts and templates
-  model/imageCrop.ts    crop math (frame ↔ full-image rectangle)
-  store/store.ts        state, history (commit / live / gesture), slide operations
-  store/persistence.ts  autosave, .mslides files
-  math/mathjax.ts       renderTex(latex, display) → SVG (em units, cached)
-  editor/               TipTap extensions, math nodes, SlashMenu, MathPopover, TextEditor
-  canvas/               Canvas (drag/resize/marquee/snap), insert, arrange (align/distribute)
-  render/               StaticText / ElementView: read-only rendering (thumbnails, presentation, export)
-  export/               PrintRoot (1:1 DOM), pptx.ts, run.ts
-  ui/                   Toolbar, PropsBar, Navigator, Presenter, shortcuts
-```
 
-- Slide coordinates are **1280×720 CSS px**. Since 1280px = 13.333in, this matches PowerPoint's widescreen size exactly (1px = 1/96in = 0.75pt).
-- `TextElement.doc` is ProseMirror JSON. Math lives in the document as `mathInline` / `mathBlock` nodes with a `{latex}` attribute.
-- Text box height is automatic, measured from the content. A box widens automatically if an equation is wider than it.
-- Undo: every change produces a new immutable deck, and the previous deck goes on the `past` stack. Continuous actions such as dragging or a text-editing session become one history entry, between `beginGesture` and `endGesture`.
-- Images are stored once in a separate `assets` map; elements reference them by `assetId`.
-- `Slide.reference` (optional) is the per-slide citation. The slide number is never stored; it's computed from the slide's position.
-- `Deck.titleElementId` (optional) explicitly links the Title Slide's main title box to `Deck.title`: editing that box's text updates the title (older files without it don't sync).
-- Per-line font sizes from `#` shortcuts are a paragraph attribute (`fontSize`).
-- Table of Contents: the TOC box's list items carry stable `sectionId`s; `Deck.sections` maps section → Sub-title slide id (`Slide.kind = 'subtitle'`). Citations: `Slide.citations` (ids) + `Deck.citations` (metadata, keyed `arxiv:<id>`). `model/structure.ts` reconciles Sub-title / References slides inside every change, so undo/redo snapshots stay consistent.
-- Links: TOC entries are `#slide-<id>` (internal PDF link / PowerPoint slide jump), citations link to `https://arxiv.org/abs/<id>`. arXiv has no CORS headers: the desktop app fetches via the main process, `npm run dev` via a Vite proxy.
-- Image crop is non-destructive: `ImageElement.crop = {x, y, w, h}` is the visible part of the original as fractions (0–1). It's optional, so files without it open as uncropped. It maps 1:1 to PowerPoint's `srcRect`.
+| Command | What it does |
+|---|---|
+| `npm run typecheck` | TypeScript check (`tsc -b`) |
+| `npm run build` | Typecheck + production Vite build into `dist/` |
+| `npm test` | Headless model tests + Electron GUI tests (hidden windows, isolated temporary profile; `MATHSLIDES_TEST_VISIBLE=1` to watch) |
+| `npm run dist:mac` | Package the macOS app and `.dmg` into `release/` |
+| `npm run dist:win` | Windows NSIS installer (configured, not yet validated) |
 
-### 3. How `/math` works
+You can also double-click `MathSlides.command` in Finder to run the app from source.
 
-1. A ProseMirror transaction listener detects `/query` before the cursor and shows the slash menu (Block / Inline equation, lists).
-2. On `Enter`: if the paragraph is empty, it becomes a `mathBlock`; otherwise the equation is inserted after it (or the paragraph is split at the cursor). An inline equation is inserted at the cursor.
-3. The node is selected and the **MathPopover** (a LaTeX textarea) opens below it. Each keystroke calls `setNodeMarkup`, so the equation re-renders immediately on the slide. While the LaTeX is invalid, the last valid render stays visible (dimmed) and the error message appears in the popover.
-4. `Enter` / `Esc` / clicking outside finishes the equation, and the cursor moves after it (a new paragraph is added after a block equation if needed). An empty equation is deleted.
-5. Clicking the equation, double-clicking it while the box isn't being edited, or pressing `Enter` when it's selected opens the popover again.
+**Stack:** React 18 + TypeScript + Vite · TipTap (ProseMirror) for rich text · MathJax 3 (SVG) for equations · zustand + immer for state and undo · IndexedDB autosave · pptxgenjs for PPTX · Electron for the desktop shell and `printToPDF`.
 
-### 4. Images
+Contributors: start with [`CLAUDE.md`](CLAUDE.md) and [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md), which cover the architecture, persistence model, invariants, and validation status.
 
-- Sources: drag and drop (placed at the drop point), the clipboard (`⌘V`, including while editing text), or the file picker. Several images at once are cascaded.
-- They are inserted at their original resolution, scaled to fit 70% of the slide (never upscaled).
-- Corner handles keep the aspect ratio (`Shift` = free resize). The "원본 비율" (original ratio) button restores it.
-- They are stored as data URLs in IndexedDB and in the `.mslides` file. Unused images are cleaned up automatically.
+<details>
+<summary><b>Keyboard and editing reference</b></summary>
 
-### 5. Export
+| Action | How |
+|---|---|
+| Text box | Click an empty spot (nothing selected) or press `T` |
+| Edit text | Click a selected box again, double-click, or `Enter` |
+| Equation-only box | `M` or the toolbar's 수식 button |
+| Image | Drag and drop, `⌘V`, `I`, or `/image` (PNG / JPEG / WebP / GIF / SVG) |
+| Image resize / crop | Handle drag keeps ratio · `⌥`+drag free · `⇧`+drag crop · double-click to edit the crop |
+| Shapes | `R` rectangle · `O` ellipse · `L` line · `A` arrow (more in the 도형 menu) |
+| Shape text | Double-click a shape |
+| Snapping | Automatic. Hold `⌥` to disable, hold `⇧` on the idle canvas to preview guides |
+| Undo / redo | `⌘Z` / `⌘⇧Z` |
+| Copy / paste / duplicate | `⌘C` `⌘V` `⌘X` `⌘D`, arrows nudge (`⇧` = 10 px) |
+| Z-order | `⌘]` `⌘[` (with `⇧` = to front/back) |
+| Slides | In the slide list: `Enter` new, `⌘D` duplicate, `⌫` delete, drag to reorder, right-click for Title / Table of Contents / Thank-you slides |
+| Citation | Click the bottom-right footer of a slide and paste an arXiv URL |
+| Present | `⌘↵` / `F5` |
+| Save / open | `⌘S` / `⌘O` (`⌘⇧S` Save As) |
+| Export | `⌘P` PDF · `⌘E` PPTX |
 
-**PDF**: every slide is rendered at 1:1 in a hidden `PrintRoot`, with `@page { size: 1280px 720px }`.
-- Desktop app: Chromium `printToPDF` → save dialog. Result: 960×540pt pages, **embedded fonts (selectable text) and vector equations**.
-- Browser: the print dialog opens; choose "PDF로 저장" (Save as PDF). File → Print works too.
+</details>
 
-**PPTX**: built from `PrintRoot` by **measuring the browser layout** (`getBoundingClientRect`) and placing everything in the same spots.
-- Text: runs of consecutive plain paragraphs become **one editable PowerPoint text box**, keeping bold, italic, underline, color, bullets, numbering, line spacing and alignment.
-- Block equations become **SVG pictures** (PowerPoint 365 keeps them as vectors; a high-resolution PNG fallback is included).
-- Paragraphs with inline equations: PowerPoint can't put a picture inside a text run, so each line is split at the equations. The text pieces become small text boxes and the equations become SVGs, all at their measured positions.
-- Shapes and lines become native PowerPoint shapes (fill / no fill, outline, arrows, dashes). Images keep their original quality (WebP and similar formats are converted to PNG). Cropped images use **PowerPoint's native crop** (`<a:srcRect>`): the original is embedded, so the crop can still be adjusted in PowerPoint. Speaker notes are included.
-- pptxgenjs writes multiple `<a:pPr>` per paragraph, which breaks the OOXML schema; this is cleaned up with JSZip after generation.
-- Tested: the file opens in Microsoft PowerPoint for Mac without a repair prompt and renders correctly.
+<details>
+<summary><b>Export details and known limitations</b></summary>
 
-## Known limitations (MVP)
+- **PDF** (desktop app): every slide is rendered 1:1 and printed by Chromium to 960×540 pt pages with embedded fonts (selectable text) and vector equations.
+- **PPTX:** text becomes editable PowerPoint text boxes (bold/italic/underline/color/bullets/highlight). Shapes, lines, callouts, blocks, todo checkboxes and code blocks become native shapes with editable text, and images keep native crop. Speaker notes are included.
+- Equations in PPTX are SVG pictures (with a PNG fallback), not native PowerPoint equations.
+- A PPTX line that contains inline equations is split into several positioned text boxes, so heavy editing in PowerPoint can disturb its layout.
+- For PowerPoint to show the same font, install the font you used locally (e.g. NanumSquare). The editor and PDF already embed it.
+- No rotation, grouping or tables. Crop is rectangular only.
+- Fonts with Korean glyphs (including NanumSquare) display `\` as `₩` in normal text. Equations are unaffected.
 
-- PPTX: code blocks are a native rounded rectangle plus editable Menlo text with one colored run per syntax token (same tokenizer; the language selector is not exported); quotes are editable text plus a native line.
-- PPTX: text highlight and the inline-code background are native PowerPoint text highlights; inline code is editable Menlo text. PowerPoint does not reproduce the code padding / rounded corners, and may substitute Menlo on systems without it.
-- No rotation, grouping, or tables. Crop is rectangular only (no mask shapes).
-- Equations in PPTX are pictures, not native PowerPoint equations (OMML).
-- In PPTX, a line containing inline equations becomes several separate text boxes, so editing the text in PowerPoint can disturb the layout.
-- Font size and alignment are set per text box (no per-character sizes).
-- Fonts with Korean glyphs (including NanumSquare) display `\` as `₩` in text. Inside equations this doesn't matter.
+</details>
 
-## Rich-text validation
+## Project status
 
-Run `npm run typecheck`, `npm run build`, and `npm test` with installed dependencies and a graphical desktop session. The integration test starts Electron with a **temporary user-data directory**, so it never reads or writes your usual autosave/recovery data. Toolbar clicks and typing use native (DevTools) input events; some setup steps call the app's store directly. OS file dialogs and arXiv responses are supplied at their boundaries; application serialization, metadata parsing, and export generation run normally.
-
-It checks selection retention, palette contents, HEX validation, mixed-color indicators, formatting combinations and undo/redo, HTML serialization, autosave/restart/recovery, `.mslides` save/open, heading and math shortcuts, TOC navigation, citation deduplication, and PDF/PPTX exports. PPTX assertions inspect editable runs, native highlights, fonts, and hyperlinks. Screenshots and test files are retained in the temporary output directory printed at completion; `MATHSLIDES_TEST_OUTPUT` can select another output directory. PDF/PPTX visual inspection is separate from these automated assertions.
-
-All color palettes (object presets, Theme/Standard text colors, highlights) live in `src/model/colors.ts`; inline-code styling lives in `src/model/textFormatting.ts`. Highlight/code marks live in `src/editor/formattingMarks.ts` and are stored inside the existing ProseMirror document JSON, with no new storage format.
-
-For manual checks in an isolated desktop profile, run `npm test -- --interactive` and press Ctrl-C when finished.
+- **Platform:** macOS on Apple Silicon is the primary, tested platform (current version **1.0.0**). A Windows installer configuration exists but has **not** been validated on a real Windows machine.
+- **Distribution:** you build locally (see [Install](#install-on-macos)). Signing, notarization, automatic updates, and published releases are not implemented yet.
+- **Development stage:** in active use for real presentations. Fixes come from that day-to-day use. Planned work is tracked in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) and [`docs/V2_PLAN.md`](docs/V2_PLAN.md).
