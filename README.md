@@ -2,7 +2,7 @@
 
 > **Write like Notion. Math like Overleaf. Present as slides.**
 
-MathSlides is a compact macOS presentation editor for technical and research talks. You type structure with `#` and `/` commands, write equations in familiar LaTeX, cite papers by pasting arXiv links, and edit everything directly on the slide.
+MathSlides is a compact macOS presentation editor for technical and research talks, built around one idea: spend less time making formatting decisions and more time writing the talk.
 
 <p align="center">
   <img src="docs/readme/editor-overview.png" alt="The MathSlides editor with a research slide containing a plotted figure, a diagram made of shapes, and LaTeX equations" width="100%">
@@ -22,19 +22,17 @@ MathSlides is a compact macOS presentation editor for technical and research tal
 
 ## Why MathSlides?
 
-Writing in Notion is fast: `#` for a heading, `/` for a block, keep going. LaTeX math is natural once your fingers know it. But building a research talk usually means switching to a much larger slide tool, digging through menus, and picking font sizes one box at a time.
+Making a research talk involves many small, repeated decisions: what size this heading should be, where the equation or code tool lives, how to rebuild the section pages, how to format the references, how to recolor every slide for your lab. MathSlides turns each of these into a convention, so what remains is writing. It runs locally, with no account.
 
-MathSlides keeps the parts of those workflows that matter for a talk, in one small app that runs locally with no account:
-
-- **Write like Notion:** a fixed `#` / `##` text scale, a `/` command menu, todo lists, and one-click highlights.
-- **Math like Overleaf:** LaTeX equations rendered as you type, plus arXiv citations that build the References slide for you.
-- **Present as slides:** a 16:9 canvas you edit directly, an outline that generates section slides, a theme color, presentation mode, and PDF / PPTX export.
+- **Write like Notion:** `#` to `####` pick from four fixed sizes, and `/math`, `/block`, `/code`, `/image` add research content without leaving the line you are typing.
+- **Math like Overleaf:** LaTeX equations rendered as you type, and arXiv links that become citations and a References slide.
+- **Present as slides:** an outline that generates section slides, one theme color for the whole deck, presentation mode, and PDF / PPTX export.
 
 ## Write like Notion
 
 ### Predictable text hierarchy
 
-You don't pick font sizes from a menu. Type a Markdown prefix at the start of a line and the line snaps to a fixed size from one shared scale:
+The idea is to skip the font-size decision. Type a Markdown prefix at the start of a line and the line takes its size from one fixed scale:
 
 | You type | Size on the slide | Typical use |
 |---|---|---|
@@ -47,7 +45,7 @@ Backspace at the start of the line reverts it. The same scale drives the built-i
 
 ### Slash commands
 
-Type `/` inside any text box to open the command menu, then keep typing to filter:
+Type `/` and keep writing. `/math`, `/block`, `/code`, and `/image` add an equation, a theorem or definition, highlighted code, and a captioned figure in the flow of your text, without a trip to the toolbar. Keep typing after `/` to filter:
 
 <table>
 <tr>
@@ -68,7 +66,7 @@ Type `/` inside any text box to open the command menu, then keep typing to filte
 | `/callout` | Rounded note panel with an emoji icon (💡 by default, any emoji via the picker) |
 | `/block` | Beamer-style block: Block, Theorem, Definition, Lemma, Proposition, Example, Remark |
 | `/code` | Code block with Plain Text / Python / C / Bash highlighting |
-| `/image` | Image from a file (drag-and-drop and `⌘V` paste also work) |
+| `/image` | Image from a file, selected so **Caption** in the top bar adds its caption right away (drag-and-drop and `⌘V` paste also work) |
 | `/bullet`, `/number` | Bulleted / numbered list (or just type `- ` / `1. `) |
 
 `/code`, `/callout`, `/block`, `/image` and `/todo` are offered at the start of a line. Also: `| ` starts a quote, `**bold**` works as expected, `Tab` / `⇧Tab` indent list items, and the format bar adds colors, six highlight colors, and inline code to a selection.
@@ -108,11 +106,7 @@ This workflow is **arXiv-only** for now. Other links, DOI links, and bare arXiv 
 
 ## Present as slides
 
-### Direct canvas editing
-
-Everything on a slide is an object you can drag and resize, with alignment guides that snap to the slide and to other objects (hold `⌥ Option` to turn snapping off).
-
-<img src="docs/readme/canvas-editing.png" alt="Dragging a rounded box in a diagram, with selection handles and a pink alignment guide" width="620">
+The result is an ordinary 16:9 deck: everything on a slide can still be dragged, resized, and snapped into place with alignment guides.
 
 ### Outline → section slides
 
