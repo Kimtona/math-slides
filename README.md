@@ -110,14 +110,9 @@ This workflow is **arXiv-only** for now. Other links, DOI links, and bare arXiv 
 
 ### Direct canvas editing
 
-Everything on a slide is an object you can drag and resize. Alignment guides snap to the edges and centers of the slide and of other objects (hold `⌥ Option` to turn snapping off).
+Everything on a slide is an object you can drag and resize, with alignment guides that snap to the slide and to other objects (hold `⌥ Option` to turn snapping off).
 
 <img src="docs/readme/canvas-editing.png" alt="Dragging a rounded box in a diagram, with selection handles and a pink alignment guide" width="620">
-
-- **Text boxes:** click an empty spot (or press `T`). The height follows the content, and dragging a corner scales the font.
-- **Shapes:** rectangle `R`, rounded rectangle, ellipse `O`, line `L`, arrow `A`, and a block arrow with adjustable shaft and head. Double-click a shape to type inside it.
-- **Images:** drag in, paste, or `/image`. Corner drag keeps the aspect ratio, `⇧ Shift`+drag crops (non-destructively), and you can add a caption.
-- **Arrange:** multi-select, align/distribute, `⌘D` duplicate, `⌘]` / `⌘[` to reorder, arrow keys to nudge, and full undo/redo.
 
 ### Outline → section slides
 
@@ -250,7 +245,10 @@ Contributors: start with [`CLAUDE.md`](CLAUDE.md) and [`docs/PROJECT_STATUS.md`]
 | Equation-only box | `M` or the toolbar's 수식 button |
 | Image | Drag and drop, `⌘V`, `I`, or `/image` (PNG / JPEG / WebP / GIF / SVG) |
 | Image resize / crop | Handle drag keeps ratio · `⌥`+drag free · `⇧`+drag crop · double-click to edit the crop |
+| Resize text | Corner drag scales the font; the box height follows its content |
+| Shapes | `R` rectangle · `O` ellipse · `L` line · `A` arrow (rounded rectangle and adjustable block arrow in the 도형 menu); double-click a shape to type in it |
 | Snapping | Automatic. Hold `⌥` to disable, hold `⇧` on the idle canvas to preview guides |
+| Align / distribute | 정렬 in the format bar: one object aligns to the slide, several to each other; distribute with 3+ |
 | Undo / redo | `⌘Z` / `⌘⇧Z` |
 | Copy / paste / duplicate | `⌘C` `⌘V` `⌘X` `⌘D`, arrows nudge (`⇧` = 10 px) |
 | Z-order | `⌘]` `⌘[` (with `⇧` = to front/back) |
