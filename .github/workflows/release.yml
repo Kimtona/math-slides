@@ -3,6 +3,10 @@ name: Release
 # Builds the macOS (Apple Silicon) DMG for a version tag and attaches it to a DRAFT
 # GitHub Release. Publishing is always a manual step. The build is not signed or
 # notarized (no Apple credentials are used).
+#
+# Two jobs: `tests` (typecheck + full test suite) and `package` (DMG + draft release).
+# Packaging does not wait for the tests to PASS, but it does wait for them to FINISH:
+# a failing test run keeps the workflow red and is stated in the draft release notes.
 on:
   push:
     tags:
@@ -17,12 +21,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  tests:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+  package:
+    needs: tests
+    if: ${{ !cancelled() }}
     runs-on: macos-latest
     timeout-minutes: 45
     env:
       TAG: ${{ github.ref_name }}
       GH_TOKEN: ${{ github.token }}
+      TEST_RESULT: ${{ needs.tests.result }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,10 +73,6 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run typecheck
-
-      - run: npm test
-
       - run: npm run build
 
       - name: Package DMG (arm64, unsigned)
@@ -64,12 +84,53 @@ jobs:
           test -f "$dmg" || { echo "::error::Expected $dmg was not produced"; ls -la release; exit 1; }
           echo "DMG=$dmg" >> "$GITHUB_ENV"
 
+      - name: Verify DMG contents
+        run: |
+          set -euo pipefail
+          work="${RUNNER_TEMP:-/tmp}/dmgcheck"
+          rm -rf "$work"; mkdir -p "$work/mnt" "$work/app"
+          hdiutil attach -readonly -nobrowse -mountpoint "$work/mnt" "$DMG" >/dev/null
+          trap 'hdiutil detach "$work/mnt" >/dev/null 2>&1 || true' EXIT
+          ditto "$work/mnt/MathSlides.app" "$work/app/MathSlides.app"
+          app="$work/app/MathSlides.app"
+          plist="$app/Contents/Info.plist"
+          pb() { /usr/libexec/PlistBuddy -c "Print :$1" "$plist"; }
+          fail() { echo "::error::$*"; exit 1; }
+
+          [ "$(pb CFBundleShortVersionString)" = "$VERSION" ] || fail "Bundle version is $(pb CFBundleShortVersionString), expected $VERSION"
+          [ "$(pb CFBundleIdentifier)" = "com.mathslides.app" ] || fail "Unexpected bundle identifier"
+          [ "$(lipo -archs "$app/Contents/MacOS/MathSlides")" = "arm64" ] || fail "Executable is not arm64-only"
+          [ -f "$app/Contents/Resources/$(pb CFBundleIconFile)" ] || fail "App icon missing"
+          [ -f "$app/Contents/Resources/mslides.icns" ] || fail "Document icon missing"
+          plutil -p "$plist" | grep -q '"mslides"' || fail ".mslides document type missing"
+          plutil -p "$plist" | grep -q 'com.mathslides.presentation' || fail "com.mathslides.presentation UTI missing"
+          plutil -p "$plist" | grep -q 'public.data' || fail "UTI does not conform to public.data"
+          echo "Bundle OK: version $VERSION, arm64, icons, .mslides association"
+
+          # Launch smoke test: the app must stay alive for a few seconds with a throwaway profile.
+          MATHSLIDES_TEST_HIDDEN=1 "$app/Contents/MacOS/MathSlides" --user-data-dir="$work/profile" >"$work/launch.log" 2>&1 &
+          pid=$!
+          sleep 8
+          if ! kill -0 "$pid" 2>/dev/null; then
+            cat "$work/launch.log" || true
+            fail "MathSlides exited within 8 seconds of launch"
+          fi
+          kill "$pid" 2>/dev/null || true
+          echo "Launch OK"
+
       - name: Create draft release
         run: |
           flags=""
           case "$VERSION" in *-*) flags="--prerelease" ;; esac
+          if [ "$TEST_RESULT" = "success" ]; then
+            tests_line="CI tests: passed."
+          else
+            tests_line="CI tests: NOT PASSED (result: $TEST_RESULT). See the Actions run before publishing this release."
+          fi
           gh release create "$TAG" "$DMG" \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag --draft $flags \
             --title "MathSlides $VERSION" \
-            --notes "MathSlides $VERSION for macOS (Apple Silicon). This build is not signed or notarized; see the README for first-launch steps."
+            --notes "MathSlides $VERSION for macOS (Apple Silicon). This build is not signed or notarized; see the README for first-launch steps.
+
+          $tests_line"
