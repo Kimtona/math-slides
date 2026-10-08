@@ -8,13 +8,61 @@ MathSlides is a compact macOS presentation editor for technical and research tal
   <img src="docs/readme/editor-overview.png" alt="The MathSlides editor with a research slide containing a plotted figure, a diagram made of shapes, and LaTeX equations" width="100%">
 </p>
 
+## Download for macOS
+
+> **Temporary note:** no prebuilt macOS download is available yet. The link below goes to the GitHub Releases page, which stays empty until the first release is published and verified. Until then, you can [build the app from source](#build-the-app-from-source).
+
+<p align="center">
+  <a href="https://github.com/Kimtona/math-slides/releases/latest"><b>⬇ Download MathSlides for macOS</b></a><br>
+  <sub>Free · runs locally · no account</sub>
+</p>
+
+**Requires:** a Mac with **Apple Silicon** (M1 or later) running **macOS 13 Ventura or newer**. Intel Macs are not supported.
+
+1. **Download** the latest `MathSlides-<version>-arm64.dmg` from the [Releases page](https://github.com/Kimtona/math-slides/releases/latest).
+2. **Open** the `.dmg` and drag **MathSlides** into the **Applications** folder.
+3. **Launch** MathSlides from Applications (see the first-launch note below).
+
+### First launch
+
+MathSlides is not signed or notarized by Apple, so macOS shows a security warning the first time you open it. There are two different messages; check which one you see.
+
+**A. "Apple could not verify MathSlides…" (the normal warning).** This is expected, and you only need to approve the app once per installed copy:
+
+1. Open **MathSlides** from Applications, then click **Done** (or **OK**) on the warning.
+2. Open **System Settings → Privacy & Security** and scroll down to the **Security** section.
+3. Next to "MathSlides was blocked", click **Open Anyway**, then confirm with your password or Touch ID.
+
+On macOS 14 and older, right-clicking **MathSlides.app → Open** also works. On macOS 15 (Sequoia) and newer, use the steps above.
+
+**B. "MathSlides is damaged and can't be opened" (uncommon).** If you see this and there is no **Open Anyway** button in Privacy & Security, use the advanced fallback below.
+
+<details>
+<summary>Advanced fallback: remove the quarantine flag (Terminal)</summary>
+
+macOS can mark a downloaded, unsigned app as quarantined, and then report it as damaged. The app is not actually damaged. Only do this for a copy of MathSlides you downloaded from this repository's Releases page. Paste this in **Terminal**, then open the app again:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/MathSlides.app
+```
+
+</details>
+
+### Updating
+
+MathSlides has no automatic updater. To update:
+
+1. Download the newest `.dmg` from the [Releases page](https://github.com/Kimtona/math-slides/releases/latest).
+2. Quit MathSlides, open the `.dmg`, and drag **MathSlides** into **Applications**, choosing **Replace**.
+3. Open it again. Because the new version is also unsigned, macOS may ask you to approve it once more (see First launch).
+
+Your `.mslides` files are ordinary files wherever you saved them. Your autosave, recovery data, and personal shortcuts (saved colors, quick emojis, favorite math) are stored in your user data folder, not inside the app, so replacing the app keeps all of them.
+
 <p align="center">
   <a href="#write-like-notion">Write</a> ·
   <a href="#math-like-overleaf">Math &amp; citations</a> ·
   <a href="#present-as-slides">Slides</a> ·
   <a href="#made-with-mathslides">Showcase</a> ·
-  <a href="#install-on-macos">Install</a> ·
-  <a href="#updating-mathslides">Updating</a> ·
   <a href="#development">Development</a>
 </p>
 
@@ -157,13 +205,11 @@ A reading-group deck built in the current app. Everything below is regular MathS
 
 ---
 
-## Install on macOS
+## Development
 
-> **There is no prebuilt download yet.** The repository does not publish GitHub Releases or a downloadable `.dmg`. For now you build the app once on your Mac, which takes a few minutes.
+### Build the app from source
 
-**Requirements:** a Mac with **Apple Silicon** (the build targets `arm64`), [Node.js](https://nodejs.org/) (the LTS version is fine), and Git.
-
-**1. Build the app**
+Most people should use the [download](#download-for-macos) above. To build your own copy you need an Apple Silicon Mac, [Node.js](https://nodejs.org/) 22 (LTS), and Git:
 
 ```bash
 git clone https://github.com/Kimtona/math-slides.git
@@ -172,43 +218,9 @@ npm install
 npm run dist:mac
 ```
 
-This creates, in the git-ignored `release/` folder:
+This creates, in the git-ignored `release/` folder, `MathSlides-<version>-arm64.dmg` and `mac-arm64/MathSlides.app`. A local build is also unsigned, so the [first-launch](#first-launch) steps apply. To update a source checkout, run `git pull && npm install`; this does not change an app already installed in `/Applications`.
 
-- `release/MathSlides-<version>-arm64.dmg`
-- `release/mac-arm64/MathSlides.app`
-
-**2. Install it**
-
-Open the `.dmg` and drag **MathSlides** into **Applications**. Then launch it from Applications or the Dock.
-
-**3. First launch**
-
-The app is **not signed or notarized**, so macOS may say it can't verify the developer the first time you open it. If that happens with the build you just made, go to **System Settings → Privacy & Security**, find the message about MathSlides, and click **Open Anyway**. On older macOS versions, right-click **MathSlides.app → Open** also works. You only need to do this once per installed copy.
-
-## Updating MathSlides
-
-**MathSlides has no automatic updater.** The installed app never checks for or downloads new versions, and pulling the repository does **not** change the app in `/Applications`. These are two separate steps:
-
-**A. Update the source**
-
-```bash
-cd math-slides
-git pull
-npm install        # picks up any dependency changes
-```
-
-This only updates your local copy of the code. If you run MathSlides from source (`npm run app`), the next launch uses the new code.
-
-**B. Update the installed `/Applications/MathSlides.app`**
-
-1. Rebuild after pulling: `npm run dist:mac`.
-2. Quit MathSlides.
-3. Open the new `release/MathSlides-<version>-arm64.dmg` and drag **MathSlides** into **Applications**, choosing **Replace**.
-4. Relaunch. Because the new build is again unsigned, macOS may ask you to confirm the first launch again.
-
-Your work is not stored inside the app bundle. `.mslides` files are ordinary files wherever you saved them, and the internal autosave/recovery data lives in the app's user-data folder. Replacing `MathSlides.app` leaves both in place.
-
-## Development
+### Run and test
 
 ```bash
 npm install
@@ -266,8 +278,17 @@ Contributors: start with [`CLAUDE.md`](CLAUDE.md) and [`docs/PROJECT_STATUS.md`]
 
 </details>
 
+### Releases (maintainers)
+
+Pushing a version tag builds the DMG on GitHub Actions ([`release.yml`](.github/workflows/release.yml)) and attaches it to a **draft** GitHub Release; nothing is published automatically.
+
+1. Set `version` in `package.json` (and the lockfile), commit, and push to `main`.
+2. Tag and push: `git tag -a v1.1.0 -m "MathSlides v1.1.0" && git push origin v1.1.0`. A suffix such as `v1.1.0-rc.1` creates a prerelease draft.
+3. The workflow checks that the tag matches `package.json`, runs typecheck, tests and build, then uploads `MathSlides-<version>-arm64.dmg`. It fails rather than touch an existing release.
+4. Download and try the DMG from the draft, then publish the release manually on GitHub.
+
 ## Project status
 
 - **Platform:** macOS on Apple Silicon is the primary, tested platform (current version **1.0.0**). A Windows installer configuration exists but has **not** been validated on a real Windows machine.
-- **Distribution:** you build locally (see [Install](#install-on-macos)). Signing, notarization, automatic updates, and published releases are not implemented yet.
+- **Distribution:** unsigned, un-notarized Apple Silicon DMGs via [GitHub Releases](https://github.com/Kimtona/math-slides/releases), updated manually. Apple signing/notarization and automatic updates are not implemented.
 - **Development stage:** in active use for real presentations. Fixes come from that day-to-day use. Planned work is tracked in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) and [`docs/V2_PLAN.md`](docs/V2_PLAN.md).

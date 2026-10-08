@@ -90,7 +90,9 @@ Electron + electron-builder.
 
 - macOS: `npm run app` builds and launches from source (validated on a real MacBook); packaged `.app` and `.dmg` build (`npm run dist:mac`, output in git-ignored `release/`), installable as `/Applications/MathSlides.app`; app icon, `.mslides` document icon and Finder association work; lifecycle/recovery UX manually validated in the packaged app.
 - Windows: NSIS configuration exists but has NOT been validated on a real Windows install.
-- Not implemented: macOS signing, notarization, auto-update, GitHub Actions release builds, automated GitHub Releases. Do not add unless requested.
+- Releases: `.github/workflows/release.yml` runs on `vX.Y.Z` / `vX.Y.Z-suffix` tags (must equal `package.json` version). On a macOS runner it runs `npm ci`, typecheck, the full `npm test`, build, then `electron-builder --mac dmg --arm64 --publish never`, and creates a **draft** GitHub Release (prerelease if the tag has a suffix) with `MathSlides-<version>-arm64.dmg`. It uses only the built-in `GITHUB_TOKEN` (`contents: write`), fails if a release for the tag exists, and never moves tags. Publishing is manual. Users download the DMG and update by replacing the app; user data (IndexedDB in userData `math-slides`, `.mslides` files) lives outside the bundle and survives replacement, provided `package.json` `name` and `appId` stay unchanged.
+- The app is ad-hoc signed only (no Developer ID, `spctl` rejects it); first launch needs System Settings → Privacy & Security → Open Anyway (README documents this and the `xattr -dr com.apple.quarantine` fallback). Minimum macOS 13.0, arm64 only.
+- Not implemented: Developer ID signing, notarization, auto-update. Do not add unless requested.
 
 ## Development environment
 
