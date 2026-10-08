@@ -1,0 +1,75 @@
+name: Release
+
+# Builds the macOS (Apple Silicon) DMG for a version tag and attaches it to a DRAFT
+# GitHub Release. Publishing is always a manual step. The build is not signed or
+# notarized (no Apple credentials are used).
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  contents: write # create the draft release; nothing else is needed
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check tag matches package.json version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::Tag $TAG does not match package.json version $version"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Refuse to touch an existing release
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::A release for $TAG already exists; refusing to modify it"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - run: npm run build
+
+      - name: Package DMG (arm64, unsigned)
+        run: npx electron-builder --mac dmg --arm64 --publish never
+
+      - name: Locate DMG
+        run: |
+          dmg="release/MathSlides-${VERSION}-arm64.dmg"
+          test -f "$dmg" || { echo "::error::Expected $dmg was not produced"; ls -la release; exit 1; }
+          echo "DMG=$dmg" >> "$GITHUB_ENV"
+
+      - name: Create draft release
+        run: |
+          flags=""
+          case "$VERSION" in *-*) flags="--prerelease" ;; esac
+          gh release create "$TAG" "$DMG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag --draft $flags \
+            --title "MathSlides $VERSION" \
+            --notes "MathSlides $VERSION for macOS (Apple Silicon). This build is not signed or notarized; see the README for first-launch steps."
