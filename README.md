@@ -10,17 +10,15 @@ MathSlides is a compact macOS presentation editor for technical and research tal
 
 ## Download for macOS
 
-> **Temporary note:** no prebuilt macOS download is available yet. The link below goes to the GitHub Releases page, which stays empty until the first release is published and verified. Until then, you can [build the app from source](#build-the-app-from-source).
-
 <p align="center">
-  <a href="https://github.com/Kimtona/math-slides/releases/latest"><b>⬇ Download MathSlides for macOS</b></a><br>
+  <a href="https://github.com/Kimtona/math-slides/releases/latest"><b>⬇ Download MathSlides for macOS</b></a> (latest: 1.0.2)<br>
   <sub>Free · runs locally · no account</sub>
 </p>
 
 **Requires:** a Mac with **Apple Silicon** (M1 or later) running **macOS 13 Ventura or newer**. Intel Macs are not supported.
 
-1. **Download** the latest `MathSlides-<version>-arm64.dmg` from the [Releases page](https://github.com/Kimtona/math-slides/releases/latest).
-2. **Open** the `.dmg` and drag **MathSlides** into the **Applications** folder.
+1. **Download** `MathSlides-<version>-arm64.dmg` from the [latest release](https://github.com/Kimtona/math-slides/releases/latest) (listed under **Assets**).
+2. **Open** the `.dmg` and drag **MathSlides.app** into the **Applications** folder.
 3. **Launch** MathSlides from Applications (see the first-launch note below).
 
 ### First launch
@@ -50,7 +48,7 @@ xattr -dr com.apple.quarantine /Applications/MathSlides.app
 
 ### Updating
 
-MathSlides has no automatic updater. To update:
+MathSlides has no automatic updater; updates are manual. To update:
 
 1. Download the newest `.dmg` from the [Releases page](https://github.com/Kimtona/math-slides/releases/latest).
 2. Quit MathSlides, open the `.dmg`, and drag **MathSlides** into **Applications**, choosing **Replace**.
@@ -289,6 +287,6 @@ Pushing a version tag builds the DMG on GitHub Actions ([`release.yml`](.github/
 
 ## Project status
 
-- **Platform:** macOS on Apple Silicon is the primary, tested platform (current version **1.0.0**). A Windows installer configuration exists but has **not** been validated on a real Windows machine.
+- **Platform:** macOS on Apple Silicon is the primary, tested platform (current version **1.0.2**). A Windows installer configuration exists but has **not** been validated on a real Windows machine.
 - **Distribution:** unsigned, un-notarized Apple Silicon DMGs via [GitHub Releases](https://github.com/Kimtona/math-slides/releases), updated manually. Apple signing/notarization and automatic updates are not implemented.
 - **Development stage:** in active use for real presentations. Fixes come from that day-to-day use. Planned work is tracked in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) and [`docs/V2_PLAN.md`](docs/V2_PLAN.md).
