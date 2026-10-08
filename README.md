@@ -38,11 +38,24 @@ On macOS 14 and older, right-clicking **MathSlides.app → Open** also works. On
 <details>
 <summary>Advanced fallback: remove the quarantine flag (Terminal)</summary>
 
-macOS can mark a downloaded, unsigned app as quarantined, and then report it as damaged. The app is not actually damaged. Only do this for a copy of MathSlides you downloaded from this repository's Releases page. Paste this in **Terminal**, then open the app again:
+macOS may quarantine an unsigned download and report that the app is damaged even when the download is intact. **Only follow these steps for MathSlides downloaded from this repository's official [Releases page](https://github.com/Kimtona/math-slides/releases/latest).** Removing quarantine bypasses a macOS security check; it does not verify an app's integrity.
 
-```bash
-xattr -dr com.apple.quarantine /Applications/MathSlides.app
-```
+1. Quit MathSlides. Open **Terminal** and run:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/MathSlides.app
+   ```
+
+2. If you see **`Operation not permitted`**, retry with administrator privileges:
+
+   ```bash
+   sudo xattr -dr com.apple.quarantine /Applications/MathSlides.app
+   ```
+
+3. **Still getting `Operation not permitted` even with `sudo`?** Open **System Settings → Privacy & Security → Full Disk Access** and enable **Terminal** (or the terminal app you're using). Quit Terminal completely with **⌘Q**, reopen it, and run the `sudo xattr` command again.
+4. Try launching MathSlides again. After the command succeeds, you can disable Full Disk Access for Terminal.
+
+If the warning persists, download a fresh DMG from the official Releases page. Do not disable System Integrity Protection (SIP) to install MathSlides.
 
 </details>
 
