@@ -57,6 +57,8 @@ export interface AppState {
 
   // elements
   addElements: (els: SlideElement[], opts?: { edit?: boolean; caret?: AppState['editCaret'] }) => void;
+  /** Add a divider line from inside the text editor as its own undo step (see below). */
+  insertDividerFromEditor: (line: SlideElement, removeBoxId?: ID) => void;
   deleteSelection: () => void;
   updateElements: (ids: ID[], fn: (el: Draft<SlideElement>) => void, live?: boolean) => void;
   reorderSelection: (dir: 'forward' | 'backward' | 'front' | 'back') => void;
@@ -274,6 +276,28 @@ export const useStore = create<AppState>()((set, get) => {
       if (opts.edit && els[0]?.type === 'text') {
         set({ editingId: els[0].id, editingIsNew: true, editCaret: opts.caret ?? 'end', mathEdit: null });
       }
+    },
+    insertDividerFromEditor: (line, removeBoxId) => {
+      const { currentSlideId, editingId, editingIsNew, gestureBase } = get();
+      const push = (d: Deck) => { findSlide(d, currentSlideId)!.elements.push(line as any); };
+      if (removeBoxId && editingId === removeBoxId) {
+        // The box held nothing but the shortcut: it becomes the divider (no empty box left behind).
+        set({ editingId: null, editingIsNew: false, mathEdit: null, editCaret: null });
+        if (editingIsNew && gestureBase) set({ deck: gestureBase, gestureBase: null }); // a box created just for this
+        get().commit((d) => {
+          const s = findSlide(d as Deck, currentSlideId)!;
+          s.elements = s.elements.filter((e) => e.id !== removeBoxId);
+          push(d as Deck);
+        });
+        get().endGesture(); // an existing box: the whole edit session + divider is one step
+        set({ selection: [line.id], focusArea: 'canvas' });
+        return;
+      }
+      // Editing continues: the text typed so far is one step, the divider the next, later typing a new one.
+      get().endGesture();
+      get().commit((d) => push(d as Deck));
+      set({ editingIsNew: false });
+      get().beginGesture();
     },
     deleteSelection: () => {
       if (get().cropEditId) get().exitCrop();

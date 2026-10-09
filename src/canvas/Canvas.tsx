@@ -146,34 +146,13 @@ function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle, op
   const o = el;
   const targets = snapTargets(otherBoxes(new Set([el.id])));
   const thr = () => SNAP_PX / view.scale;
+  if (o.type === 'line') return startLineEndpointDrag(e, o, handle as 'p1' | 'p2', targets, thr);
 
   track(e, (ev) => {
     const s = useStore.getState();
     s.beginGesture();
     const p = toSlide(ev.clientX, ev.clientY);
     const guides: Guide[] = [];
-
-    if (o.type === 'line') {
-      let { x, y } = p;
-      const fx = handle === 'p1' ? o.x2 : o.x1, fy = handle === 'p1' ? o.y2 : o.y1;
-      if (ev.shiftKey) {
-        const ang = Math.round(Math.atan2(y - fy, x - fx) / (Math.PI / 4)) * (Math.PI / 4);
-        const len = Math.hypot(x - fx, y - fy);
-        x = fx + Math.cos(ang) * len; y = fy + Math.sin(ang) * len;
-      } else if (!ev.altKey) {
-        const sx = snap1([x], targets.xs, thr()), sy = snap1([y], targets.ys, thr());
-        if (sx) { x += sx.delta; guides.push({ axis: 'x', pos: sx.pos }); }
-        if (sy) { y += sy.delta; guides.push({ axis: 'y', pos: sy.pos }); }
-      }
-      x = Math.round(x); y = Math.round(y);
-      s.updateElements([o.id], (d) => {
-        const l = d as LineElement;
-        if (handle === 'p1') { l.x1 = x; l.y1 = y; } else { l.x2 = x; l.y2 = y; }
-        Object.assign(l, lineBox(l));
-      }, true);
-      useStore.setState({ guides });
-      return;
-    }
 
     if (o.type === 'image') {
       resizeImage(o, handle, p, ev, targets, thr(), guides, opts.crop || ev.shiftKey);
@@ -223,6 +202,58 @@ function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle, op
     useStore.setState({ guides: [] });
     // In crop edit mode the whole session is one undo step (closed by exitCrop).
     if (moved && !useStore.getState().cropEditId) useStore.getState().endGesture();
+  });
+}
+
+/**
+ * Line endpoint drag (the other endpoint stays fixed). Modifiers are read live, including key presses mid-drag:
+ *   ordinary line → free; ⇧ snaps the angle to 45° steps.
+ *   Divider       → stays horizontal (Y = fixed endpoint's Y); ⌥ Option frees the angle (⇧ still snaps while free).
+ */
+function startLineEndpointDrag(e: React.PointerEvent, o: LineElement, handle: 'p1' | 'p2', targets: ReturnType<typeof snapTargets>, thr: () => number) {
+  const fx = handle === 'p1' ? o.x2 : o.x1, fy = handle === 'p1' ? o.y2 : o.y1;
+  const divider = o.role === 'divider';
+  let last: { x: number; y: number } | null = null; // latest pointer position (slide coords)
+  const apply = (mods: { shiftKey: boolean; altKey: boolean }) => {
+    if (!last) return;
+    const s = useStore.getState();
+    s.beginGesture();
+    let { x, y } = last;
+    const guides: Guide[] = [];
+    if (divider && !mods.altKey) {
+      y = fy;
+      const sx = snap1([x], targets.xs, thr());
+      if (sx) { x += sx.delta; guides.push({ axis: 'x', pos: sx.pos }); }
+    } else if (mods.shiftKey) {
+      const ang = Math.round(Math.atan2(y - fy, x - fx) / (Math.PI / 4)) * (Math.PI / 4);
+      const len = Math.hypot(x - fx, y - fy);
+      x = fx + Math.cos(ang) * len; y = fy + Math.sin(ang) * len;
+    } else if (!mods.altKey) {
+      const sx = snap1([x], targets.xs, thr()), sy = snap1([y], targets.ys, thr());
+      if (sx) { x += sx.delta; guides.push({ axis: 'x', pos: sx.pos }); }
+      if (sy) { y += sy.delta; guides.push({ axis: 'y', pos: sy.pos }); }
+    }
+    x = Math.round(x); y = Math.round(y);
+    s.updateElements([o.id], (d) => {
+      const l = d as LineElement;
+      if (handle === 'p1') { l.x1 = x; l.y1 = y; } else { l.x2 = x; l.y2 = y; }
+      Object.assign(l, lineBox(l));
+    }, true);
+    useStore.setState({ guides });
+  };
+  const onKey = (ev: KeyboardEvent) => {
+    if (ev.key === 'Shift' || ev.key === 'Alt') apply({ shiftKey: ev.shiftKey, altKey: ev.altKey });
+  };
+  window.addEventListener('keydown', onKey);
+  window.addEventListener('keyup', onKey);
+  track(e, (ev) => {
+    last = toSlide(ev.clientX, ev.clientY);
+    apply(ev);
+  }, (_ev, moved) => {
+    window.removeEventListener('keydown', onKey);
+    window.removeEventListener('keyup', onKey);
+    useStore.setState({ guides: [] });
+    if (moved) useStore.getState().endGesture();
   });
 }
 

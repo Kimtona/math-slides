@@ -69,6 +69,15 @@ export function newLine(x1: number, y1: number, x2: number, y2: number, arrow = 
   };
 }
 
+/** Horizontal divider (`---`, `/divider`): an ordinary thin light-gray line element. */
+export const DIVIDER_STROKE = '#D1D5DB';
+/** Default divider: 90% of the slide width, centered (5% margins). */
+export const DIVIDER_WIDTH_RATIO = 0.9;
+export function newDivider(y: number): LineElement {
+  const margin = Math.round((SLIDE_W * (1 - DIVIDER_WIDTH_RATIO)) / 2);
+  return { ...newLine(margin, y, SLIDE_W - margin, y), stroke: DIVIDER_STROKE, strokeWidth: 1, role: 'divider' };
+}
+
 export function newSlide(): Slide {
   return { id: uid(), background: '#ffffff', elements: [], notes: '', reference: '' };
 }

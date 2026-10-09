@@ -337,13 +337,13 @@ try {
       visible: ar.top >= lr.top - 1 && ar.bottom <= lr.bottom + 1, inViewport: mr.top >= 0 && mr.bottom <= innerHeight, menuH: mr.height, pageScroll: [document.scrollingElement.scrollTop, document.querySelector('.stage, .canvas-area, main')?.scrollTop ?? 0] }; })()`);
   await until(menuInfo, 'slash menu open');
   let mi = await menuInfo();
-  assert.equal(mi.n, 9, 'all commands listed');
+  assert.equal(mi.n, 10, 'all commands listed (incl. Divider)');
   assert.ok(mi.menuH <= 340 + 1, 'menu height bounded');
   assert.ok(mi.scrollable, 'list scrolls when it exceeds the maximum height'); assert.equal(mi.overflowX, 'hidden'); assert.ok(mi.inViewport, 'menu inside the viewport');
   assert.equal(mi.active, 'Block equation');
   const names = [];
   for (let i = 0; i < 8; i++) { await key('ArrowDown'); await pause(60); mi = await menuInfo(); names.push(mi.active); assert.ok(mi.visible, 'active item visible going down: ' + mi.active); }
-  assert.equal(names.at(-1), 'Numbered list'); assert.ok(mi.scrollTop > 0, 'list scrolled down');
+  assert.equal(names.at(-1), 'Bulleted list'); assert.ok(mi.scrollTop > 0, 'list scrolled down');
   assert.deepEqual(mi.pageScroll, [0, 0], 'keyboard navigation does not scroll the page');
   for (let i = 0; i < 8; i++) { await key('ArrowUp'); await pause(60); mi = await menuInfo(); assert.ok(mi.visible, 'active item visible going up: ' + mi.active); }
   assert.equal(mi.active, 'Block equation'); assert.equal(mi.scrollTop, 0, 'scrolled back to the top');
@@ -362,7 +362,7 @@ try {
   // Enter runs the active command; Escape closes without running anything.
   await evaluate('active().commands.clearContent()'); await pause();
   await send('Input.insertText', {text:'/'}); await pause(); await until(menuInfo, 'slash menu reopened');
-  for (let i = 0; i < 8; i++) await key('ArrowDown');
+  for (let i = 0; i < 9; i++) await key('ArrowDown');
   await pause(60); await key('Enter'); await pause();
   assert.deepEqual((await doc()).content.map((n) => n.type), ['orderedList'], 'Enter runs the active (scrolled-to) command');
   await evaluate('active().commands.clearContent()'); await pause();

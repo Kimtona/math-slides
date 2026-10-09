@@ -105,6 +105,8 @@ export interface LineElement extends ElementBase {
   arrowEnd: boolean;
   arrowStart: boolean;
   dashed: boolean;
+  /** Set only on Markdown/slash dividers: endpoint drags stay horizontal unless ⌥ is held. Absent = ordinary line. */
+  role?: 'divider';
 }
 
 /**
