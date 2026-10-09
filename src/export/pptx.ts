@@ -1,7 +1,7 @@
 import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
 import type { Asset, Deck, EmojiElement, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
-import { sourceRect } from '../model/imageCrop';
+import { imageRadius, roundRectAdj, sourceRect } from '../model/imageCrop';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 import { themeLayout } from '../model/theme';
 import { EMOJI_GLYPH_SCALE, shapeTextInset, shapeTextStyle } from '../model/defaults';
@@ -525,18 +525,29 @@ function addEmoji(s: Slide, el: EmojiElement) {
   s.addImage({ data: emojiPng(el.emoji, Math.min(el.w, el.h)), x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h), altText: el.emoji, objectName: 'Emoji' });
 }
 
+/** Picture name → roundRect `adj`; pptxgenjs always writes `rect` geometry, so fixXml swaps it for exactly these pictures. */
+let roundedPics = new Map<string, number>();
+
 async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset>, slideDom: Element, origin: DOMRect) {
   const a = assets[el.assetId];
   if (!a) return;
   const data = await imageData(a);
   addCaption(s, el, slideDom, origin);
   // Instance border: a native outline-only rectangle over the picture's frame.
-  const border = () => el.borderColor && s.addShape('rect', {
+  const radius = imageRadius(el);
+  const border = () => el.borderColor && s.addShape(radius ? 'roundRect' : 'rect', {
     x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h), fill: { type: 'none' },
     line: { color: hex(el.borderColor), width: PT(INSTANCE_BORDER_WIDTH) }, objectName: 'Instance Border',
+    ...(radius ? { rectRadius: IN(radius) } : {}),
   });
+  // Rounded corners: a native picture with roundRect geometry (original bytes and crop untouched; patched in fixXml).
+  const rounded: { objectName?: string } = {};
+  if (radius) {
+    rounded.objectName = `Rounded Image ${roundedPics.size + 1}`;
+    roundedPics.set(rounded.objectName, roundRectAdj(el));
+  }
   if (!el.crop) {
-    s.addImage({ data, x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h) });
+    s.addImage({ data, x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h), ...rounded });
     border();
     return;
   }
@@ -547,6 +558,7 @@ async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset
   s.addImage({
     data, x: IN(el.x), y: IN(el.y), w: IN(R.w), h: IN(R.h),
     sizing: { type: 'crop', x: IN(el.x - R.x), y: IN(el.y - R.y), w: IN(el.w), h: IN(el.h) },
+    ...rounded,
   });
   border();
 }
@@ -557,7 +569,7 @@ async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset
  * pptxgenjs writes one <a:pPr> per run; PowerPoint only allows one per paragraph (first child).
  * Also fix the East-Asian charset (Hangul = 129).
  */
-async function fixXml(blob: Blob): Promise<Blob> {
+async function fixXml(blob: Blob, rounded: Map<string, number>): Promise<Blob> {
   const zip = await JSZip.loadAsync(blob);
   const files = Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f));
   for (const f of files) {
@@ -570,6 +582,15 @@ async function fixXml(blob: Blob): Promise<Blob> {
       });
       return `<a:p>${inner}</a:p>`;
     });
+    // Rounded pictures only: <p:pic> blocks whose name we assigned get roundRect geometry (rect → roundRect with the adj).
+    if (rounded.size) {
+      xml = xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, (pic) => {
+        const name = /<p:cNvPr id="\d+" name="([^"]*)"/.exec(pic)?.[1];
+        const adj = name === undefined ? undefined : rounded.get(name);
+        if (adj === undefined) return pic;
+        return pic.replace('<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>', `<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val ${adj}"/></a:avLst></a:prstGeom>`);
+      });
+    }
     xml = xml.replace(/(<a:ea typeface="[^"]*" pitchFamily="\d+" charset=")-122"/g, '$1-127"');
     zip.file(f, xml);
   }
@@ -610,6 +631,7 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
   pptx.title = deck.title;
   pptx.theme = { headFontFace: PPT_FONT, bodyFontFace: PPT_FONT };
 
+  roundedPics = new Map();
   slideNumbers = Object.fromEntries(deck.slides.map((x, i) => [x.id, i + 1]));
   for (const slide of deck.slides) {
     const s = pptx.addSlide();
@@ -634,5 +656,5 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
     if (slide.notes.trim()) s.addNotes(slide.notes);
   }
   const blob = (await pptx.write({ outputType: 'blob' })) as Blob;
-  return fixXml(blob);
+  return fixXml(blob, roundedPics);
 }

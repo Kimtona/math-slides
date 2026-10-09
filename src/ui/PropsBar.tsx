@@ -5,7 +5,7 @@ import { getActiveEditor, onActiveEditorChange } from '../editor/active';
 import { Btn, Icons, NumberField, Popover, Sep, WidthButton } from './controls';
 import { themeColorOf } from '../model/theme';
 import { DEFAULT_TEXT_COLOR, emptyDoc, shapeTextStyle } from '../model/defaults';
-import { cropOf, isCropped, sourceRect } from '../model/imageCrop';
+import { cropOf, DEFAULT_RADIUS_PRESET, imageRadius, isCropped, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { activeTextColor, activeTextFont, markActive, setDeckFont, setSelectionFont, setTextStyle, toggleList, toggleMark } from './textFormat';
 import { SLIDE_FONTS, deckFont, type SlideFont } from '../model/fonts';
@@ -42,6 +42,29 @@ function BorderButton({ el }: { el: TextElement | ImageElement }) {
   });
   return <PaletteColorButton title="상자 테두리" label={<span className="small-label">테두리</span>} value={el.borderColor ?? null}
     onChange={set} onNone={() => set(null)} />;
+}
+
+/** Corner radius of an image: slider (one undo step per drag) + numeric field, 0 = square, max = half the shorter side. */
+function RadiusControl({ el }: { el: ImageElement }) {
+  const max = Math.max(1, Math.floor(Math.min(el.w, el.h) / 2));
+  const value = Math.round(imageRadius(el));
+  const preset = DEFAULT_RADIUS_PRESET; // the one preset; a Settings preference can replace this later
+  const set = (v: number, live = false) => useStore.getState().updateElements([el.id], (d) => {
+    const i = d as ImageElement;
+    if (v > 0) i.radius = Math.min(v, max); else delete i.radius;
+  }, live);
+  return (
+    <>
+      <span className="small-label">모서리</span>
+      <input type="range" className="radius-slider" title="모서리 둥글기 (Corner Radius)" aria-label="Corner Radius" min={0} max={max} step={1} value={value}
+        onPointerDown={() => useStore.getState().beginGesture()}
+        onPointerUp={() => useStore.getState().endGesture()}
+        onChange={(e) => set(Number(e.target.value), !!useStore.getState().gestureBase)} />
+      <NumberField value={value} min={0} max={max} title="모서리 반경 (px)" onChange={(v) => set(v)} />
+      <button type="button" className={'radius-preset' + (value === preset ? ' active' : '')} title={`모서리 ${preset}px`} aria-label={`Corner radius ${preset}px`}
+        disabled={preset > max} onMouseDown={(e) => e.preventDefault()} onClick={() => set(preset)}>{preset}</button>
+    </>
+  );
 }
 
 /** Compact font dropdown. `value` null = mixed fonts in the selection. */
@@ -195,6 +218,7 @@ function ImageProps({ el }: { el: ImageElement }) {
         ? <Btn wide title="이미지 캡션 추가" onClick={() => st.updateElements([el.id], (d) => { (d as ImageElement).caption = ''; })}>Caption</Btn>
         : <Btn wide className="active" title="이미지 캡션 삭제" onClick={() => st.updateElements([el.id], (d) => { delete (d as ImageElement).caption; })}>Remove Caption</Btn>}
       <BorderButton el={el} />
+      <RadiusControl el={el} />
       <span className="hint">드래그 = 비율 유지 · ⌥ Option = 자유 변형 · ⇧ Shift = 크롭 · 더블클릭 = 크롭 편집</span>
     </>
   );

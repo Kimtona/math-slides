@@ -71,6 +71,8 @@ export interface ImageElement extends ElementBase {
   caption?: string;
   /** Instance border color (#rrggbb), drawn on the image bounds. Absent = no border. */
   borderColor?: string;
+  /** Corner radius in slide px (absent / 0 = square, as in older files). Rendered clamped to half the shorter side. */
+  radius?: number;
 }
 
 export type ShapeKind = 'rect' | 'roundRect' | 'ellipse' | 'blockArrow';
