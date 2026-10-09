@@ -828,12 +828,18 @@ try {
     assert.equal(await evaluate(`document.querySelectorAll('${where} .shape-text .ProseMirror, ${where} .shape-text textarea').length`), 0, 'no editor UI in ' + where);
   }
   console.log('PASS shape text (double-click editing, multiline, bold, centered, wrap, move/resize, Escape/outside, empty shape, undo/redo, static/thumbnail)');
-  // Shape Fill uses the full shared palette; new shapes default to its light yellow.
+  // Shape Fill uses the full shared palette; new shapes default to no fill with a thin (1px) black outline.
   const HL = ['#FEF08A', '#D9F99D', '#BAE6FD', '#FBCFE8', '#DDD6FE', '#E2E8F0'];
-  assert.equal((await shapeNow(sB)).fill, HL[0], 'new shapes default to the Highlight light yellow');
-  assert.equal((await shapeNow(sA)).fill, HL[0]);
+  for (const id of [sA, sB]) {
+    const sh = await shapeNow(id);
+    assert.deepEqual([sh.fill, sh.stroke, sh.strokeWidth], [null, '#000000', 1], 'new rect/ellipse default: no fill, black 1px stroke');
+  }
+  assert.deepEqual(await evaluate("['rect', 'roundRect', 'ellipse', 'blockArrow'].map((k) => { const e = defaults.newShape(k, 0, 0); return [e.fill, e.stroke, e.strokeWidth].join(); })"),
+    Array(4).fill(',#000000,1'), 'every inserted shape kind uses the same default style');
   await evaluate(`store.getState().addElements([{id: 'legacy-shape', type: 'shape', shape: 'roundRect', x: 900, y: 250, w: 200, h: 120, fill: '#BFBFBF', stroke: null, strokeWidth: 2, radius: 16}]); store.getState().select(['${sB}'])`); await pause();
   const fillButton = '.propsbar button[title^="채우기 (Fill)"]';
+  assert.deepEqual(await evaluate(`(() => { const b = document.querySelector('.propsbar button[title^="채우기 (Fill)"]'); return [b.title, b.querySelector('.swatch').classList.contains('none')]; })()`),
+    ['채우기 (Fill): None', true], 'Fill indicator shows None for a newly inserted shape');
   const textBefore = JSON.stringify(await evaluate("store.getState().deck.slides.map(s => s.elements.filter(e => e.type === 'text').map(e => e.doc))"));
   await click(fillButton); await pause();
   assert.deepEqual(await evaluate("({full: !!document.querySelector('.text-palette'), label: document.querySelector('.text-palette').getAttribute('aria-label'), old: !!document.querySelector('.highlight-palette'), themes: document.querySelectorAll('.text-palette .theme-column').length, standard: document.querySelectorAll('.text-palette .standard-colors .text-swatch').length})"),
@@ -845,17 +851,17 @@ try {
     assert.equal((await shapeNow(sB)).fill, HL[i], 'fill ' + HL[i]);
   }
   await click(fillButton); await clickNone('None / Remove Fill'); await pause();
-  assert.equal((await shapeNow(sB)).fill, null, 'None / Remove Fill → no fill'); assert.equal((await shapeNow(sB)).stroke, null, 'border untouched');
+  assert.equal((await shapeNow(sB)).fill, null, 'None / Remove Fill → no fill'); assert.equal((await shapeNow(sB)).stroke, '#000000', 'border untouched');
   await evaluate('store.getState().undo()'); await pause();
   assert.equal((await shapeNow(sB)).fill, HL[3], 'undo no-fill'); await evaluate('store.getState().redo()'); await pause();
   assert.equal((await shapeNow(sB)).fill, null, 'redo no-fill');
   await evaluate('store.getState().undo()'); await pause();
   assert.equal(JSON.stringify(await evaluate("store.getState().deck.slides.map(s => s.elements.filter(e => e.type === 'text').map(e => e.doc))")), textBefore, 'changing a shape fill never touches text highlights');
-  assert.equal((await shapeNow('legacy-shape')).fill, '#BFBFBF', 'existing shapes keep their saved fill');
+  { const lg = await shapeNow('legacy-shape'); assert.deepEqual([lg.fill, lg.stroke, lg.strokeWidth], ['#BFBFBF', null, 2], 'existing shapes keep their saved fill/stroke/width'); }
   await evaluate('store.getState().select([])'); await pause();
   const fills = await evaluate(`[...document.querySelectorAll('.slide.editable .shape-svg')].map(s => s.querySelector('rect, ellipse').getAttribute('fill'))`);
-  assert.deepEqual(fills, [HL[0], HL[3], '#BFBFBF'], 'editor/static render of the fills');
-  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.thumb.current .shape-svg')].map(s => s.querySelector('rect, ellipse').getAttribute('fill'))`), [HL[0], HL[3], '#BFBFBF'], 'thumbnail fills');
+  assert.deepEqual(fills, ['none', HL[3], '#BFBFBF'], 'editor/static render of the fills');
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.thumb.current .shape-svg')].map(s => s.querySelector('rect, ellipse').getAttribute('fill'))`), ['none', HL[3], '#BFBFBF'], 'thumbnail fills');
   console.log('PASS shape fill (Highlight palette, light-yellow default, no fill, undo/redo, legacy fill kept, static/thumbnail)');
   // TOC entered in the real editor; generated sections retain their IDs through formatting.
   await evaluate('store.getState().addTocSlide()');
@@ -1171,12 +1177,12 @@ try {
   const arrowEls = () => evaluate("store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements.filter((e) => e.shape === 'blockArrow')");
   let [A] = await arrowEls();
   assert.ok(A, 'inserted'); assert.deepEqual([A.shaft, A.head, A.w, A.h], [0.5, 0.4, 280, 160], 'defaults');
-  assert.equal(A.fill, await evaluate("defaults.newShape('rect', 0, 0).fill"), 'same default fill as other shapes'); assert.equal(A.stroke, null);
+  assert.equal(A.fill, await evaluate("defaults.newShape('rect', 0, 0).fill"), 'same default fill as other shapes'); assert.equal(A.stroke, '#000000');
   assert.equal(await evaluate("document.querySelectorAll('.slide.editable .handle.adjust').length"), 2, 'two adjustment handles while selected');
   assert.equal(await evaluate("document.querySelectorAll('.slide.editable .handle:not(.adjust)').length"), 8, 'normal resize handles stay');
   const arrowPts = (root) => evaluate(`[...document.querySelectorAll(${JSON.stringify(root + ' [data-el-id="' + A.id + '"] polygon')})].map((p) => p.getAttribute('points'))`);
-  assert.equal((await arrowPts('.slide.editable')).length, 1, 'filled polygon');
-  assert.equal(await evaluate("document.querySelectorAll('.slide.editable [data-el-id=\"" + A.id + "\"] polygon[fill=\"none\"]').length"), 0);
+  assert.equal((await arrowPts('.slide.editable')).length, 1, 'one polygon');
+  assert.equal(await evaluate("document.querySelectorAll('.slide.editable [data-el-id=\"" + A.id + "\"] polygon[fill=\"none\"]').length"), 1, 'default block arrow is an unfilled outline');
   // Direct manipulation with real pointer events.
   const scale = await evaluate("document.querySelector('.slide.editable').getBoundingClientRect().width / 1280");
   const dragHandle = async (sel, dx, dy) => {
@@ -1616,7 +1622,7 @@ try {
   const shapeSlide = saved.deck.slides.find((x) => x.elements.some((e) => e.type === 'shape' && e.doc));
   const shapeSaved = shapeSlide.elements.filter((e) => e.type === 'shape');
   assert.deepEqual(shapeSaved.map((e) => !!e.doc), [true, false, false], '.mslides keeps shape text (empty shapes have none)');
-  assert.deepEqual(shapeSaved.map((e) => e.fill), ['#FEF08A', '#FBCFE8', '#BFBFBF'], '.mslides keeps shape fills (default yellow, chosen pink, legacy gray)');
+  assert.deepEqual(shapeSaved.map((e) => e.fill), [null, '#FBCFE8', '#BFBFBF'], '.mslides keeps shape fills (default none, chosen pink, legacy gray)');
   assert.ok(JSON.stringify(shapeSaved[0].doc).includes('Policy') && JSON.stringify(shapeSaved[0].doc).includes(' Gradient') && JSON.stringify(shapeSaved[0].doc).includes('"bold"'));
   const todoSlide = saved.deck.slides.find((x) => JSON.stringify(x.elements).includes('todoItem'));
   assert.ok(JSON.stringify(todoSlide.elements).includes('"checked":true') && JSON.stringify(todoSlide.elements).includes('"checked":false'), '.mslides keeps todo checked states');
@@ -1690,7 +1696,7 @@ try {
   const spChunks = shapeXml.split('<p:sp>');
   const textShape = spChunks.find((c) => c.includes('name="Shape Text"'));
   assert.ok(textShape, 'shape with text is ONE native shape');
-  assert.ok(textShape.includes('prst="rect"') && textShape.includes('val="FEF08A"'), 'native shape geometry and the default yellow fill');
+  assert.ok(textShape.includes('prst="rect"') && textShape.includes('<a:noFill/>') && textShape.includes('<a:ln w="9525"'), 'native shape geometry, the default no fill and the thin outline');
   assert.ok(spChunks.find((c) => c.includes('prst="ellipse"')).includes('val="FBCFE8"') && spChunks.find((c) => c.includes('prst="roundRect"') && c.includes('BFBFBF')), 'palette fill and legacy gray fill are native shape fills');
   assert.match(textShape, /anchor="ctr"/); assert.match(textShape, /algn="ctr"/);
   assert.match(textShape, /b="1"[\s\S]{0,700}<a:t>Policy<\/a:t>/); assert.match(textShape, /<a:t>second line<\/a:t>/);
