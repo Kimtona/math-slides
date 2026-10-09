@@ -474,6 +474,7 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
   const selected = useStore((s) => s.selection.length === 1 && s.selection[0] === el.id && s.cropEditId !== el.id);
 
   const editCell = useStore((s) => (s.editingId === el.id ? s.editCell : null));
+  const activeCell = useStore((s) => (s.activeCell?.id === el.id && s.selection.length === 1 && s.selection[0] === el.id ? s.activeCell : null));
 
   // Tables are content-height too: store the measured height (selection frame, snapping, export), never resizing other elements.
   useLayoutEffect(() => {
@@ -540,7 +541,7 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
     <div ref={ref} className={`el el-${el.type}${editing ? ' editing' : ''}`} style={elementBoxStyle(el, fg)} data-el-id={el.id}
       onPointerDown={onPointerDown} onDoubleClick={onDoubleClick}>
       {editing && el.type === 'text' ? <TextEditor el={el} />
-        : editing && el.type === 'table' ? <TableView el={el} edit={editCell} />
+        : el.type === 'table' ? <TableView el={el} edit={editing ? editCell : null} active={activeCell} />
         : editing && el.type === 'shape' ? <ShapeView el={el} editor={<TextEditor el={el} />} />
         : el.type === 'line' ? <LineSvg el={el} hit />
         : <ElementBody el={el} assets={assets} caption={el.type === 'image' && selected && el.caption !== undefined ? <CaptionInput el={el} /> : undefined} />}

@@ -1,5 +1,5 @@
-import type { TableElement } from '../model/types';
-import { deleteCol, deleteRow, insertCol, insertRow } from '../model/table';
+import type { TableElement, TableStyle } from '../model/types';
+import { deleteCol, deleteRow, insertCol, insertRow, setAllFills, setCellFill } from '../model/table';
 import { currentSlide, useStore } from '../store/store';
 
 /** Row/column actions of the toolbar and Tab: act on the cell being edited, else on the end of the table. Each is one undo step. */
@@ -54,4 +54,28 @@ export function tabFrom(id: string, backwards: boolean): boolean {
   else { st.editTable(id, (d) => Object.assign(d, insertRow(d, R)), { row: R, col: 0 }); return true; }
   st.startCellEditing(id, row, col, 'all');
   return true;
+}
+
+// ---------- appearance: each one undo step, and an open cell editor stays open ----------
+
+/** Run an appearance change as its own undo step. While a cell is being edited it stays in edit mode in the same cell. */
+const restyle = (id: string, fn: (t: import('immer').Draft<TableElement>) => void) => useStore.getState().editTable(id, fn, cellOf(id));
+
+export const setTableStyle = (id: string, style: TableStyle) => restyle(id, (d) => { d.style = style; });
+export const setHeaderRow = (id: string, on: boolean) => restyle(id, (d) => { d.headerRow = on; });
+export const setTableBorder = (id: string, color: string | null) => restyle(id, (d) => { if (color) d.borderColor = color; else delete d.borderColor; });
+
+/** The cell that cell-level actions (fill) target: the cell being edited, else the one last edited; null = the whole table. */
+export function targetCell(t: TableElement): { row: number; col: number } | null {
+  const st = useStore.getState();
+  const c = st.editingId === t.id ? st.editCell : st.activeCell?.id === t.id && st.selection.length === 1 && st.selection[0] === t.id ? st.activeCell : null;
+  return c ? { row: Math.min(c.row, t.rows.length - 1), col: Math.min(c.col, t.cols.length - 1) } : null;
+}
+
+/** Fill the target cell, or every cell when only the table is selected. null removes the custom fill (the style default shows again). */
+export function setTableFill(id: string, color: string | null) {
+  const t = tableOf(id);
+  if (!t) return;
+  const cell = targetCell(t);
+  restyle(id, (d) => { d.rows = cell ? setCellFill(d.rows, cell.row, cell.col, color) : setAllFills(d.rows, color); });
 }

@@ -119,6 +119,8 @@ export interface EmojiElement extends ElementBase {
 /** One table cell: rich text (the same ProseMirror JSON as a text box; no math/blocks/lists in v1). */
 export interface TableCell {
   doc: PMNode;
+  /** Custom background (#rrggbb). Absent = the style's default (none, or the Header style's gray). Always wins over the style fill. */
+  fill?: string;
 }
 
 export type TableStyle = 'minimal' | 'grid' | 'header';
@@ -137,6 +139,8 @@ export interface TableElement extends ElementBase {
   headerRow: boolean;
   /** Table-wide text defaults (same shape as a text box's style; `fill` is unused). */
   textStyle: TextStyle;
+  /** Custom line color (#rrggbb) for every table line (width stays fixed). Absent = the style's default grays. */
+  borderColor?: string;
 }
 
 export type SlideElement = TextElement | ImageElement | ShapeElement | LineElement | EmojiElement | TableElement;

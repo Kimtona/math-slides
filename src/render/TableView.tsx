@@ -1,6 +1,6 @@
 import { useMemo, type CSSProperties } from 'react';
 import type { TableElement } from '../model/types';
-import { repairTable } from '../model/table';
+import { repairTable, tableColors } from '../model/table';
 import { StaticText } from './StaticText';
 import { CellEditor } from '../editor/CellEditor';
 import { getActiveEditor } from '../editor/active';
@@ -11,10 +11,17 @@ import '../table.css';
  * A table element: one real <table> (fixed layout, widths from `cols`). Rows grow with their content; the cells use the same
  * static text renderer as text boxes. `edit` = the cell being edited, which swaps in the cell editor.
  */
-export function TableView({ el, edit }: { el: TableElement; edit?: { row: number; col: number } | null }) {
+export function TableView({ el, edit, active }: { el: TableElement; edit?: { row: number; col: number } | null; active?: { row: number; col: number } | null }) {
   const t = useMemo(() => repairTable(el), [el]);
   const st = t.textStyle;
-  const style: CSSProperties = { width: t.w, fontSize: st.fontSize, color: st.color, lineHeight: st.lineHeight, textAlign: st.align };
+  const colors = tableColors(t);
+  const style = {
+    width: t.w, fontSize: st.fontSize, color: st.color, lineHeight: st.lineHeight, textAlign: st.align,
+    // Line / header colors come from the model (one source for the CSS and the PPTX export).
+    '--tbl-line': colors.line, '--tbl-last': colors.last, '--tbl-head': colors.head, '--tbl-head-fill': colors.headFill ?? 'transparent',
+  } as CSSProperties;
+  // `active` (editor only, never passed by thumbnails / presenter / print) outlines the cell that cell-level actions target.
+  const marked = edit ?? active;
 
   // While editing, a press on another cell moves the caret there; a press on this cell's padding focuses its editor.
   const onCellDown = (e: React.PointerEvent, r: number, c: number) => {
@@ -35,7 +42,8 @@ export function TableView({ el, edit }: { el: TableElement; edit?: { row: number
         {t.rows.map((row, r) => (
           <tr key={r} className={t.headerRow && r === 0 ? 'ms-head' : undefined}>
             {row.map((cell, c) => (
-              <td key={c} data-r={r} data-c={c} onPointerDown={edit ? (e) => onCellDown(e, r, c) : undefined}>
+              <td key={c} data-r={r} data-c={c} className={marked?.row === r && marked.col === c ? 'ms-active' : undefined}
+                style={cell.fill ? { background: cell.fill } : undefined} onPointerDown={edit ? (e) => onCellDown(e, r, c) : undefined}>
                 {edit?.row === r && edit.col === c ? <CellEditor key={`${el.id}:${r}:${c}`} el={el} row={r} col={c} /> : <StaticText doc={cell.doc} />}
               </td>
             ))}

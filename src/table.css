@@ -1,10 +1,15 @@
-/* Tables: Minimal preset — subtle horizontal dividers, comfortable padding, slightly emphasized header row. */
+/* Tables. Colors come from CSS variables set by TableView (model/table.ts: tableColors), so the editor, thumbnails, presenter,
+   PDF and PPTX export agree. Minimal (default): subtle horizontal dividers, comfortable padding, emphasized header row. */
 .ms-table { border-collapse: collapse; table-layout: fixed; border-spacing: 0; }
-.ms-table td { padding: 10px 14px; vertical-align: top; border-bottom: 1px solid #E5E7EB; overflow-wrap: anywhere; }
-.ms-table tr:last-child td { border-bottom-color: #D1D5DB; }
-.ms-table .ms-head td { font-weight: 700; border-bottom: 1.5px solid #9CA3AF; }
+.ms-table td { padding: 10px 14px; vertical-align: top; border-bottom: 1px solid var(--tbl-line, #E5E7EB); overflow-wrap: anywhere; }
+.ms-table tr:last-child td { border-bottom-color: var(--tbl-last, #D1D5DB); }
+.ms-table .ms-head td { font-weight: 700; border-bottom: 1.5px solid var(--tbl-head, #9CA3AF); }
 .ms-table .tb-content { min-height: 1em; }
-.ms-table td:has(.ProseMirror) { background: rgba(47, 111, 235, .05); }
+/* Header style: a light-gray header row. A custom cell fill is an inline background, so it always wins over this. */
+.ms-table[data-table-style="header"] .ms-head td { background: var(--tbl-head-fill); }
+/* Grid style: borders around every cell. */
+.ms-table[data-table-style="grid"] td, .ms-table[data-table-style="grid"] .ms-head td { border: 1px solid var(--tbl-line); }
+.ms-table td.ms-active { box-shadow: inset 0 0 0 2px rgba(47, 111, 235, .55); } /* editor only: the cell being edited / targeted by cell actions (never a fill, so custom fills stay visible) */
 .table-ops { position: absolute; display: flex; gap: 4px; pointer-events: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 3px; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
 
 /* Selection-overlay controls (positioned in slide coordinates by Canvas.tsx). */

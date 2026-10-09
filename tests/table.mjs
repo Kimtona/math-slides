@@ -63,6 +63,7 @@ async function connect() {
     })});
     window.insert = await import('/src/canvas/insert.ts');
     window.tmodel = await import('/src/model/table.ts');
+    window.tf = await import('/src/ui/textFormat.ts');
   })()`);
 }
 async function launch() {
@@ -509,6 +510,161 @@ try {
   await esc(); await evaluate('store.getState().select([])'); await evaluate('store.getState().undo()'); await pause(300);
   console.log('PASS canvas and text-box paste behaviour unchanged');
 
+  // ======== Phase 2B: styles, header toggle, fills, border color, deck font ========
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause(250);
+  t = await T(); await evaluate(`store.getState().select(['${t.id}'])`); await pause(300);
+  const css2 = (selector, prop) => evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)}))[${JSON.stringify(prop)}]`);
+  const rgb = (hex) => { const n = parseInt(hex.slice(1), 16); return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`; };
+  const clear = 'rgba(0, 0, 0, 0)';
+  const barBtn = (re) => `[...document.querySelectorAll('.propsbar button')].find((b) => ${re}.test(b.textContent.trim()))`;
+  const chooseStyle = async (name) => { await evaluate(`${barBtn('/^(Minimal|Grid|Header) ▾$/')}.click()`); await pause(250); await evaluate(`[...document.querySelectorAll('.pop .menu-item')].find((e) => e.textContent.replace('✓ ', '').trim() === ${JSON.stringify(name)}).click()`); await pause(350); };
+  const toggleHeader = async () => { await evaluate(`${barBtn('/^헤더$/')}.click()`); await pause(350); };
+  const swatchHex = (label) => evaluate(`document.querySelector('button[aria-label="${label}"]').title.match(/#[0-9A-Fa-f]{6}/)[0]`).then((h) => h.toUpperCase());
+  const pickColor = async (buttonTitle, label) => { await evaluate(`document.querySelector('.propsbar button[title^="${buttonTitle}"]').click()`); await pause(300); const hex = await swatchHex(label); await evaluate(`document.querySelector('button[aria-label="${label}"]').click()`); await pause(400); return hex; };
+  const pickDefault = async (buttonTitle) => { await evaluate(`document.querySelector('.propsbar button[title^="${buttonTitle}"]').click()`); await pause(300); await evaluate("[...document.querySelectorAll('.text-palette button')].find((b) => b.textContent.includes('기본')).click()"); await pause(400); };
+  const fills = (tt) => tt.rows.map((r) => r.map((c) => c.fill ?? null));
+  const hasNoFillKeys = (tt) => tt.rows.flat().every((c) => !('fill' in c));
+
+  // -- defaults: Minimal is unchanged, old-style tables carry no new fields --
+  assert.equal(t.style, 'minimal'); assert.ok(!('borderColor' in t), 'no borderColor by default'); assert.ok(hasNoFillKeys(t), 'no cell fill keys by default');
+  assert.equal(await css2(td(t, 1, 0), 'borderBottomWidth'), '1px'); assert.equal(await css2(td(t, 1, 0), 'borderBottomColor'), rgb('#E5E7EB')); assert.equal(await css2(td(t, 1, 0), 'borderLeftWidth'), '0px');
+  assert.equal(await css2(td(t, 0, 0), 'borderBottomWidth'), '1.5px'); assert.equal(await css2(td(t, 0, 0), 'borderBottomColor'), rgb('#9CA3AF')); assert.equal(await css2(td(t, 0, 0), 'backgroundColor'), clear, 'no header fill in Minimal'); assert.equal(await css2(td(t, 0, 0), 'fontWeight'), '700');
+  assert.equal(await evaluate(`${barBtn('/^Minimal ▾$/')} ? 1 : 0`), 1, 'style control shows the current style');
+
+  // -- style switching: one undo step, nothing else changes --
+  const snap0 = JSON.stringify(t), hs0 = await history();
+  await chooseStyle('Grid'); let tg = await T();
+  assert.equal(tg.style, 'grid'); assert.equal(await history(), hs0 + 1, 'one undo step per style change'); assert.equal(JSON.stringify({ ...tg, style: 'minimal', h: t.h }), JSON.stringify({ ...t, h: t.h }), 'only the style field changed');
+  for (const [r, c] of [[0, 0], [1, 1], [2, 2]]) for (const side of ['Left', 'Right', 'Top', 'Bottom']) { assert.equal(await css2(td(t, r, c), `border${side}Width`), '1px', `Grid: ${side} border`); assert.equal(await css2(td(t, r, c), `border${side}Color`), rgb('#D1D5DB')); }
+  await evaluate('store.getState().undo()'); await pause(300); assert.equal(JSON.stringify(await T()), snap0, 'undo restores Minimal exactly'); assert.equal(await css2(td(t, 1, 1), 'borderLeftWidth'), '0px');
+  await evaluate('store.getState().redo()'); await pause(300); assert.equal((await T()).style, 'grid', 'redo');
+  await chooseStyle('Header'); tg = await T(); assert.equal(tg.style, 'header');
+  assert.equal(await css2(td(t, 0, 1), 'backgroundColor'), rgb('#F3F4F6'), 'Header style: neutral light-gray header fill'); assert.equal(await css2(td(t, 0, 1), 'fontWeight'), '700'); assert.equal(await css2(td(t, 1, 1), 'backgroundColor'), clear, 'body cells stay unfilled'); assert.equal(await css2(td(t, 1, 1), 'borderLeftWidth'), '0px', 'Header style has no vertical lines');
+  // -- header-row toggle --
+  const hh = await history(); await toggleHeader(); tg = await T();
+  assert.equal(tg.headerRow, false); assert.equal(await history(), hh + 1, 'one undo step'); assert.equal(await evaluate(`document.querySelectorAll('${sel(t)} tr.ms-head').length`), 0);
+  assert.equal(await css2(td(t, 0, 1), 'backgroundColor'), clear, 'header off: no header fill'); assert.equal(await css2(td(t, 0, 1), 'fontWeight'), '400', 'header off: not bold'); assert.equal(await css2(td(t, 0, 1), 'borderBottomWidth'), '1px', 'an ordinary divider');
+  await evaluate('store.getState().undo()'); await pause(300); assert.equal((await T()).headerRow, true); assert.equal(await css2(td(t, 0, 1), 'backgroundColor'), rgb('#F3F4F6'), 'undo restores the header');
+  await evaluate('store.getState().redo()'); await pause(300); await toggleHeader(); assert.equal((await T()).headerRow, true);
+  await chooseStyle('Minimal'); assert.equal(JSON.stringify(await T()), snap0.replace(/"h":\d+/, `"h":${(await T()).h}`), 'back to the exact starting table');
+
+  // -- fills: whole table when only the table is selected (no editing, no cell) --
+  await evaluate('store.getState().stopEditing()'); await evaluate(`store.getState().select([]); store.getState().select(['${t.id}'])`); await pause(300);
+  assert.equal(await evaluate("document.querySelectorAll('.ms-active').length"), 0, 'no active cell');
+  assert.ok(await evaluate("!!document.querySelector('.propsbar button[title^=\"표 전체 채우기\"]')"), 'control says it fills the whole table');
+  const hf0 = await history(); const red = await pickColor('표 전체 채우기', 'Standard Red'); let tf = await T();
+  assert.ok(tf.rows.flat().every((c) => c.fill?.toUpperCase() === red), 'every cell filled'); assert.equal(await history(), hf0 + 1, 'one undo step'); assert.equal(await evaluate('store.getState().editingId'), null, 'no editing needed');
+  assert.equal(await css2(td(t, 1, 1), 'backgroundColor'), rgb(red)); assert.equal(await css2(td(t, 0, 0), 'backgroundColor'), rgb(red));
+  await evaluate('store.getState().undo()'); await pause(300); assert.ok(hasNoFillKeys(await T()), 'undo removes the fills');
+  await evaluate('store.getState().redo()'); await pause(300);
+  await pickDefault('표 전체 채우기'); assert.ok(hasNoFillKeys(await T()), 'clearing removes the custom fills (keys gone)');
+  // custom fill wins over the Header style default
+  await chooseStyle('Header'); await pickColor('표 전체 채우기', 'Standard Red'); assert.equal(await css2(td(t, 0, 1), 'backgroundColor'), rgb(red), 'custom fill wins over the Header style fill');
+  await pickDefault('표 전체 채우기'); assert.equal(await css2(td(t, 0, 1), 'backgroundColor'), rgb('#F3F4F6'), 'removing it brings the style default back'); await chooseStyle('Minimal');
+
+  // -- fills: the active cell (after editing, without text editing) --
+  await clickCell(t, 1, 2); assert.equal(await evaluate('store.getState().editingId'), t.id);
+  assert.ok(await evaluate("!!document.querySelector('.propsbar button[title^=\"셀 채우기\"]')"), 'while editing the control targets the cell');
+  await esc(); assert.equal(await evaluate('store.getState().editingId'), null, 'editing ended'); assert.equal(await evaluate("document.querySelector('.ms-active')?.dataset.r + ',' + document.querySelector('.ms-active')?.dataset.c"), '1,2', 'the cell stays marked');
+  assert.ok(await evaluate("!!document.querySelector('.propsbar button[title^=\"셀 채우기\"]')"), 'cell scope remains without editing');
+  const hc2 = await history(); const blue = await pickColor('셀 채우기', 'Standard Blue'); tf = await T();
+  assert.deepEqual(fills(tf).flat().filter(Boolean).map((x) => x.toUpperCase()), [blue], 'only that one cell is filled'); assert.equal(tf.rows[1][2].fill.toUpperCase(), blue); assert.equal(await history(), hc2 + 1);
+  assert.equal(await css2(td(t, 1, 2), 'backgroundColor'), rgb(blue)); assert.equal(await css2(td(t, 1, 1), 'backgroundColor'), clear);
+  assert.equal(await evaluate('store.getState().editingId'), null, 'still not editing: no text editing needed to set a cell background');
+  // while editing the same applies, editing continues and the change is its own step
+  await clickCell(t, 2, 1); const he = await history(); await type('typed'); const red2 = await pickColor('셀 채우기', 'Standard Red'); tf = await T();
+  assert.equal(tf.rows[2][1].fill.toUpperCase(), red2); assert.equal(await evaluate('store.getState().editingId'), t.id, 'editing continues'); assert.deepEqual(await evaluate('store.getState().editCell'), { row: 2, col: 1 });
+  await type('!'); assert.ok(cellText(await T(), 2, 1).endsWith('typed!'), 'typing still works after setting the fill');
+  await esc(); assert.equal(await history(), he + 3, 'typing, fill and later typing are separate steps');
+  await evaluate('store.getState().undo()'); await evaluate('store.getState().undo()'); await pause(300); tf = await T(); assert.equal(tf.rows[2][1].fill, undefined, 'undo reverts the fill on its own'); assert.ok(cellText(tf, 2, 1).endsWith('typed'), 'the first typing step is still there');
+  await evaluate('store.getState().redo()'); await evaluate('store.getState().redo()'); await pause(300);
+  // Esc clears the cell scope first, then deselects
+  await evaluate("document.activeElement && document.activeElement.blur()");
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await pause(300);
+  assert.equal(await evaluate("document.querySelectorAll('.ms-active').length"), 0, 'Esc clears the active cell'); assert.deepEqual(await evaluate('store.getState().selection'), [t.id], 'but keeps the table selected');
+  assert.ok(await evaluate("!!document.querySelector('.propsbar button[title^=\"표 전체 채우기\"]')"), 'back to whole-table scope');
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await pause(300);
+  assert.deepEqual(await evaluate('store.getState().selection'), [], 'a further Esc deselects as before');
+  await clickCell(t, 0, 0); // (selects the table first, then edits)
+  await evaluate(`store.getState().stopEditing(); store.getState().select([])`); await pause(200); await evaluate(`store.getState().select(['${t.id}'])`); await pause(250);
+  assert.equal(await evaluate("document.querySelectorAll('.ms-active').length"), 0, 'deselecting forgets the active cell');
+  await evaluate("[...document.querySelectorAll('.propsbar button')].length"); 
+  await pickDefault('표 전체 채우기'); assert.ok(hasNoFillKeys(await T()));
+
+  // -- border color (fixed 1px width) --
+  const hb = await history(); const bcol = await pickColor('표 선 색', 'Standard Red'); tf = await T();
+  assert.equal(tf.borderColor.toUpperCase(), bcol); assert.equal(await history(), hb + 1, 'one undo step');
+  assert.equal(await css2(td(t, 1, 0), 'borderBottomColor'), rgb(bcol)); assert.equal(await css2(td(t, 1, 0), 'borderBottomWidth'), '1px', 'width stays 1px'); assert.equal(await css2(td(t, 0, 0), 'borderBottomColor'), rgb(bcol)); assert.equal(await css2(td(t, 0, 0), 'borderBottomWidth'), '1.5px', 'header rule keeps its width'); assert.equal(await css2(td(t, 2, 0), 'borderBottomColor'), rgb(bcol));
+  assert.equal(await css2(td(t, 1, 1), 'borderLeftWidth'), '0px', 'Minimal still has no vertical lines');
+  await chooseStyle('Grid'); tg = await T(); assert.equal(tg.borderColor.toUpperCase(), bcol, 'switching style keeps the border color'); assert.equal(await css2(td(t, 1, 1), 'borderLeftColor'), rgb(bcol)); assert.equal(await css2(td(t, 1, 1), 'borderLeftWidth'), '1px');
+  await evaluate('store.getState().undo()'); await pause(250); await evaluate('store.getState().undo()'); await pause(300); assert.ok(!('borderColor' in await T()), 'undo steps back through style and color'); await evaluate('store.getState().redo()'); await evaluate('store.getState().redo()'); await pause(300);
+  await chooseStyle('Minimal'); await pickDefault('표 선 색'); assert.ok(!('borderColor' in await T()), 'default removes the custom color'); assert.equal(await css2(td(t, 1, 0), 'borderBottomColor'), rgb('#E5E7EB'));
+
+  // -- style switching keeps every customization; the header toggle keeps custom fills --
+  await pickColor('표 선 색', 'Standard Red'); await clickCell(t, 0, 1); await esc();
+  const orange = await pickColor('셀 채우기', 'Standard Blue');
+  const custom = JSON.stringify({ b: (await T()).borderColor, f: fills(await T()) });
+  for (const name of ['Grid', 'Header', 'Minimal', 'Header']) { await chooseStyle(name); assert.equal(JSON.stringify({ b: (await T()).borderColor, f: fills(await T()) }), custom, `switching to ${name} keeps the border color and every fill`); }
+  assert.equal(await css2(td(t, 0, 1), 'backgroundColor'), rgb(orange), 'the custom header-cell fill beats the Header style default'); assert.equal(await css2(td(t, 0, 0), 'backgroundColor'), rgb('#F3F4F6'), 'other header cells show the default');
+  await toggleHeader(); assert.equal((await T()).headerRow, false); assert.equal(await css2(td(t, 0, 1), 'backgroundColor'), rgb(orange), 'header off keeps the custom fill'); assert.equal(await css2(td(t, 0, 0), 'backgroundColor'), clear, 'but drops the default header fill');
+  assert.equal(JSON.stringify({ b: (await T()).borderColor, f: fills(await T()) }), custom); await toggleHeader(); assert.equal(await css2(td(t, 0, 0), 'backgroundColor'), rgb('#F3F4F6'));
+
+  // -- blue guides stay separate from the real borders (Grid) and editor marks stay out of static output --
+  await chooseStyle('Grid'); await evaluate(`store.getState().select(['${t.id}'])`); await pause(300);
+  assert.equal(await css2(td(t, 1, 1), 'borderLeftWidth'), '1px'); assert.ok(await evaluate("document.querySelectorAll('.col-guide').length > 0"), 'guides are drawn by the overlay');
+  assert.equal(await evaluate(`document.querySelectorAll('${sel(t)} .col-guide, ${sel(t)} .col-resizer').length`), 0, 'and are not part of the table markup');
+  await clickCell(t, 2, 2); await esc(); assert.ok(await evaluate("document.querySelectorAll('.ms-active').length === 1"));
+  assert.equal(await evaluate("document.querySelectorAll('.thumb-inner .ms-active, .thumb-inner .col-guide').length"), 0, 'no editor marks in thumbnails');
+  await evaluate('store.setState({presenting: true})'); await pause(500); assert.equal(await evaluate("document.querySelectorAll('.presenter .ms-active, .presenter .col-guide').length"), 0, 'presenter'); assert.equal(await evaluate("document.querySelector('.presenter .ms-table').dataset.tableStyle"), 'grid'); assert.equal(await evaluate("getComputedStyle(document.querySelector('.presenter .ms-table td')).borderLeftWidth"), '1px', 'the presenter shows the real grid borders'); await evaluate('store.setState({presenting: false})'); await pause(300);
+  await evaluate("store.setState({exportMode: 'print'})"); await pause(400); assert.equal(await evaluate("document.querySelectorAll('#print-root .ms-active, #print-root .col-guide').length"), 0, 'print'); assert.equal(await evaluate("getComputedStyle(document.querySelector('#print-root .ms-table td')).borderLeftWidth"), '1px'); assert.equal(await evaluate("getComputedStyle(document.querySelector('#print-root .ms-table td')).borderLeftColor"), rgb((await T()).borderColor)); await evaluate("store.setState({exportMode: null})"); await pause(300);
+  await pickDefault('표 선 색'); await esc(); await pickDefault('표 전체 채우기'); await evaluate(`store.getState().select(['${t.id}'])`); await pause(200); // (Esc: back to whole-table scope)
+
+  // -- deck-wide font reaches the cells without erasing other formatting --
+  await evaluate(`store.getState().updateElements(['${t.id}'], (d) => { d.rows[1][0].doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'fmt', marks: [{ type: 'bold' }, { type: 'textStyle', attrs: { fontFamily: 'Pretendard', color: '#DC2626' } }] }] }] }; })`); await pause(300);
+  const cellFont = (r, c) => evaluate(`getComputedStyle(document.querySelector('${td(t, r, c)} .tb-content p')).fontFamily`);
+  assert.match(await cellFont(2, 2), /NanumSquare/, 'cells follow the deck font'); const hdf = await history();
+  await evaluate("tf.setDeckFont('Noto Serif KR')"); await pause(400);
+  assert.equal(await history(), hdf + 1, 'one undo step'); tf = await T();
+  assert.match(await cellFont(2, 2), /Noto Serif KR/, 'plain cells follow the new deck font'); const mk0 = tf.rows[1][0].doc.content[0].content[0].marks;
+  assert.ok(mk0.some((x) => x.type === 'bold'), 'bold kept'); assert.ok(mk0.some((x) => x.type === 'textStyle' && x.attrs.color === '#DC2626' && !('fontFamily' in x.attrs)), 'color kept, per-range font removed');
+  assert.match(await cellFont(1, 0), /Noto Serif KR/, 'the formerly per-range font cell follows the deck font too');
+  await evaluate('store.getState().undo()'); await pause(400); assert.ok(JSON.stringify(await T()).includes('"fontFamily":"Pretendard"'), 'undo restores the per-range font'); assert.match(await cellFont(2, 2), /NanumSquare/);
+  await evaluate(`store.getState().updateElements(['${t.id}'], (d) => { d.rows[1][0].doc = { type: 'doc', content: [{ type: 'paragraph' }] }; })`); await pause(200);
+
+  // -- PPTX reflects style, header, fills and border color --
+  const pptxTable = async () => {
+    await evaluate("for (const k of Object.keys(testFiles)) if (k.endsWith('.pptx')) delete testFiles[k]");
+    await evaluate("document.querySelector('.export-menu > button').click()"); await pause(200);
+    await evaluate("document.querySelector('.pop .menu-item:nth-child(2)').click()");
+    const name = await until(() => evaluate("Object.keys(testFiles).find((k) => k.endsWith('.pptx'))"), 'PPTX export', 30000);
+    await until(() => evaluate(`testFiles[${JSON.stringify(name)}]?.length > 1000`), 'PPTX bytes', 30000);
+    const z = await JSZip.loadAsync(Buffer.from(await evaluate(`testFiles[${JSON.stringify(name)}]`)));
+    const slides = await evaluate('store.getState().deck.slides'); const no = slides.findIndex((s) => s.elements.some((e) => e.type === 'table')) + 1;
+    const x = await z.file(`ppt/slides/slide${no}.xml`).async('string'); const tb = /<a:tbl>[\s\S]*<\/a:tbl>/.exec(x)[0];
+    await evaluate(`store.getState().select(['${t.id}'])`); await pause(300);
+    return tb.match(/<a:tr [\s\S]*?<\/a:tr>/g).map((tr) => tr.match(/<a:tc[ >][\s\S]*?<\/a:tc>/g));
+  };
+  const line = (tc, side) => { const m2 = new RegExp(`<a:ln${side}[^>]*?(?: w="(\\d+)")?[^>]*>\\s*(<a:noFill/>|<a:solidFill><a:srgbClr val="(\\w+)")`).exec(tc); return m2 ? (m2[2] === '<a:noFill/>' ? null : { color: m2[3], w: Number(/ w="(\d+)"/.exec(m2[0])[1]) }) : undefined; };
+  const cellBg = (tc) => (/<\/a:lnB>\s*<a:solidFill><a:srgbClr val="(\w+)"/.exec(tc) ?? [])[1] ?? null;
+  const EMU = (px) => Math.round(px * 0.75 * 12700);
+  await chooseStyle('Minimal'); await toggleHeader().catch(() => {}); if (!(await T()).headerRow) await toggleHeader();
+  let g1 = await pptxTable();
+  assert.deepEqual(line(g1[0][0], 'B'), { color: '9CA3AF', w: EMU(1.5) }, 'Minimal header rule'); assert.deepEqual(line(g1[1][0], 'B'), { color: 'E5E7EB', w: EMU(1) }, 'row divider');
+  for (const side of ['L', 'R', 'T']) assert.equal(line(g1[1][1], side), null, `no ${side} line in Minimal`); assert.ok(g1.flat().every((c) => cellBg(c) === null), 'no fills in Minimal'); assert.match(g1[0][0], /b="1"/, 'bold header');
+  await chooseStyle('Grid'); g1 = await pptxTable();
+  for (const side of ['L', 'R', 'T', 'B']) assert.deepEqual(line(g1[1][1], side), { color: 'D1D5DB', w: EMU(1) }, `Grid ${side}`);
+  await chooseStyle('Header'); g1 = await pptxTable();
+  assert.equal(cellBg(g1[0][0]), 'F3F4F6', 'Header style fill in the file'); assert.equal(cellBg(g1[0][2]), 'F3F4F6'); assert.equal(cellBg(g1[1][0]), null); assert.match(g1[0][0], /b="1"/);
+  await toggleHeader(); g1 = await pptxTable(); assert.equal(cellBg(g1[0][0]), null, 'header off: no fill'); assert.doesNotMatch(g1[0][0], /<a:rPr[^>]* b="1"/, 'header off: not bold'); assert.deepEqual(line(g1[0][0], 'B'), { color: 'E5E7EB', w: EMU(1) }); await toggleHeader();
+  await clickCell(t, 1, 1); await esc(); const cf = await pickColor('셀 채우기', 'Standard Red'); const bc = await pickColor('표 선 색', 'Standard Blue');
+  g1 = await pptxTable();
+  assert.equal(cellBg(g1[1][1]), cf.slice(1), 'custom cell fill in the file'); assert.equal(g1.flat().filter((c) => cellBg(c) === cf.slice(1)).length, 1, 'only that cell'); assert.equal(cellBg(g1[0][0]), 'F3F4F6', 'header default still there for the others');
+  g1.forEach((row, r) => row.forEach((c, i) => { const b = line(c, 'B'); assert.equal(b.color, bc.slice(1), `border color r${r}c${i}`); assert.equal(b.w, EMU(r === 0 ? 1.5 : 1), 'width unchanged'); }));
+  await chooseStyle('Grid'); g1 = await pptxTable(); for (const side of ['L', 'R', 'T', 'B']) assert.equal(line(g1[1][2], side).color, bc.slice(1)); assert.equal(cellBg(g1[1][1]), cf.slice(1), 'fill kept when switching style');
+  await chooseStyle('Header'); // leave a customised table for the persistence / export checks that follow
+  await evaluate(`store.getState().select(['${t.id}'])`); await pause(300); await writeFile(path.join(output, 'table-2b.png'), Buffer.from((await send('Page.captureScreenshot')).data, 'base64')); // for a manual look
+  console.log('PASS Phase 2B: styles, header toggle, fills (cell / table), border color, deck font, PPTX mapping, editor marks stay editor-only');
+
   // leave the table resized and pasted so the persistence / export checks below cover it
   t = await T(); await evaluate(`store.getState().select(['${t.id}'])`); await pause(300);
   k = await scaleOf(t); await dragFrom(`.col-resizer[data-col="0"]`, 45 * k); await dragFrom(`.overlay .handle.h-e`, 60 * k);
@@ -531,6 +687,11 @@ try {
   const restored = await T();
   const gotoTable = () => evaluate(`store.getState().goToSlide(store.getState().deck.slides.find((s) => s.elements.some((e) => e.type === 'table')).id)`).then(() => pause(400));
   await gotoTable();
+  assert.equal(restored.style, 'header', 'style survives restart'); assert.ok(/^#[0-9A-Fa-f]{6}$/.test(restored.borderColor), 'border color survives restart');
+  const fillCells = restored.rows.flatMap((r, i) => r.map((c, j) => (c.fill ? [i, j, c.fill] : null))).filter(Boolean); assert.equal(fillCells.length, 1, 'the custom cell fill survives restart');
+  const rgb2 = (hex) => { const n = parseInt(hex.slice(1), 16); return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`; };
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('${td(restored, fillCells[0][0], fillCells[0][1])}')).backgroundColor`), rgb2(fillCells[0][2]), 'the custom fill renders after restart');
+  assert.equal(await evaluate(`getComputedStyle(document.querySelector('${td(restored, 1, 0)}')).borderBottomColor`), rgb2(restored.borderColor), 'and so does the border color');
   assert.equal(JSON.stringify(restored), expected, 'table identical after autosave + restart');
   await domMatches({ ...restored, h: restored.h });
   await evaluate('persist.saveProject()'); await pause(800);

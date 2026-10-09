@@ -1,7 +1,7 @@
 import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
 import type { Asset, Deck, EmojiElement, ImageElement, LineElement, ShapeElement, TableElement, TextElement } from '../model/types';
-import { TABLE_CELL_PAD_X, TABLE_CELL_PAD_Y, cellPlainText, estimateTableHeight, repairTable } from '../model/table';
+import { TABLE_CELL_PAD_X, TABLE_CELL_PAD_Y, cellBorders, cellFill, cellPlainText, estimateTableHeight, repairTable, type Edge } from '../model/table';
 import { imageRadius, roundRectAdj, sourceRect } from '../model/imageCrop';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 import { themeLayout } from '../model/theme';
@@ -404,35 +404,34 @@ function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect
 
 // ---------- tables ----------
 
-/** Minimal-preset line colors, as in table.css. */
-const TABLE_LINE = '#E5E7EB', TABLE_LINE_LAST = '#D1D5DB', TABLE_LINE_HEAD = '#9CA3AF';
-
 /**
  * A table as a native, editable PowerPoint table (<a:tbl>): column widths from the model, row heights from the rendered
- * rows, one run per styled text piece (same run builder as text boxes), Minimal borders and the emphasized header row.
- * Phase 1 spike — fidelity beyond this (styles, per-cell formatting) is Phase 3.
+ * rows, one run per styled text piece (same run builder as text boxes). Borders, the Header style's fill, custom cell fills and
+ * the custom line color come from the same model helpers as the on-screen CSS (cellBorders / cellFill), so the file matches the editor.
  */
 function addTable(s: Slide, el: TableElement, dom: Element | null, origin: DOMRect) {
   const t = repairTable(el);
   const trs = dom ? [...dom.querySelectorAll('tr')] : [];
   const base = { ...el, style: t.textStyle } as unknown as TextElement;
   const none = { type: 'none' as const };
-  const line = (color: string, px: number) => ({ type: 'solid' as const, pt: PT(px), color: hex(color) });
+  const edge = (e: Edge | null) => (e ? { type: 'solid' as const, pt: PT(e.px), color: hex(e.color) } : none);
   const rows = t.rows.map((row, r) => {
-    const last = r === t.rows.length - 1, head = t.headerRow && r === 0;
-    const bottom = head ? line(TABLE_LINE_HEAD, 1.5) : line(last ? TABLE_LINE_LAST : TABLE_LINE, 1);
+    const head = t.headerRow && r === 0;
+    const border = cellBorders(t, r).map(edge) as [typeof none, typeof none, typeof none, typeof none];
     return row.map((cell, c) => {
       const content = trs[r]?.children[c]?.querySelector('.tb-content') ?? null;
       const paras = content ? [...content.querySelectorAll('p')] : [];
       const runs: TextProps[] = paras.length
         ? paras.flatMap((p, i) => paragraphRuns(p, content!, base, i === paras.length - 1))
         : [{ text: cellPlainText(cell.doc), options: { fontSize: PT(t.textStyle.fontSize), fontFace: PPT_FONT, color: hex(t.textStyle.color), bold: head } }];
+      const fill = cellFill(t, r, cell);
       return {
         text: runs,
         options: {
           valign: 'top' as const, align: t.textStyle.align,
           margin: [IN(TABLE_CELL_PAD_Y), IN(TABLE_CELL_PAD_X), IN(TABLE_CELL_PAD_Y), IN(TABLE_CELL_PAD_X)] as [number, number, number, number],
-          border: [none, none, bottom, none] as [typeof none, typeof none, typeof bottom, typeof none],
+          border,
+          ...(fill ? { fill: { color: hex(fill) } } : {}),
           lineSpacing: PT(t.textStyle.fontSize * t.textStyle.lineHeight),
         },
       };

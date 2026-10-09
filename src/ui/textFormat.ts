@@ -147,7 +147,10 @@ export function setDeckFont(font: SlideFont) {
   useStore.getState().commit((d) => {
     if (font === DEFAULT_FONT) delete d.fontFamily;
     else d.fontFamily = font;
-    for (const slide of d.slides) for (const el of slide.elements) if ((el.type === 'text' || el.type === 'shape') && el.doc) clearRunFonts(el.doc as any);
+    for (const slide of d.slides) for (const el of slide.elements) {
+      if ((el.type === 'text' || el.type === 'shape') && el.doc) clearRunFonts(el.doc as any);
+      else if (el.type === 'table') el.rows.forEach((row) => row.forEach((c) => clearRunFonts(c.doc as any))); // cell fonts too; other formatting stays
+    }
   });
 }
 

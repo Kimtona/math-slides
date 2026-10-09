@@ -190,6 +190,56 @@ export function pasteGrid(t: Pick<TableElement, 'rows' | 'cols' | 'w' | 'x' | 'h
   while (cur.rows.length < need.rows) cur = { ...cur, ...insertRow({ ...cur, headerRow: t.headerRow }, cur.rows.length) };
   while (cur.cols.length < need.cols) cur = { ...cur, ...insertCol({ ...cur, x: t.x }, cur.cols.length) };
   const rows = cur.rows.map((r) => r.slice());
-  data.forEach((line, i) => line.forEach((text, j) => { rows[row + i][col + j] = textCell(text); }));
+  data.forEach((line, i) => line.forEach((text, j) => { const old = rows[row + i][col + j]; rows[row + i][col + j] = old.fill ? { ...textCell(text), fill: old.fill } : textCell(text); }));
   return { rows, cols: cur.cols, w: cur.w };
+}
+
+// ---------- appearance (single source for the renderer's CSS variables and the PPTX export) ----------
+
+export const TABLE_LINE = '#E5E7EB';        // Minimal / Header: row dividers
+export const TABLE_LINE_LAST = '#D1D5DB';   // Minimal / Header: line under the last row
+export const TABLE_LINE_HEAD = '#9CA3AF';   // Minimal / Header: line under the header row
+export const TABLE_GRID_LINE = '#D1D5DB';   // Grid: every cell border
+export const TABLE_HEAD_FILL = '#F3F4F6';   // Header style: neutral light gray header fill
+
+type Look = Pick<TableElement, 'style' | 'headerRow' | 'borderColor'>;
+
+/** Line and header-fill colors of a table. A custom `borderColor` replaces every line color; widths never change. */
+export function tableColors(t: Look): { line: string; last: string; head: string; headFill: string | null } {
+  const grid = t.style === 'grid';
+  const c = t.borderColor;
+  return {
+    line: c ?? (grid ? TABLE_GRID_LINE : TABLE_LINE),
+    last: c ?? (grid ? TABLE_GRID_LINE : TABLE_LINE_LAST),
+    head: c ?? (grid ? TABLE_GRID_LINE : TABLE_LINE_HEAD),
+    headFill: t.style === 'header' && t.headerRow ? TABLE_HEAD_FILL : null,
+  };
+}
+
+export interface Edge { color: string; px: number }
+/** Cell borders [top, right, bottom, left] (null = none) — what the CSS in table.css draws, for the PPTX export. */
+export function cellBorders(t: Look & { rows: unknown[] }, r: number): [Edge | null, Edge | null, Edge | null, Edge | null] {
+  const c = tableColors(t);
+  if (t.style === 'grid') { const e = { color: c.line, px: 1 }; return [e, e, e, e]; }
+  const bottom = t.headerRow && r === 0 ? { color: c.head, px: 1.5 } : r === t.rows.length - 1 ? { color: c.last, px: 1 } : { color: c.line, px: 1 };
+  return [null, null, bottom, null];
+}
+
+/** Background of one cell: the custom fill, else the Header style's default (header row only), else none. */
+export const cellFill = (t: Look, r: number, cell: TableCell): string | null => cell.fill ?? (r === 0 ? tableColors(t).headFill : null);
+
+/** Set (or with null clear) the custom fill of one cell; other cells keep their objects. */
+export function setCellFill(rows: TableCell[][], row: number, col: number, color: string | null): TableCell[][] {
+  return rows.map((r, i) => (i !== row ? r : r.map((c, j) => (j !== col ? c : withFill(c, color)))));
+}
+/** Set (or clear) the custom fill of every cell. */
+export const setAllFills = (rows: TableCell[][], color: string | null): TableCell[][] => rows.map((r) => r.map((c) => withFill(c, color)));
+const withFill = (c: TableCell, color: string | null): TableCell => {
+  const { fill: _old, ...rest } = c;
+  return color ? { ...rest, fill: color } : rest;
+};
+/** The fill shared by every cell (null when none, or when the cells differ). */
+export function uniformFill(rows: TableCell[][]): string | null {
+  const all = rows.flat().map((c) => c.fill ?? null);
+  return all.length && all.every((f) => f === all[0]) ? all[0] : null;
 }

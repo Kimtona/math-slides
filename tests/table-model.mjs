@@ -137,6 +137,46 @@ try {
   const nearEdge = { ...base, x: 1280 - base.w - 4 }; p = apply(nearEdge, m.pasteGrid(nearEdge, 0, 0, [['1', '2', '3', '4', '5']])); ok(p, 'near the slide edge the width is kept'); assert.equal(p.w, base.w); assert.ok(p.cols.every((c) => c >= m.TABLE_MIN_COL));
   const frozen2 = structuredClone(base); m.pasteGrid(frozen2, 0, 0, [['a', 'b', 'c', 'd'], ['x'], ['y'], ['z']]); assert.deepEqual(frozen2, base, 'paste does not mutate its input');
   console.log('PASS TSV parsing (quotes, CRLF, empty cells) and grid paste with automatic expansion');
+
+  // ---- Phase 2B: appearance (styles, header, fills, border color) ----
+  const mk = (o = {}) => ({ ...m.newTable(640, 360), ...o });
+  let col = m.tableColors(mk());
+  assert.deepEqual(col, { line: '#E5E7EB', last: '#D1D5DB', head: '#9CA3AF', headFill: null }, 'Minimal default colors = the Phase 1 look');
+  col = m.tableColors(mk({ style: 'grid' })); assert.deepEqual([col.line, col.last, col.head, col.headFill], ['#D1D5DB', '#D1D5DB', '#D1D5DB', null]);
+  col = m.tableColors(mk({ style: 'header' })); assert.equal(col.headFill, '#F3F4F6', 'Header style: neutral light-gray header fill'); assert.equal(col.line, '#E5E7EB');
+  assert.equal(m.tableColors(mk({ style: 'header', headerRow: false })).headFill, null, 'header row off: no header fill');
+  assert.equal(m.tableColors(mk({ style: 'minimal' })).headFill, null);
+  col = m.tableColors(mk({ borderColor: '#DC2626' })); assert.deepEqual([col.line, col.last, col.head], ['#DC2626', '#DC2626', '#DC2626'], 'custom border color replaces every line color');
+  assert.equal(m.tableColors(mk({ style: 'header', borderColor: '#DC2626' })).headFill, '#F3F4F6', 'border color does not touch the header fill');
+  // borders per style
+  const T3 = mk();
+  assert.deepEqual(m.cellBorders(T3, 0), [null, null, { color: '#9CA3AF', px: 1.5 }, null], 'Minimal: header rule');
+  assert.deepEqual(m.cellBorders(T3, 1), [null, null, { color: '#E5E7EB', px: 1 }, null], 'Minimal: row divider');
+  assert.deepEqual(m.cellBorders(T3, 2), [null, null, { color: '#D1D5DB', px: 1 }, null], 'Minimal: last row');
+  assert.deepEqual(m.cellBorders(mk({ headerRow: false }), 0), [null, null, { color: '#E5E7EB', px: 1 }, null], 'no header row: ordinary divider');
+  const g = m.cellBorders(mk({ style: 'grid' }), 1); assert.ok(g.every((e) => e && e.px === 1 && e.color === '#D1D5DB'), 'Grid: all four sides, 1px');
+  assert.ok(m.cellBorders(mk({ style: 'grid', borderColor: '#2563EB' }), 0).every((e) => e.color === '#2563EB' && e.px === 1));
+  assert.ok(m.cellBorders(mk({ borderColor: '#2563EB' }), 1).every((e) => !e || (e.color === '#2563EB' && e.px === 1)), 'width is fixed whatever the color');
+  // cell fill precedence
+  const cells = mk().rows; const filled = { ...cells[0][0], fill: '#FEF08A' };
+  assert.equal(m.cellFill(mk({ style: 'header' }), 0, cells[0][1]), '#F3F4F6', 'Header style default on the header row');
+  assert.equal(m.cellFill(mk({ style: 'header' }), 0, filled), '#FEF08A', 'a custom fill wins over the style fill');
+  assert.equal(m.cellFill(mk({ style: 'header' }), 1, cells[1][0]), null, 'body cells have no default fill');
+  assert.equal(m.cellFill(mk({ style: 'header', headerRow: false }), 0, filled), '#FEF08A', 'a custom fill survives the header toggle');
+  assert.equal(m.cellFill(mk({ style: 'minimal' }), 0, cells[0][1]), null);
+  // fill helpers
+  const rows0 = mk().rows, f1 = m.setCellFill(rows0, 1, 2, '#FEF08A');
+  assert.equal(f1[1][2].fill, '#FEF08A'); assert.equal(f1[0][0], rows0[0][0], 'other cells are untouched objects'); assert.equal(f1[1][1], rows0[1][1]); assert.equal(rows0[1][2].fill, undefined, 'input not mutated');
+  assert.equal(m.setCellFill(f1, 1, 2, null)[1][2].fill, undefined); assert.ok(!('fill' in m.setCellFill(f1, 1, 2, null)[1][2]), 'clearing removes the key');
+  assert.equal(f1[1][2].doc, rows0[1][2].doc, 'the cell text is kept');
+  const all = m.setAllFills(rows0, '#BAE6FD'); assert.ok(all.flat().every((c) => c.fill === '#BAE6FD')); assert.equal(m.uniformFill(all), '#BAE6FD'); assert.equal(m.uniformFill(f1), null, 'mixed fills'); assert.equal(m.uniformFill(rows0), null);
+  assert.ok(m.setAllFills(all, null).flat().every((c) => !('fill' in c)));
+  // legacy tables (no optional fields) and paste keep fills
+  const legacy = JSON.parse(JSON.stringify(mk())); delete legacy.borderColor; assert.deepEqual(m.tableProblems(legacy), []); assert.equal(m.tableColors(legacy).line, '#E5E7EB');
+  assert.deepEqual(Object.keys(mk().rows[0][0]), ['doc'], 'new cells carry no fill key');
+  const pf = { ...mk(), rows: m.setCellFill(mk().rows, 1, 1, '#FEF08A') }; const pasted = apply(pf, m.pasteGrid(pf, 1, 1, [['x']])); assert.equal(pasted.rows[1][1].fill, '#FEF08A', 'pasting text keeps the cell fill'); assert.equal(m.cellPlainText(pasted.rows[1][1].doc), 'x');
+  assert.deepEqual(m.tableProblems(m.repairTable({ ...pf, cols: [10, 10] })), [], 'repair keeps working with fills');
+  console.log('PASS table model: styles, header fill, border color, fills and precedence');
 } finally {
   await server.close();
 }
