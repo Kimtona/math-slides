@@ -111,7 +111,7 @@ try {
   await until(() => existsSync(configPath), 'config.txt created by Cmd+,');
   const template = await evaluate('cfg.configTemplate()');
   assert.equal(await readFile(configPath, 'utf8'), template, 'created from the commented template');
-  assert.match(template, /^# MathSlides Configuration/); assert.match(template, /^heading-1 = 80$/m); assert.match(template, /^body-size = 25$/m); assert.match(template, /Cmd\+Shift\+,/);
+  assert.match(template, /^# ✦ MathSlides Configuration/); assert.match(template, /^heading-1 = 80$/m); assert.match(template, /^body-size = 25$/m); assert.match(template, /Cmd\+Shift\+,/);
   await until(async () => /Created config\.txt/.test(await toast()), 'creation toast');
   await writeFile(configPath, GOOD);
   await pause(500); await openConfigKey(); await pause(700);

@@ -218,7 +218,7 @@ A reading-group deck built in the current app. Everything below is regular MathS
 
 MathSlides has no Settings window. A small text file, `config.txt`, holds the defaults used for **new** content.
 
-1. Press **`⌘,`** to open `config.txt` in your default text editor. The first time, MathSlides creates it for you with every setting written out and explained.
+1. Press **`⌘,`** to open `config.txt` in your default text editor. The first time, MathSlides creates it for you with every setting at its built-in default (the table below explains each one).
 2. Change a value and save the file.
 3. Back in MathSlides, press **`⌘⇧,`** to apply it. No restart is needed, and MathSlides loads the file again by itself every time it starts.
 

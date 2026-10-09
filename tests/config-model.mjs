@@ -20,11 +20,24 @@ try {
   assert.deepEqual({ ...c.getConfig() }, { ...c.DEFAULT_CONFIG }, 'active config starts as the defaults');
   assert.deepEqual(ok(''), { ...c.DEFAULT_CONFIG }, 'empty file = defaults');
   assert.deepEqual(ok(c.configTemplate()), { ...c.DEFAULT_CONFIG }, 'the generated template parses to exactly the defaults');
-  const tpl = c.configTemplate().split('\n');
-  for (const line of ['font = NanumSquare', 'heading-1 = 80', 'heading-2 = 50', 'heading-3 = 30', 'body-size = 25']) assert.ok(tpl.includes(line), 'template shows toolbar values: ' + line);
-  assert.equal(tpl.some((l) => /^(heading-\d|body-size)\s*=.*pt/.test(l)), false, 'template has no pt-converted typography values');
-  assert.match(c.configTemplate(), /same numbers you see in MathSlides' font-size box/);
-  assert.match(c.configTemplate(), /plain number WITHOUT px or pt/);
+  assert.equal(c.configTemplate(), `# ✦ MathSlides Configuration
+# Changes apply to new elements. Save and press Cmd+Shift+, to reload.
+
+# ✎ Typography
+font = NanumSquare
+heading-1 = 80
+heading-2 = 50
+heading-3 = 30
+body-size = 25
+
+# ◇ Shapes
+shape-fill = none
+shape-stroke = #000000
+shape-stroke-width = 1px
+
+# ▧ Images
+image-radius-preset = 50px
+`, 'the generated template is exactly the minimal layout (unitless typography = the toolbar numbers)');
   // the toolbar's built-in sizes are exactly the template numbers, and pt remains accepted (existing files keep working)
   const T = (await server.ssrLoadModule('/src/model/typography.ts')).TYPOGRAPHY;
   assert.deepEqual([T.h1, T.h2, T.h3, T.body], [80, 50, 30, 25]);

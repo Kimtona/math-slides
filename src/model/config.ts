@@ -122,43 +122,28 @@ export function describeConfigErrors(errors: ConfigError[]): string {
   return `Config error on line ${first.line}: ${first.message}` + (errors.length > 1 ? ` (+${errors.length - 1} more)` : '');
 }
 
-/** The commented file created by "Open Configuration" when none exists; its values are the built-in defaults. */
+/**
+ * The file created by "Open Configuration" when none exists; its values are the built-in defaults. Deliberately
+ * minimal: units, defaults, reset and error behavior are documented in the README, not in the file.
+ */
 export function configTemplate(): string {
   const d = DEFAULT_CONFIG;
-  return `# MathSlides Configuration
-#
-# Edit this file, save it, then press Cmd+Shift+, in MathSlides to apply it (no restart needed).
-# The file is read again every time MathSlides starts.
-#
-# These are DEFAULTS FOR NEW CONTENT. Changing them never changes slides you already made:
-# headings, text boxes, shapes and images that exist keep the look they were created with.
-#
-# Syntax: key = value, one per line. Lines starting with # are comments; blank lines are ignored.
-# Font sizes (heading-1/2/3, body-size): write a plain number WITHOUT px or pt, like heading-1 = 80.
-# Plain numbers are the same numbers you see in MathSlides' font-size box (the toolbar), so heading-1 = 80 is a
-# line that shows 80 there. (Advanced: a px or pt suffix is accepted; 1pt = 4/3px, so 60pt = 80. Leave it out
-# unless you need it, because 100pt would show 133.33.)
-# To reset one setting, delete its line (or put # in front of it). To reset everything, delete this file.
-# If a line has a mistake, MathSlides tells you which one and keeps the previous settings.
+  return `# ✦ MathSlides Configuration
+# Changes apply to new elements. Save and press Cmd+Shift+, to reload.
 
-# Typography
-# font: ${SLIDE_FONTS.map((f) => f.id).join(' | ')}
+# ✎ Typography
 font = ${d.font}
-# heading-1/2/3: size of new lines started with #, ##, ###
 heading-1 = ${d.heading1}
 heading-2 = ${d.heading2}
 heading-3 = ${d.heading3}
-# body-size: new text boxes, shape text and #### lines
 body-size = ${d.bodySize}
 
-# Shapes
-# shape-fill: a HEX color such as #FFFFFF, or none
+# ◇ Shapes
 shape-fill = ${d.shapeFill ?? 'none'}
 shape-stroke = ${d.shapeStroke}
 shape-stroke-width = ${d.shapeStrokeWidth}px
 
-# Images
-# image-radius-preset: the value the corner-radius preset button applies
+# ▧ Images
 image-radius-preset = ${d.imageRadiusPreset}px
 `;
 }
