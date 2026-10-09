@@ -6,6 +6,8 @@ import { useStore } from '../store/store';
 import { makeExtensions } from './extensions';
 import { setActiveEditor } from './active';
 import { tabFrom } from './tableActions';
+import { isGrid, parseTsv } from '../model/tsv';
+import { pasteGrid } from '../model/table';
 
 /** In-place rich text editor for ONE table cell (the same TipTap setup as text boxes, minus blocks, lists and math). */
 export function CellEditor({ el, row, col }: { el: TableElement; row: number; col: number }) {
@@ -27,10 +29,23 @@ export function CellEditor({ el, row, col }: { el: TableElement; row: number; co
         }
         return false;
       },
+      // Spreadsheet data (tabs / newlines): a grid fills the table from this cell as ONE undo step; anything else pastes as normal text.
+      handlePaste: (view, event) => {
+        const text = event.clipboardData?.getData('text/plain') ?? '';
+        const st = useStore.getState();
+        if (!/[\t\r\n]/.test(text) || st.editingId !== el.id || !st.editCell) return false;
+        const grid = parseTsv(text);
+        event.preventDefault();
+        if (!isGrid(grid)) { view.pasteText(grid[0][0]); return true; } // one cell (spreadsheets add a trailing newline / quotes)
+        const { row, col } = st.editCell;
+        st.editTable(el.id, (d) => Object.assign(d, pasteGrid(d, row, col, grid)), null);
+        return true;
+      },
       handleDrop: () => true,
     },
     onUpdate: ({ editor }) => {
       const doc = editor.getJSON() as PMNode;
+      useStore.getState().beginGesture(); // this cell edit = one undo step (closed when leaving the cell / table)
       useStore.getState().updateElements([el.id], (e) => {
         const c = (e as TableElement).rows[row]?.[col];
         if (c) c.doc = doc;

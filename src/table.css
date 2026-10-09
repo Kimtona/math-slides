@@ -6,3 +6,15 @@
 .ms-table .tb-content { min-height: 1em; }
 .ms-table td:has(.ProseMirror) { background: rgba(47, 111, 235, .05); }
 .table-ops { position: absolute; display: flex; gap: 4px; pointer-events: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 3px; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+
+/* Selection-overlay controls (positioned in slide coordinates by Canvas.tsx). */
+/* Hit targets (invisible) and the editor-only blue guides. Neither exists in thumbnails, the presenter, PDF or PPTX. */
+.col-resizer { position: absolute; cursor: col-resize; pointer-events: auto; touch-action: none; }
+.col-guide { position: absolute; width: 0; pointer-events: none; border-left: 0 dashed rgba(47, 111, 235, .5); transition: border-color .12s; }
+.col-guide.edge { visibility: hidden; }                       /* the selection outline already marks the outer edge */
+.col-guide.hot, .col-guide.active { border-left-style: solid; }
+.col-guide.hot { border-left-color: rgba(47, 111, 235, .85); }
+.col-guide.active { border-left-color: #2F6FEB; transition: none; }
+.col-guide.edge.hot, .col-guide.edge.active { visibility: visible; }
+.table-add { position: absolute; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; pointer-events: auto; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: var(--muted); cursor: pointer; opacity: .85; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.table-add:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }

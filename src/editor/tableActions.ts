@@ -7,12 +7,13 @@ import { currentSlide, useStore } from '../store/store';
 const tableOf = (id: string) => currentSlide().elements.find((e): e is TableElement => e.id === id && e.type === 'table');
 const cellOf = (id: string) => { const st = useStore.getState(); return st.editingId === id ? st.editCell : null; };
 
-export function addRow(id: string) {
+/** `end`: append at the end of the table (the edge "+" controls) instead of after the cell being edited; editing then stays in the same cell. */
+export function addRow(id: string, opts: { end?: boolean } = {}) {
   const t = tableOf(id);
   if (!t) return;
   const cell = cellOf(id);
-  const at = cell ? cell.row + 1 : t.rows.length;
-  useStore.getState().editTable(id, (d) => Object.assign(d, insertRow(d, at)), cell ? { row: at, col: cell.col } : null);
+  const at = cell && !opts.end ? cell.row + 1 : t.rows.length;
+  useStore.getState().editTable(id, (d) => Object.assign(d, insertRow(d, at)), cell ? (opts.end ? cell : { row: at, col: cell.col }) : null);
 }
 
 export function removeRow(id: string) {
@@ -23,12 +24,12 @@ export function removeRow(id: string) {
   useStore.getState().editTable(id, (d) => Object.assign(d, deleteRow(d, at)), cell ? { row: Math.min(at, t.rows.length - 2), col: cell.col } : null);
 }
 
-export function addCol(id: string) {
+export function addCol(id: string, opts: { end?: boolean } = {}) {
   const t = tableOf(id);
   if (!t) return;
   const cell = cellOf(id);
-  const at = cell ? cell.col + 1 : t.cols.length;
-  useStore.getState().editTable(id, (d) => Object.assign(d, insertCol(d, at)), cell ? { row: cell.row, col: at } : null);
+  const at = cell && !opts.end ? cell.col + 1 : t.cols.length;
+  useStore.getState().editTable(id, (d) => Object.assign(d, insertCol(d, at)), cell ? (opts.end ? cell : { row: cell.row, col: at }) : null);
 }
 
 export function removeCol(id: string) {

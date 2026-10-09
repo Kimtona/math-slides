@@ -42,15 +42,37 @@ export function splitWidth(total: number, n: number): number[] {
   return Array.from({ length: n }, (_, i) => base + (i >= n - extra ? 1 : 0));
 }
 
-/** Scale widths to a new total (integers, each ≥ `min`, sum exactly `total`). */
+/**
+ * Scale widths to a new total: integers, each ≥ `min`, summing exactly to `total`, ratios kept as far as the minimum allows.
+ * Columns whose proportional share would fall below the minimum are pinned to it; the others share the rest proportionally.
+ */
 export function scaleCols(cols: number[], total: number, min = TABLE_MIN_COL): number[] {
-  const sum = cols.reduce((a, b) => a + b, 0) || 1;
-  if (total < cols.length * min) min = 1; // not enough room for the minimum width: stay proportional
-  const out = cols.map((c) => Math.max(min, Math.round((c * total) / sum)));
-  // Absorb rounding / minimum-width drift in the widest column.
-  const drift = total - out.reduce((a, b) => a + b, 0);
-  const widest = out.indexOf(Math.max(...out));
-  out[widest] = Math.max(min, out[widest] + drift);
+  const n = cols.length;
+  if (total < n * min) min = 1; // not enough room for the minimum width: stay proportional
+  const out = new Array<number>(n).fill(0);
+  let free = cols.map((_, i) => i);
+  let remaining = total;
+  for (;;) {
+    const sum = free.reduce((a, i) => a + cols[i], 0) || 1;
+    const pinned = free.filter((i) => (cols[i] * remaining) / sum < min);
+    if (!pinned.length || pinned.length === free.length) {
+      if (pinned.length === free.length) pinned.forEach((i) => { out[i] = min; remaining -= min; });
+      free = pinned.length === free.length ? [] : free;
+      break;
+    }
+    pinned.forEach((i) => { out[i] = min; remaining -= min; });
+    free = free.filter((i) => !pinned.includes(i));
+  }
+  if (free.length) {
+    const sum = free.reduce((a, i) => a + cols[i], 0) || 1;
+    free.forEach((i) => { out[i] = Math.round((cols[i] * remaining) / sum); });
+    // Rounding drift goes to the widest free column.
+    const drift = remaining - free.reduce((a, i) => a + out[i], 0);
+    const widest = free.reduce((a, i) => (out[i] > out[a] ? i : a), free[0]);
+    out[widest] += drift;
+  } else {
+    out[out.indexOf(Math.max(...out))] += remaining; // all pinned: leftover (0 when total == n × min)
+  }
   return out;
 }
 
@@ -118,4 +140,56 @@ export function deleteCol(t: Grid, at: number): TableEdit {
 /** Plain text of a cell (paragraphs joined with newlines) — for tests, copy and the PPTX spike's fallbacks. */
 export function cellPlainText(doc: PMNode): string {
   return (doc.content ?? []).map((p) => (p.content ?? []).map((n) => n.text ?? (n.type === 'hardBreak' ? '\n' : '')).join('')).join('\n');
+}
+
+/** Column widths for a new total table width: proportional to the current widths (ratios preserved), total never below `cols × TABLE_MIN_COL`. */
+export function resizeToWidth(cols: number[], width: number): { cols: number[]; w: number } {
+  const w = Math.max(cols.length * TABLE_MIN_COL, Math.round(width));
+  return { cols: scaleCols(cols, w), w };
+}
+
+/** Drag the boundary after column `i` by `delta` px: only columns `i` and `i+1` change, their sum (and so the table width) stays. */
+export function resizeColumn(cols: number[], i: number, delta: number, min = TABLE_MIN_COL): number[] {
+  if (i < 0 || i >= cols.length - 1) return cols;
+  const pair = cols[i] + cols[i + 1];
+  const lo = Math.min(min, Math.floor(pair / 2));
+  const left = Math.max(lo, Math.min(pair - lo, cols[i] + Math.round(delta)));
+  const out = cols.slice();
+  out[i] = left;
+  out[i + 1] = pair - left;
+  return out;
+}
+
+/**
+ * Drag the OUTER right edge of the last column by `delta` px: only that column changes (≥ min) and the table width follows it.
+ * The table's left edge stays, and its right edge stays on the slide (a table that already pokes out may still shrink).
+ */
+export function resizeLastColumn(cols: number[], x: number, delta: number, min = TABLE_MIN_COL): { cols: number[]; w: number } {
+  const last = cols.length - 1;
+  const others = cols.reduce((a, b) => a + b, 0) - cols[last];
+  const lo = Math.min(min, cols[last]);
+  const hi = Math.max(lo, cols[last], SLIDE_W - x - others);
+  const width = Math.max(lo, Math.min(hi, cols[last] + Math.round(delta)));
+  const out = cols.slice();
+  out[last] = width;
+  return { cols: out, w: others + width };
+}
+
+/** Plain text (newlines → paragraphs) as a cell. */
+export const textCell = (text: string): TableCell => ({
+  doc: text ? { type: 'doc', content: text.split(/\r\n|\r|\n/).map((l) => (l ? { type: 'paragraph', content: [{ type: 'text', text: l }] } : { type: 'paragraph' })) } : emptyDoc(),
+});
+
+/**
+ * Paste a grid of text into the table starting at (row, col): cells are overwritten, and rows/columns are appended as needed
+ * (new columns grow the table like insertCol, or are scaled back to fit the slide). The result is always a valid table.
+ */
+export function pasteGrid(t: Pick<TableElement, 'rows' | 'cols' | 'w' | 'x' | 'headerRow'>, row: number, col: number, data: string[][]): TableEdit {
+  const need = { rows: row + data.length, cols: col + Math.max(0, ...data.map((r) => r.length)) };
+  let cur: TableEdit = { rows: t.rows, cols: t.cols, w: t.w };
+  while (cur.rows.length < need.rows) cur = { ...cur, ...insertRow({ ...cur, headerRow: t.headerRow }, cur.rows.length) };
+  while (cur.cols.length < need.cols) cur = { ...cur, ...insertCol({ ...cur, x: t.x }, cur.cols.length) };
+  const rows = cur.rows.map((r) => r.slice());
+  data.forEach((line, i) => line.forEach((text, j) => { rows[row + i][col + j] = textCell(text); }));
+  return { rows, cols: cur.cols, w: cur.w };
 }

@@ -230,15 +230,14 @@ export const useStore = create<AppState>()((set, get) => {
       if (get().cropEditId) get().exitCrop();
       const st = get();
       if (st.editingId === id) {
-        // Moving between cells of the table being edited: close the previous cell's undo step, open a new one.
+        // Moving between cells of the table being edited: close the previous cell's undo step (the next one opens on its first change).
         if (st.editCell?.row === row && st.editCell?.col === col) return;
         get().endGesture();
-        get().beginGesture();
         set({ editCell: { row, col }, editCaret: caret });
         return;
       }
       if (st.editingId) st.stopEditing();
-      get().beginGesture();
+      // No gesture yet: CellEditor opens the undo step on the first real change, so that measuring alone never creates one.
       set({ editingId: id, editingIsNew: false, editCaret: caret, editCell: { row, col }, selection: [id], mathEdit: null, focusArea: 'canvas' });
     },
     editTable: (id, fn, next) => {
@@ -246,7 +245,7 @@ export const useStore = create<AppState>()((set, get) => {
       if (editing) get().endGesture(); // the structural change must be its own history step
       get().updateElements([id], (d) => fn(d as Draft<TableElement>));
       if (!editing) return;
-      if (next) { get().beginGesture(); set({ editCell: next, editCaret: 'end' }); }
+      if (next) set({ editCell: next, editCaret: 'end' });
       else get().stopEditing();
     },
     stopEditing: () => {
