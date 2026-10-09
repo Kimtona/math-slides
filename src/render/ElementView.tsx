@@ -3,6 +3,7 @@ import { useStore } from '../store/store';
 import type { Asset, Citation, LineElement, ShapeElement, Slide, SlideElement, TextElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { StaticText } from './StaticText';
+import { TableView } from './TableView';
 import { isDocEmpty } from '../editor/docUtils';
 import { themeLayout, themedTextColor, todoAccent } from '../model/theme';
 import { EMOJI_GLYPH_SCALE, shapeTextInset, shapeTextStyle } from '../model/defaults';
@@ -115,6 +116,7 @@ export function ElementBody({ el, assets, caption }: { el: SlideElement; assets:
         </>
       );
     }
+    case 'table': return <TableView el={el} />;
     case 'shape': return <ShapeView el={el} />;
     case 'line': return <LineSvg el={el} />;
     // Real text at the element's size (re-rasterized by the font renderer at every size, never a scaled bitmap).
@@ -150,6 +152,7 @@ export function instanceBorderStyle(el: SlideElement): CSSProperties {
 export function elementBoxStyle(el: SlideElement, fg?: string | null): CSSProperties {
   const base: CSSProperties = { left: el.x, top: el.y, width: el.w, ...instanceBorderStyle(el), ...(el.type === 'image' && imageRadius(el) ? { borderRadius: imageRadius(el) } : {}) };
   if (el.type === 'text') return { ...base, ...textBoxStyle(el), ...(fg ? { color: fg } : {}), minHeight: el.style.fontSize * el.style.lineHeight };
+  if (el.type === 'table') return base; // rows grow with their content; the stored h is the measured height
   return { ...base, height: el.h };
 }
 

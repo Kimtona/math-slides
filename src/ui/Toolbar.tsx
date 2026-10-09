@@ -1,6 +1,6 @@
 import { useStore } from '../store/store';
 import { Btn, Icons, MenuItem, Popover, Sep } from './controls';
-import { insertEmoji, insertLine, insertMathBox, insertShape, insertTextCenter, pickImages } from '../canvas/insert';
+import { insertEmoji, insertLine, insertMathBox, insertShape, insertTable, insertTextCenter, pickImages } from '../canvas/insert';
 import { loadRecovery, newProject, openProject, restoreRecovered, saveProject } from '../store/persistence';
 import { useEffect, useRef, useState } from 'react';
 import { createQuickEmojiPanel } from '../editor/quickEmojiPanel';
@@ -60,6 +60,7 @@ export function Toolbar() {
         <Btn wide title="텍스트 상자 (T) — 또는 빈 곳을 클릭" onClick={insertTextCenter}>{Icons.text}<span>텍스트</span></Btn>
         <Btn wide title="수식 (M) — 텍스트 안에서는 /math" onClick={insertMathBox}><span className="sigma">∑</span><span>수식</span></Btn>
         <Btn wide title="이미지 (I) — 끌어다 놓기·붙여넣기도 가능" onClick={pickImages}>{Icons.image}<span>이미지</span></Btn>
+        <Btn wide title="표 — 텍스트 안에서는 /table" onClick={insertTable}><span className="wide-inner"><span>▦</span><span>표</span></span></Btn>
         <Popover title="도형" button={<span className="wide-inner">{Icons.shape}<span>도형</span></span>}>
           {(close) => (
             <div className="menu" onClick={close}>

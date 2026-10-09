@@ -3,6 +3,7 @@ import { SLIDE_H, SLIDE_W } from '../model/types';
 import { newEmoji, newLine, newShape, newText, uid } from '../model/defaults';
 import { currentSlide, useStore } from '../store/store';
 import { saveAsset } from '../store/persistence';
+import { newTable } from '../model/table';
 import { textToDoc } from '../editor/docUtils';
 
 const IMAGE_TYPES = /^image\/(png|jpe?g|webp|gif|svg\+xml|bmp|avif)$/;
@@ -98,6 +99,12 @@ export function insertShape(kind: ShapeKind) {
   if (kind === 'blockArrow') { el.w = 280; el.x = SLIDE_W / 2 - 140; }
   if (kind === 'ellipse') { el.w = 180; el.h = 180; el.x = SLIDE_W / 2 - 90; el.y = SLIDE_H / 2 - 90; }
   useStore.getState().addElements([el]);
+}
+
+/** A default 3×3 table at the slide center (offset when other tables already sit there); selected, not text-edited. */
+export function insertTable() {
+  const taken = currentSlide().elements.filter((e) => e.type === 'table').length;
+  useStore.getState().addElements([newTable(SLIDE_W / 2 + (taken % 6) * 24, SLIDE_H / 2 + (taken % 6) * 24)]);
 }
 
 export function insertLine(arrow: boolean) {

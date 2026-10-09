@@ -73,6 +73,7 @@ export function toggleMark(mark: MarkName) {
 /** The style object a text-like element keeps its defaults in (text box: `style`; shape: `textStyle`). */
 function styleOf(d: any): TextStyle {
   if (d.type === 'shape') return (d.textStyle ??= { ...shapeTextStyle(d) });
+  if (d.type === 'table') return d.textStyle;
   return d.style;
 }
 

@@ -636,7 +636,7 @@ const FontFamily = Extension.create({
   },
 });
 
-export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } = {}): Extensions {
+export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean; cell?: boolean } = {}): Extensions {
   const exts: Extensions = [
     StarterKit.configure({
       heading: false,
@@ -646,6 +646,8 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } =
       horizontalRule: false,
       dropcursor: false,
       gapcursor: false,
+      // Table cells hold plain paragraphs with inline marks only (no lists).
+      ...(opts.cell ? { bulletList: false, orderedList: false, listItem: false } : {}),
     }),
     Underline,
     TextStyle,
@@ -653,17 +655,11 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } =
     FontFamily,
     Highlight, // priority 102 → wraps the TextStyle color span (see formattingMarks.ts)
     InlineCode,
-    MathInline,
-    MathBlock,
-    ParagraphFontSize,
-    SlideCodeBlock,
-    SlideBlockquote,
-    Callout,
-    AcademicBlock,
-    TodoItem,
+    // Table cells: no equations, code/quote/callout/academic blocks, todo items or paragraph-size lines.
+    ...(opts.cell ? [] : [MathInline, MathBlock, ParagraphFontSize, SlideCodeBlock, SlideBlockquote, Callout, AcademicBlock, TodoItem]),
     LinkMark,
     UserLink,
-    TocSections.configure({ enabled: !!opts.toc }),
+    ...(opts.cell ? [] : [TocSections.configure({ enabled: !!opts.toc })]),
   ];
   if (withPlaceholder) exts.push(Placeholder.configure({ placeholder: "텍스트 입력, '/' 로 명령 (/math)" }));
   return exts;

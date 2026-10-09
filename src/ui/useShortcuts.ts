@@ -68,6 +68,7 @@ export function useShortcuts() {
       if (e.key === 'Enter' && sel.length === 1) {
         const el = currentSlide().elements.find((x) => x.id === sel[0]);
         if (el?.type === 'text') return go(() => st.startEditing(el.id, 'end'));
+        if (el?.type === 'table') return go(() => st.startCellEditing(el.id, 0, 0, 'end'));
         if (el?.type === 'image') return go(() => st.enterCrop(el.id));
       }
       if (e.code === 'BracketRight' && mod) return go(() => st.reorderSelection(e.shiftKey ? 'front' : 'forward'));

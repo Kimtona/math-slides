@@ -12,6 +12,7 @@ import { SLIDE_FONTS, deckFont, type SlideFont } from '../model/fonts';
 import { HighlightButton, PaletteColorButton, ShapeFillButton, TextColorButton, ThemeColorButton } from './TextColorPalette';
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
+import { TableProps } from './TableProps';
 import { openLinkPopover } from '../editor/linkMark';
 
 /** Re-render on every transaction of the active editor (for B/I/U state). */
@@ -280,6 +281,7 @@ export function PropsBar() {
       {one?.type === 'text' && <TextProps el={one} editing={editingId === one.id} />}
       {one?.type === 'shape' && editingId === one.id && <><TextProps el={shapeAsText(one)} editing box={false} /><Sep /></>}
       {one?.type === 'shape' && <ShapeProps el={one} />}
+      {one?.type === 'table' && <TableProps el={one} editing={editingId === one.id} />}
       {one?.type === 'line' && <LineProps el={one} />}
       {one?.type === 'image' && <ImageProps el={one} />}
       {els.length > 1 && els.every((e) => e.type === 'text') && (

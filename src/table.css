@@ -1,0 +1,8 @@
+/* Tables: Minimal preset — subtle horizontal dividers, comfortable padding, slightly emphasized header row. */
+.ms-table { border-collapse: collapse; table-layout: fixed; border-spacing: 0; }
+.ms-table td { padding: 10px 14px; vertical-align: top; border-bottom: 1px solid #E5E7EB; overflow-wrap: anywhere; }
+.ms-table tr:last-child td { border-bottom-color: #D1D5DB; }
+.ms-table .ms-head td { font-weight: 700; border-bottom: 1.5px solid #9CA3AF; }
+.ms-table .tb-content { min-height: 1em; }
+.ms-table td:has(.ProseMirror) { background: rgba(47, 111, 235, .05); }
+.table-ops { position: absolute; display: flex; gap: 4px; pointer-events: auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 3px; box-shadow: 0 4px 14px rgba(0,0,0,.12); }

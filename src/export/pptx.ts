@@ -1,6 +1,7 @@
 import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
-import type { Asset, Deck, EmojiElement, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
+import type { Asset, Deck, EmojiElement, ImageElement, LineElement, ShapeElement, TableElement, TextElement } from '../model/types';
+import { TABLE_CELL_PAD_X, TABLE_CELL_PAD_Y, cellPlainText, estimateTableHeight, repairTable } from '../model/table';
 import { imageRadius, roundRectAdj, sourceRect } from '../model/imageCrop';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 import { themeLayout } from '../model/theme';
@@ -401,6 +402,51 @@ function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect
   flush();
 }
 
+// ---------- tables ----------
+
+/** Minimal-preset line colors, as in table.css. */
+const TABLE_LINE = '#E5E7EB', TABLE_LINE_LAST = '#D1D5DB', TABLE_LINE_HEAD = '#9CA3AF';
+
+/**
+ * A table as a native, editable PowerPoint table (<a:tbl>): column widths from the model, row heights from the rendered
+ * rows, one run per styled text piece (same run builder as text boxes), Minimal borders and the emphasized header row.
+ * Phase 1 spike — fidelity beyond this (styles, per-cell formatting) is Phase 3.
+ */
+function addTable(s: Slide, el: TableElement, dom: Element | null, origin: DOMRect) {
+  const t = repairTable(el);
+  const trs = dom ? [...dom.querySelectorAll('tr')] : [];
+  const base = { ...el, style: t.textStyle } as unknown as TextElement;
+  const none = { type: 'none' as const };
+  const line = (color: string, px: number) => ({ type: 'solid' as const, pt: PT(px), color: hex(color) });
+  const rows = t.rows.map((row, r) => {
+    const last = r === t.rows.length - 1, head = t.headerRow && r === 0;
+    const bottom = head ? line(TABLE_LINE_HEAD, 1.5) : line(last ? TABLE_LINE_LAST : TABLE_LINE, 1);
+    return row.map((cell, c) => {
+      const content = trs[r]?.children[c]?.querySelector('.tb-content') ?? null;
+      const paras = content ? [...content.querySelectorAll('p')] : [];
+      const runs: TextProps[] = paras.length
+        ? paras.flatMap((p, i) => paragraphRuns(p, content!, base, i === paras.length - 1))
+        : [{ text: cellPlainText(cell.doc), options: { fontSize: PT(t.textStyle.fontSize), fontFace: PPT_FONT, color: hex(t.textStyle.color), bold: head } }];
+      return {
+        text: runs,
+        options: {
+          valign: 'top' as const, align: t.textStyle.align,
+          margin: [IN(TABLE_CELL_PAD_Y), IN(TABLE_CELL_PAD_X), IN(TABLE_CELL_PAD_Y), IN(TABLE_CELL_PAD_X)] as [number, number, number, number],
+          border: [none, none, bottom, none] as [typeof none, typeof none, typeof bottom, typeof none],
+          lineSpacing: PT(t.textStyle.fontSize * t.textStyle.lineHeight),
+        },
+      };
+    });
+  });
+  const natural = estimateTableHeight(1, t.textStyle.fontSize, t.textStyle.lineHeight);
+  s.addTable(rows as unknown as PptxGenJS.TableRow[], {
+    x: IN(el.x), y: IN(el.y), w: IN(t.w),
+    colW: t.cols.map(IN),
+    rowH: t.rows.map((_, r) => IN(trs[r] ? relRect(trs[r], origin).h : natural)),
+    objectName: 'Table',
+  });
+}
+
 // ---------- shapes, lines, images ----------
 
 /** Block Arrow outline in inches, relative to the (stroke-inset) shape box. */
@@ -647,6 +693,7 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
       else if (el.type === 'line') addLine(pptx, s, el);
       else if (el.type === 'image') await addImage(s, el, assets, slideDom, origin);
       else if (el.type === 'emoji') addEmoji(s, el);
+      else if (el.type === 'table') addTable(s, el, slideDom.querySelector(`[data-el-id="${el.id}"]`), origin);
       else {
         const dom = slideDom.querySelector(`[data-el-id="${el.id}"]`);
         if (dom) addTextElement(s, el, dom, origin);

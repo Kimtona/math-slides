@@ -6,6 +6,7 @@ import { lineBox } from '../model/defaults';
 import { themedTextColor, todoAccent } from '../model/theme';
 import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
 import { currentSlide, useStore } from '../store/store';
+import { TableView } from '../render/TableView';
 import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerParts, LineSvg, ShapeView, slideNumberText, ThemeDecor, useFooterStyles } from '../render/ElementView';
 import { extractCitations, resolveCitation } from '../citations/resolve';
 import { findCitations } from '../citations/providers';
@@ -75,6 +76,12 @@ function followLinkLater(target: Element | null): boolean {
 }
 const cancelPendingLink = () => clearTimeout(pendingLink);
 
+/** The table cell (data-r / data-c on its <td>) under a viewport point, if any. */
+function cellAt(x: number, y: number): { row: number; col: number } | null {
+  const td = document.elementFromPoint(x, y)?.closest?.('td[data-r]') as HTMLElement | null;
+  return td ? { row: Number(td.dataset.r), col: Number(td.dataset.c) } : null;
+}
+
 function startMove(e: React.PointerEvent, el: SlideElement) {
   const st = useStore.getState();
   let ids = st.selection;
@@ -111,6 +118,10 @@ function startMove(e: React.PointerEvent, el: SlideElement) {
     else if (wasSelected && !e.shiftKey && el.type === 'text' && s.selection.length === 1) {
       // Click on an already-selected text box: start typing where clicked.
       s.startEditing(el.id, { x: ev.clientX, y: ev.clientY });
+    } else if (wasSelected && !e.shiftKey && el.type === 'table' && s.selection.length === 1) {
+      // Click on an already-selected table: edit the cell that was clicked.
+      const c = cellAt(ev.clientX, ev.clientY);
+      s.startCellEditing(el.id, c?.row ?? 0, c?.col ?? 0, { x: ev.clientX, y: ev.clientY });
     } else if (wasSelected && !e.shiftKey && s.selection.length > 1) s.select([el.id]);
   });
 }
@@ -372,6 +383,23 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
   const fg = useStore((s) => themedTextColor(s.deck, s.deck.slides.find((x) => x.id === s.currentSlideId)!, el));
   const selected = useStore((s) => s.selection.length === 1 && s.selection[0] === el.id && s.cropEditId !== el.id);
 
+  const editCell = useStore((s) => (s.editingId === el.id ? s.editCell : null));
+
+  // Tables are content-height too: store the measured height (selection frame, snapping, export), never resizing other elements.
+  useLayoutEffect(() => {
+    if (el.type !== 'table' || !ref.current) return;
+    const node = ref.current;
+    const measure = () => {
+      const h = Math.round(node.offsetHeight);
+      const cur = currentSlide().elements.find((x) => x.id === el.id);
+      if (cur && h > 0 && cur.h !== h) useStore.getState().updateElements([el.id], (d) => { d.h = h; }, true);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, [el.id, el.type]);
+
   // Text boxes are auto-height: measure and store the height (used for selection, snapping, export).
   useLayoutEffect(() => {
     if (el.type !== 'text' || !ref.current) return;
@@ -407,6 +435,12 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
   const onDoubleClick = (e: React.MouseEvent) => {
     cancelPendingLink();
     if (el.type === 'image') { e.stopPropagation(); useStore.getState().enterCrop(el.id); return; }
+    if (el.type === 'table' && !editing) {
+      e.stopPropagation();
+      const c = cellAt(e.clientX, e.clientY);
+      useStore.getState().startCellEditing(el.id, c?.row ?? 0, c?.col ?? 0, { x: e.clientX, y: e.clientY });
+      return;
+    }
     if ((el.type !== 'text' && el.type !== 'shape') || editing) return;
     e.stopPropagation();
     useStore.getState().startEditing(el.id, { x: e.clientX, y: e.clientY });
@@ -416,6 +450,7 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
     <div ref={ref} className={`el el-${el.type}${editing ? ' editing' : ''}`} style={elementBoxStyle(el, fg)} data-el-id={el.id}
       onPointerDown={onPointerDown} onDoubleClick={onDoubleClick}>
       {editing && el.type === 'text' ? <TextEditor el={el} />
+        : editing && el.type === 'table' ? <TableView el={el} edit={editCell} />
         : editing && el.type === 'shape' ? <ShapeView el={el} editor={<TextEditor el={el} />} />
         : el.type === 'line' ? <LineSvg el={el} hit />
         : <ElementBody el={el} assets={assets} caption={el.type === 'image' && selected && el.caption !== undefined ? <CaptionInput el={el} /> : undefined} />}
@@ -484,6 +519,7 @@ function SelectionOverlay({ scale }: { scale: number }) {
   }
   const handles: Handle[] =
     el.type === 'text' ? ['nw', 'ne', 'se', 'sw', 'e', 'w'] :
+    el.type === 'table' ? [] : // Phase 1: moved as one element; width/column resizing comes later
     el.type === 'emoji' ? ['nw', 'ne', 'se', 'sw'] : // always square: uniform scaling from the corners only
 
     ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
