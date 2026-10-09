@@ -409,7 +409,7 @@ function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect
  * rows, one run per styled text piece (same run builder as text boxes). Borders, the Header style's fill, custom cell fills and
  * the custom line color come from the same model helpers as the on-screen CSS (cellBorders / cellFill), so the file matches the editor.
  */
-function addTable(s: Slide, el: TableElement, dom: Element | null, origin: DOMRect) {
+function addTable(s: Slide, el: TableElement, dom: Element | null, origin: DOMRect, slideDom: Element) {
   const t = repairTable(el);
   const trs = dom ? [...dom.querySelectorAll('tr')] : [];
   const base = { ...el, style: t.textStyle } as unknown as TextElement;
@@ -444,6 +444,7 @@ function addTable(s: Slide, el: TableElement, dom: Element | null, origin: DOMRe
     rowH: t.rows.map((_, r) => IN(trs[r] ? relRect(trs[r], origin).h : natural)),
     objectName: 'Table',
   });
+  addCaption(s, el, slideDom, origin);
 }
 
 // ---------- shapes, lines, images ----------
@@ -526,8 +527,8 @@ async function imageData(a: Asset): Promise<string> {
   return png;
 }
 
-/** Image caption → native editable text derived from the image's geometry (below it, same left edge and width). */
-function addCaption(s: Slide, el: ImageElement, slideDom: Element, origin: DOMRect) {
+/** Image / table caption → native editable text derived from the element's geometry (below it, same left edge and width). */
+function addCaption(s: Slide, el: ImageElement | TableElement, slideDom: Element, origin: DOMRect) {
   if (!el.caption?.trim()) return;
   const dom = slideDom.querySelector(`[data-el-id="${el.id}"] .img-caption`);
   const r = dom ? relRect(dom, origin) : { x: el.x, y: el.y + el.h + CAPTION_GAP, w: el.w, h: TYPOGRAPHY.caption * 1.5 };
@@ -536,7 +537,7 @@ function addCaption(s: Slide, el: ImageElement, slideDom: Element, origin: DOMRe
   const runs: TextProps[] = lines.map((text, i) => ({ text, options: { fontFace: PPT_FONT, fontSize: PT(TYPOGRAPHY.caption), color: hex(CAPTION_COLOR), bold: false, ...(i < lines.length - 1 ? { breakLine: true } : {}) } }));
   s.addText(runs, {
     x: IN(el.x), y: IN(r.y), w: IN(el.w), h: IN(Math.max(r.h, lh)), margin: 0, valign: 'top', wrap: true, fit: 'none', align: 'left',
-    fontFace: PPT_FONT, fontSize: PT(TYPOGRAPHY.caption), color: hex(CAPTION_COLOR), lineSpacing: PT(lh), paraSpaceBefore: 0, paraSpaceAfter: 0, objectName: 'Image Caption',
+    fontFace: PPT_FONT, fontSize: PT(TYPOGRAPHY.caption), color: hex(CAPTION_COLOR), lineSpacing: PT(lh), paraSpaceBefore: 0, paraSpaceAfter: 0, objectName: el.type === 'table' ? 'Table Caption' : 'Image Caption',
   });
 }
 
@@ -692,7 +693,7 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
       else if (el.type === 'line') addLine(pptx, s, el);
       else if (el.type === 'image') await addImage(s, el, assets, slideDom, origin);
       else if (el.type === 'emoji') addEmoji(s, el);
-      else if (el.type === 'table') addTable(s, el, slideDom.querySelector(`[data-el-id="${el.id}"]`), origin);
+      else if (el.type === 'table') addTable(s, el, slideDom.querySelector(`[data-el-id="${el.id}"]`), origin, slideDom);
       else {
         const dom = slideDom.querySelector(`[data-el-id="${el.id}"]`);
         if (dom) addTextElement(s, el, dom, origin);

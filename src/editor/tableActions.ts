@@ -63,6 +63,9 @@ const restyle = (id: string, fn: (t: import('immer').Draft<TableElement>) => voi
 
 export const setTableStyle = (id: string, style: TableStyle) => restyle(id, (d) => { d.style = style; });
 export const setHeaderRow = (id: string, on: boolean) => restyle(id, (d) => { d.headerRow = on; });
+/** Add / remove the caption. Leaves cell editing (so the caption field can take focus and the undo steps stay separate). */
+export const addTableCaption = (id: string) => useStore.getState().editTable(id, (d) => { d.caption = ''; }, null);
+export const removeTableCaption = (id: string) => useStore.getState().editTable(id, (d) => { delete d.caption; }, null);
 export const setTableBorder = (id: string, color: string | null) => restyle(id, (d) => { if (color) d.borderColor = color; else delete d.borderColor; });
 
 /** The cell that cell-level actions (fill) target: the cell being edited, else the one last edited; null = the whole table. */

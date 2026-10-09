@@ -94,14 +94,16 @@ export function LineSvg({ el, hit }: { el: LineElement; hit?: boolean }) {
 /** Shared by the static caption and the editor's caption input so both lay out identically. */
 export const captionStyle: CSSProperties = { marginTop: CAPTION_GAP, fontSize: TYPOGRAPHY.caption, color: CAPTION_COLOR };
 
+/** The static caption of an image or table: hangs below the element box (its geometry stays the element's); empty = none. */
+export const staticCaption = (el: { caption?: string }) => (el.caption?.trim() ? <div className="img-caption" style={captionStyle}>{el.caption}</div> : null);
+
 export function ElementBody({ el, assets, caption }: { el: SlideElement; assets: Record<string, Asset>; caption?: ReactNode }) {
   switch (el.type) {
     case 'text': return <StaticText doc={el.doc} />;
     case 'image': {
       const a = assets[el.assetId];
       if (!a) return <div className="el-img missing">image</div>;
-      // The caption hangs below the element box (its geometry stays the image's); empty = none.
-      const cap = caption ?? (el.caption?.trim() ? <div className="img-caption" style={captionStyle}>{el.caption}</div> : null);
+      const cap = caption ?? staticCaption(el);
       const br = imageRadius(el) || undefined;
       if (!el.crop) return <><img className="el-img" src={a.dataUrl} draggable={false} alt="" style={br ? { borderRadius: br } : undefined} />{cap}</>;
       // Cropped: the full image is drawn larger and offset; the element box clips it.
@@ -116,7 +118,7 @@ export function ElementBody({ el, assets, caption }: { el: SlideElement; assets:
         </>
       );
     }
-    case 'table': return <TableView el={el} />;
+    case 'table': return <><TableView el={el} />{caption ?? staticCaption(el)}</>;
     case 'shape': return <ShapeView el={el} />;
     case 'line': return <LineSvg el={el} />;
     // Real text at the element's size (re-rasterized by the font renderer at every size, never a scaled bitmap).

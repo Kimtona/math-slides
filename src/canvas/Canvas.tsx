@@ -9,7 +9,8 @@ import { themedTextColor, todoAccent } from '../model/theme';
 import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
 import { currentSlide, useStore } from '../store/store';
 import { TableView } from '../render/TableView';
-import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerParts, LineSvg, ShapeView, slideNumberText, ThemeDecor, useFooterStyles } from '../render/ElementView';
+import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerParts, LineSvg, ShapeView, slideNumberText, staticCaption, ThemeDecor, useFooterStyles } from '../render/ElementView';
+import { CAPTION_GAP } from '../model/typography';
 import { extractCitations, resolveCitation } from '../citations/resolve';
 import { findCitations } from '../citations/providers';
 import { TextEditor } from '../editor/TextEditor';
@@ -294,6 +295,12 @@ function startColumnResize(e: React.PointerEvent, el: TableElement, i: number, s
 function TableOverlay({ el, scale }: { el: TableElement; scale: number }) {
   const [hot, setHot] = useState<number | null>(null);
   const [active, setActive] = useState<number | null>(null);
+  // The caption hangs below the table: keep the row "+" under it, never on top of it.
+  const [capH, setCapH] = useState(0);
+  useLayoutEffect(() => {
+    const c = el.caption === undefined ? null : document.querySelector(`[data-el-id="${el.id}"] .img-caption, [data-el-id="${el.id}"] .img-caption-input`) as HTMLElement | null;
+    setCapH(c ? c.offsetHeight + CAPTION_GAP : 0);
+  }, [el.id, el.caption, el.w, el.h]);
   const grip = 10 / scale, btn = 22 / scale, gap = 8 / scale;
   const handleGap = 5 / scale + 4 / scale; // half the blue handle + a margin: this band belongs to the handle
   const n = el.cols.length;
@@ -321,7 +328,7 @@ function TableOverlay({ el, scale }: { el: TableElement; scale: number }) {
         style={{ left: el.x + el.w + gap + grip / 2, top: el.y + gap / 2, width: btn, height: btn, fontSize: 16 / scale }}
         onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.stopPropagation()} onClick={() => addCol(el.id, { end: true })}>+</button>
       <button type="button" className="table-add" title="행 추가" aria-label="Add row"
-        style={{ left: el.x + el.w / 2 - btn / 2, top: el.y + el.h + gap, width: btn, height: btn, fontSize: 16 / scale }}
+        style={{ left: el.x + el.w / 2 - btn / 2, top: el.y + el.h + capH + gap, width: btn, height: btn, fontSize: 16 / scale }}
         onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.stopPropagation()} onClick={() => addRow(el.id, { end: true })}>+</button>
     </>
   );
@@ -541,7 +548,7 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
     <div ref={ref} className={`el el-${el.type}${editing ? ' editing' : ''}`} style={elementBoxStyle(el, fg)} data-el-id={el.id}
       onPointerDown={onPointerDown} onDoubleClick={onDoubleClick}>
       {editing && el.type === 'text' ? <TextEditor el={el} />
-        : el.type === 'table' ? <TableView el={el} edit={editing ? editCell : null} active={activeCell} />
+        : el.type === 'table' ? <><TableView el={el} edit={editing ? editCell : null} active={activeCell} />{selected && el.caption !== undefined ? <CaptionInput el={el} /> : staticCaption(el)}</>
         : editing && el.type === 'shape' ? <ShapeView el={el} editor={<TextEditor el={el} />} />
         : el.type === 'line' ? <LineSvg el={el} hit />
         : <ElementBody el={el} assets={assets} caption={el.type === 'image' && selected && el.caption !== undefined ? <CaptionInput el={el} /> : undefined} />}
@@ -549,8 +556,8 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
   );
 });
 
-/** Editor-only caption field (plain text) under a selected image. One undo step per editing session. */
-function CaptionInput({ el }: { el: ImageElement }) {
+/** Editor-only caption field (plain text) under a selected image or table. One undo step per editing session. */
+function CaptionInput({ el }: { el: ImageElement | TableElement }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const active = useRef(false);
   const last = useRef(el.caption ?? '');
@@ -563,14 +570,15 @@ function CaptionInput({ el }: { el: ImageElement }) {
     active.current = false;
     const st = useStore.getState();
     // Emptied caption → back to the no-caption state (same gesture, so it is part of the editing step).
-    if (!last.current.trim()) st.updateElements([el.id], (d) => { delete (d as ImageElement).caption; }, true);
+    if (!last.current.trim()) st.updateElements([el.id], (d) => { delete (d as ImageElement | TableElement).caption; }, true);
     st.endGesture();
   }, [el.id]);
   useEffect(() => { if (!el.caption) ref.current?.focus(); return finish; }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <textarea ref={ref} className="img-caption-input" style={captionStyle} value={value} rows={1} placeholder="Add a caption..." spellCheck={false}
       onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
-      onChange={(e) => { if (!active.current) { active.current = true; useStore.getState().beginGesture(); } useStore.getState().updateElements([el.id], (d) => { (d as ImageElement).caption = e.target.value; }, true); }}
+      onFocus={() => { const st = useStore.getState(); if (st.editingId === el.id) st.stopEditing(); }} // a table's cell edit ends here, so the two undo steps never merge
+      onChange={(e) => { if (!active.current) { active.current = true; useStore.getState().beginGesture(); } useStore.getState().updateElements([el.id], (d) => { (d as ImageElement | TableElement).caption = e.target.value; }, true); }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') ref.current?.blur(); }}
       onBlur={finish} />
   );

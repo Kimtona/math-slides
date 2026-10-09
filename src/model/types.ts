@@ -141,6 +141,8 @@ export interface TableElement extends ElementBase {
   textStyle: TextStyle;
   /** Custom line color (#rrggbb) for every table line (width stays fixed). Absent = the style's default grays. */
   borderColor?: string;
+  /** Optional plain-text caption below the table — same behavior as an image caption (absent / empty = none; '' only while being edited). Never auto-numbered. */
+  caption?: string;
 }
 
 export type SlideElement = TextElement | ImageElement | ShapeElement | LineElement | EmojiElement | TableElement;

@@ -665,6 +665,93 @@ try {
   await evaluate(`store.getState().select(['${t.id}'])`); await pause(300); await writeFile(path.join(output, 'table-2b.png'), Buffer.from((await send('Page.captureScreenshot')).data, 'base64')); // for a manual look
   console.log('PASS Phase 2B: styles, header toggle, fills (cell / table), border color, deck font, PPTX mapping, editor marks stay editor-only');
 
+  // ======== Table Caption ========
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause(250);
+  t = await T(); await evaluate(`store.getState().select(['${t.id}'])`); await pause(300);
+  const capBtn = (title) => `document.querySelector('.propsbar button[title="${title}"]')`;
+  const capRects = () => evaluate(`(() => { const el = document.querySelector(${JSON.stringify(sel(t))}); const tb = el.querySelector('table').getBoundingClientRect(); const c = el.querySelector('.img-caption, .img-caption-input'); if (!c) return null; const r = c.getBoundingClientRect(); const cs = getComputedStyle(c); return {tx: tb.x, ty: tb.y, tw: tb.width, tb: tb.bottom, cx: r.x, cy: r.y, cw: r.width, ch: r.height, bottom: r.bottom, fs: cs.fontSize, color: cs.color, align: cs.textAlign, weight: cs.fontWeight, tag: c.tagName}; })()`);
+  const CAP = 'Table 1: Results of the experiment';
+  const addCap = async (text) => { await evaluate(`${capBtn('표 캡션 추가')}.click()`); await pause(350); await type(text); await esc(); };
+
+  // -- compatibility: tables without a caption look and serialize as before --
+  assert.ok(!('caption' in t), 'no caption key by default'); assert.equal(await evaluate("document.querySelectorAll('.img-caption, .img-caption-input').length"), 0, 'no caption UI by default');
+  assert.equal(await evaluate(`!!${capBtn('표 캡션 추가')}`), true, 'Caption action on a selected table'); assert.equal(await evaluate(`!!${capBtn('표 캡션 삭제')}`), false);
+
+  // -- add: an empty, focused field; geometry unchanged --
+  const geom0 = JSON.stringify({ x: t.x, y: t.y, w: t.w, cols: t.cols, rows: t.rows }), hc0 = await history();
+  await evaluate(`${capBtn('표 캡션 추가')}.click()`); await pause(400);
+  assert.equal((await T()).caption, '', 'adding creates an empty caption'); assert.equal(await history(), hc0 + 1, 'adding is one undo step');
+  assert.equal(await evaluate("document.activeElement?.className"), 'img-caption-input', 'the caption field is focused'); assert.equal(await evaluate("document.querySelector('.img-caption-input').placeholder"), 'Add a caption...');
+  assert.ok(!(await evaluate('JSON.stringify(store.getState().deck)')).includes('Add a caption'), 'the placeholder is not content');
+  assert.equal(JSON.stringify({ x: (await T()).x, y: (await T()).y, w: (await T()).w, cols: (await T()).cols, rows: (await T()).rows }), geom0, 'the table itself is unchanged');
+  assert.equal(await evaluate(`!!${capBtn('표 캡션 삭제')}`), true, 'the action becomes Remove Caption');
+  // -- type: one undo step per editing session; layout = image caption layout --
+  await type(CAP); await esc(); t = await T(); assert.equal(t.caption, CAP); assert.equal(await history(), hc0 + 2, 'typing session = one undo step');
+  assert.notEqual(await evaluate('document.activeElement?.tagName'), 'TEXTAREA', 'Esc leaves the field');
+  let CR = await capRects(); k = await scaleOf(t);
+  assert.deepEqual([CR.fs, CR.align, CR.weight, CR.color], ['14px', 'left', '400', 'rgb(107, 114, 128)'], 'caption: 14px gray, left-aligned, regular');
+  assert.ok(Math.abs(CR.cx - CR.tx) < 1 && Math.abs(CR.cw - CR.tw) < 1, 'caption has the table’s left edge and width'); assert.ok(Math.abs(CR.cy - CR.tb - 6 * k) < 1.5, 'caption sits 6px below the table');
+  assert.equal(await evaluate(`document.querySelector('${sel(t)} .img-caption-input') ? 1 : 0`), 1, 'editable field shows while the table is selected');
+  await writeFile(path.join(output, 'table-caption.png'), Buffer.from((await send('Page.captureScreenshot')).data, 'base64')); // for a manual look
+  // the row "+" steps aside instead of covering the caption
+  const plusTop = await evaluate("document.querySelector('.table-add[aria-label=\"Add row\"]').getBoundingClientRect().top"); assert.ok(plusTop >= CR.bottom - 0.5, 'row + control sits below the caption');
+  // -- stays attached: move, resize, add row/column, column drag --
+  await drag(await center(td(t, 1, 0)), 60 * k, 25 * k); const t6 = await T(); let CR2 = await capRects(); k = await scaleOf(t6);
+  assert.ok(t6.x > t.x + 30 && t6.y > t.y + 10, 'table moved'); assert.ok(Math.abs(CR2.cx - CR2.tx) < 1 && Math.abs(CR2.cy - CR2.tb - 6 * k) < 1.5, 'a moved table keeps its caption attached');
+  const hMove = await history(); assert.equal(t6.caption, CAP); await evaluate('store.getState().undo()'); await pause(300); assert.equal((await T()).caption, CAP, 'undoing the move keeps the caption');
+  t = await T(); k = await scaleOf(t); await dragFrom('.overlay .handle.h-e', 90 * k); t = await T(); CR2 = await capRects(); assert.ok(Math.abs(CR2.cw - CR2.tw) < 1, 'resizing the table width resizes the caption width'); assert.equal(t.caption, CAP);
+  await evaluate('store.getState().undo()'); await pause(300);
+  t = await T(); await clickOp('+ 행'); CR2 = await capRects(); k = await scaleOf(await T()); assert.ok(Math.abs(CR2.cy - CR2.tb - 6 * k) < 1.5, 'after adding a row the caption is still right under the table'); await evaluate('store.getState().undo()'); await pause(300);
+  t = await T(); k = await scaleOf(t); await dragFrom('.col-resizer[data-col="0"]', 30 * k); assert.equal((await T()).caption, CAP, 'column drag keeps the caption'); await evaluate('store.getState().undo()'); await pause(300);
+  // -- undo / redo, each its own step --
+  await evaluate('store.getState().undo()'); await pause(300); assert.equal((await T()).caption, '', 'undo typing → empty caption'); await evaluate('store.getState().undo()'); await pause(300); assert.ok(!('caption' in await T()), 'undo add → no caption');
+  assert.equal(await evaluate("document.querySelectorAll('.img-caption, .img-caption-input').length"), 0);
+  await evaluate('store.getState().redo()'); await evaluate('store.getState().redo()'); await pause(300); assert.equal((await T()).caption, CAP, 'redo restores the caption');
+  // -- remove --
+  await evaluate(`store.getState().select(['${t.id}'])`); await pause(250); const hr = await history();
+  await evaluate(`${capBtn('표 캡션 삭제')}.click()`); await pause(350); assert.ok(!('caption' in await T()), 'Remove Caption deletes it'); assert.equal(await history(), hr + 1); assert.equal(await evaluate("document.querySelectorAll('.img-caption, .img-caption-input').length"), 0);
+  await evaluate('store.getState().undo()'); await pause(300); assert.equal((await T()).caption, CAP, 'undo remove'); await evaluate('store.getState().redo()'); await pause(300); assert.ok(!('caption' in await T()), 'redo remove'); await evaluate('store.getState().undo()'); await pause(300);
+  // -- emptied caption goes back to "no caption" (like images) --
+  await evaluate(`store.getState().select(['${t.id}'])`); await pause(250);
+  await evaluate("document.querySelector('.img-caption-input').focus(); document.querySelector('.img-caption-input').select()"); await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 }); await pause(250); await esc();
+  assert.ok(!('caption' in await T()), 'clearing all text removes the caption'); await evaluate('store.getState().undo()'); await pause(300); assert.equal((await T()).caption, CAP, 'one undo restores the text');
+  // -- cell editing and the caption field never merge --
+  await evaluate(`store.getState().select(['${t.id}'])`); await pause(250); t = await T(); await clickCell(t, 2, 0); await type('q'); const hq = await history();
+  const cc = await center('.img-caption-input'); await mouse('mousePressed', cc); await mouse('mouseReleased', cc); await pause(350);
+  assert.equal(await evaluate('store.getState().editingId'), null, 'focusing the caption ends cell editing'); assert.equal(await history(), hq + 1, 'the cell edit became its own step'); assert.equal(await evaluate('document.activeElement.className'), 'img-caption-input');
+  await esc(); await evaluate('store.getState().undo()'); await pause(300);
+  // -- duplicate keeps the caption --
+  await evaluate(`store.getState().select(['${t.id}'])`); await pause(250); const nT = (await tables()).length;
+  await evaluate('insert.duplicateSelection()'); await pause(400); const all2 = await tables(); assert.equal(all2.length, nT + 1, 'duplicated'); const dup = all2.find((x) => x.id !== t.id);
+  assert.equal(dup.caption, CAP, 'the duplicate carries the caption'); assert.notEqual(dup.id, t.id);
+  await evaluate(`store.getState().updateElements(['${dup.id}'], (d) => { d.caption = 'Copy' })`); await pause(200); assert.equal((await T()).caption, CAP, 'the original caption is independent');
+  await evaluate('store.getState().undo()'); await evaluate('store.getState().undo()'); await pause(300); assert.equal((await tables()).length, nT);
+  // -- a brand-new table has no caption --
+  await evaluate('insert.insertTable()'); await pause(400); const fresh = (await tables()).find((x) => x.id !== t.id); assert.ok(!('caption' in fresh)); assert.equal(await evaluate("document.querySelectorAll('.slide.editable .img-caption, .slide.editable .img-caption-input').length"), 1, 'only the first table shows a caption'); await evaluate('store.getState().undo()'); await pause(300);
+
+  // -- static outputs: deselected / thumbnails / presenter / print show the text, never the field --
+  await evaluate(`store.getState().select(['${t.id}'])`); await pause(250);
+  const FINAL = 'Table 1: Final caption'; await evaluate(`store.getState().updateElements(['${t.id}'], (d) => { d.caption = ${JSON.stringify(FINAL)} })`); await pause(300);
+  await evaluate('store.getState().select([])'); await pause(300);
+  assert.equal(await evaluate(`document.querySelector('${sel(t)} .img-caption').textContent`), FINAL, 'deselected: static caption'); assert.equal(await evaluate('document.querySelectorAll(".img-caption-input").length'), 0, 'no field when not selected');
+  assert.equal(await evaluate(`[...document.querySelectorAll('.thumb-inner .img-caption')].map((e) => e.textContent).join()`), FINAL, 'thumbnail'); assert.equal(await evaluate("document.querySelectorAll('.thumb-inner .img-caption-input').length"), 0);
+  await evaluate('store.setState({presenting: true})'); await pause(500); assert.equal(await evaluate(`[...document.querySelectorAll('.presenter .img-caption')].map((e) => e.textContent).join()`), FINAL, 'presenter'); assert.equal(await evaluate("document.querySelectorAll('.presenter .img-caption-input').length"), 0); await evaluate('store.setState({presenting: false})'); await pause(300);
+  await evaluate("store.setState({exportMode: 'print'})"); await pause(400); assert.equal(await evaluate(`[...document.querySelectorAll('#print-root .img-caption')].map((e) => e.textContent).join()`), FINAL, 'print / PDF'); assert.equal(await evaluate("document.querySelectorAll('#print-root .img-caption-input').length"), 0); await evaluate("store.setState({exportMode: null})"); await pause(300);
+
+  // -- PPTX: a native text box under the table --
+  await evaluate("for (const k2 of Object.keys(testFiles)) if (k2.endsWith('.pptx')) delete testFiles[k2]");
+  await evaluate("document.querySelector('.export-menu > button').click()"); await pause(200); await evaluate("document.querySelector('.pop .menu-item:nth-child(2)').click()");
+  const capPptx = await until(() => evaluate("Object.keys(testFiles).find((k2) => k2.endsWith('.pptx'))"), 'PPTX export', 30000); await until(() => evaluate(`testFiles[${JSON.stringify(capPptx)}]?.length > 1000`), 'PPTX bytes', 30000);
+  const capZip = await JSZip.loadAsync(Buffer.from(await evaluate(`testFiles[${JSON.stringify(capPptx)}]`))); const capNo = (await evaluate('store.getState().deck.slides')).findIndex((s) => s.elements.some((e) => e.type === 'table')) + 1;
+  const capXml = await capZip.file(`ppt/slides/slide${capNo}.xml`).async('string'); t = await T();
+  const box = /<p:sp>(?:(?!<\/p:sp>)[\s\S])*name="Table Caption"[\s\S]*?<\/p:sp>/.exec(capXml)?.[0]; assert.ok(box, 'a "Table Caption" text box exists');
+  assert.match(box, new RegExp(`<a:t>${FINAL}</a:t>`), 'with the caption text'); assert.ok(!/<a:tbl>[\s\S]*Final caption[\s\S]*<\/a:tbl>/.test(capXml), 'the caption is not inside the table');
+  const off = /<a:off x="(\d+)" y="(\d+)"\/><a:ext cx="(\d+)" cy="(\d+)"/.exec(box); const E = 9525;
+  assert.ok(Math.abs(Number(off[1]) - t.x * E) <= 3 * E, 'same left edge as the table'); assert.ok(Math.abs(Number(off[3]) - t.w * E) <= 3 * E, 'same width as the table'); assert.ok(Number(off[2]) >= (t.y + t.h) * E - 3 * E, 'below the table');
+  assert.match(box, /sz="1050"/, 'caption font size 10.5pt (14px)'); assert.match(capXml, /<a:tbl>/, 'the table is still a native table');
+  await evaluate(`store.getState().select(['${t.id}'])`); await pause(300);
+  console.log('PASS Table Caption: add / type / remove / undo-redo, attached to move / resize / rows / columns, duplicate, static outputs, PPTX text box');
+
   // leave the table resized and pasted so the persistence / export checks below cover it
   t = await T(); await evaluate(`store.getState().select(['${t.id}'])`); await pause(300);
   k = await scaleOf(t); await dragFrom(`.col-resizer[data-col="0"]`, 45 * k); await dragFrom(`.overlay .handle.h-e`, 60 * k);
@@ -687,6 +774,8 @@ try {
   const restored = await T();
   const gotoTable = () => evaluate(`store.getState().goToSlide(store.getState().deck.slides.find((s) => s.elements.some((e) => e.type === 'table')).id)`).then(() => pause(400));
   await gotoTable();
+  assert.equal(restored.caption, 'Table 1: Final caption', 'the caption survives restart');
+  assert.equal(await evaluate(`document.querySelector('[data-el-id="${restored.id}"] .img-caption')?.textContent`), 'Table 1: Final caption', 'and renders under the table');
   assert.equal(restored.style, 'header', 'style survives restart'); assert.ok(/^#[0-9A-Fa-f]{6}$/.test(restored.borderColor), 'border color survives restart');
   const fillCells = restored.rows.flatMap((r, i) => r.map((c, j) => (c.fill ? [i, j, c.fill] : null))).filter(Boolean); assert.equal(fillCells.length, 1, 'the custom cell fill survives restart');
   const rgb2 = (hex) => { const n = parseInt(hex.slice(1), 16); return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`; };
@@ -698,11 +787,13 @@ try {
   const fileName = await evaluate("Object.keys(testFiles).find(k => k.endsWith('.mslides'))");
   const fileText = Buffer.from(await evaluate(`testFiles[${JSON.stringify(fileName)}]`)).toString('utf8');
   assert.match(fileText, /"type":"table"/, 'the .mslides file contains the table');
+  assert.match(fileText, /"caption":"Table 1: Final caption"/, 'and its caption');
   await evaluate('persist.newProject()'); await pause(600);
   assert.equal((await tables()).length, 0, 'a new presentation has no table');
   await evaluate(`persist.openFromText(${JSON.stringify(fileText)}, null)`); await pause(800);
   const reopened = await T(); assert.ok(reopened, 'table reopened from the .mslides file');
   assert.equal(JSON.stringify(reopened.rows), JSON.stringify(restored.rows)); assert.deepEqual(reopened.cols, restored.cols);
+  assert.equal(reopened.caption, 'Table 1: Final caption', 'the caption survives reopening the .mslides file');
   console.log('PASS persistence (autosave, restart, .mslides save/open)');
 
   // ---- PPTX: native editable table (feasibility spike) ----
