@@ -2,7 +2,7 @@ import { useEffect, useReducer } from 'react';
 import type { ImageElement, LineElement, ShapeElement, SlideElement, TextElement } from '../model/types';
 import { useStore } from '../store/store';
 import { getActiveEditor, onActiveEditorChange } from '../editor/active';
-import { Btn, ColorButton, Icons, NumberField, Popover, Sep, WidthButton } from './controls';
+import { Btn, Icons, NumberField, Popover, Sep, WidthButton } from './controls';
 import { themeColorOf } from '../model/theme';
 import { DEFAULT_TEXT_COLOR, emptyDoc, shapeTextStyle } from '../model/defaults';
 import { cropOf, isCropped, sourceRect } from '../model/imageCrop';
@@ -146,7 +146,7 @@ function LineProps({ el }: { el: LineElement }) {
   const upd = (fn: (d: LineElement) => void) => useStore.getState().updateElements([el.id], (d) => fn(d as LineElement));
   return (
     <>
-      <ColorButton title="선 색" label={<span className="small-label">선</span>} value={el.stroke} onChange={(c) => c && upd((d) => { d.stroke = c; })} />
+      <PaletteColorButton title="선 색" label={<span className="small-label">선</span>} value={el.stroke} onChange={(c) => upd((d) => { d.stroke = c; })} />
       <WidthButton title="선 두께" value={el.strokeWidth} onChange={(w) => w && upd((d) => { d.strokeWidth = w; })} />
       <Btn title="점선" active={el.dashed} onClick={() => upd((d) => { d.dashed = !d.dashed; })}>┄</Btn>
       <Btn title="시작 화살표" active={el.arrowStart} onClick={() => upd((d) => { d.arrowStart = !d.arrowStart; })}>←</Btn>

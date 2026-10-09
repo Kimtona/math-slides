@@ -87,18 +87,9 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .width-menu { min-width: 140px; }
 .width-row { display: flex; align-items: center; width: 70px; height: 14px; }
 .width-preview { display: inline-block; width: 100%; background: var(--ink); border-radius: 1px; }
-.palette { width: 164px; }
-.palette-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 4px; }
-.pal { position: relative; width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(0,0,0,.18); cursor: pointer; padding: 0; }
-.pal:hover { transform: scale(1.08); }
-.pal.sel { outline: 2px solid var(--accent); outline-offset: 2px; }
-.pal.sel::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; mix-blend-mode: difference; }
-.pal.none { background: linear-gradient(135deg, #fff 44%, #d62728 44%, #d62728 56%, #fff 56%); }
-.pal.none.sel::after { content: ''; }
-.palette-caption { font-size: 11px; color: var(--muted); padding: 2px 6px 2px; }
 .text-palette { width: 252px; padding: 4px; }
 .palette-heading { font-size: 11px; font-weight: 600; color: var(--muted); margin: 4px 0 8px; }
-.theme-colors, .standard-colors, .highlight-colors { display: flex; gap: 5px; }
+.theme-colors, .standard-colors { display: flex; gap: 5px; }
 .theme-column, .theme-shades { display: flex; flex-direction: column; gap: 3px; }
 .theme-shades { margin: 5px 0 12px; }
 .text-swatch { width: 20px; height: 20px; padding: 0; border: 1px solid rgba(0,0,0,.16); border-radius: 2px; cursor: pointer; }
@@ -125,7 +116,6 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .custom-color button { border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; background: var(--panel); cursor: pointer; }
 .custom-color button:disabled { opacity: .45; cursor: default; }
 .color-error { margin-top: 6px; font-size: 11px; color: #B42318; }
-.highlight-palette { padding: 4px; width: 172px; }
 .swatch.mixed { background: repeating-linear-gradient(135deg, #94A3B8 0 3px, #F1F5F9 3px 6px); }
 
 /* ---------- workspace ---------- */
