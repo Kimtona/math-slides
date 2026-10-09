@@ -269,6 +269,16 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 /* links look like the surrounding text (presentation style), with a hint on hover in the editor */
 .cite-link, .doc-link, .toc-link { color: inherit; text-decoration: none; }
 .slide.editable .cite-link:hover, .slide.editable .doc-link:hover, .slide.editable .toc-link:hover { text-decoration: underline; cursor: pointer; }
+.doc-link.user-link { color: #1a62d6; text-decoration: underline; text-underline-offset: .12em; }
+.slide.editable .doc-link.user-link:hover { cursor: pointer; }
+.ProseMirror .doc-link.user-link { cursor: text; }
+.link-target { background: rgba(47,111,235,.22); border-radius: 2px; }
+.link-popover { position: fixed; z-index: 210; width: 360px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 32px rgba(0,0,0,.18); padding: 8px; font-family: var(--ui-font); }
+.link-input { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: 14px var(--ui-font); outline: none; }
+.link-input:focus { border-color: var(--accent); }
+.link-input.bad { border-color: #cf222e; }
+.link-popover-foot { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.link-popover-foot > span { flex: 1; min-width: 0; }
 .cite-link.pending { font-style: italic; opacity: .8; }
 .cite-link.error { color: #cf222e; }
 .cite-chip { white-space: normal; }

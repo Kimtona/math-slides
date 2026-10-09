@@ -36,6 +36,9 @@ function renderMarks(text: string, marks: PMNode['marks'], key: number): ReactNo
           node = <span style={{ color: m.attrs.color || undefined, fontFamily: m.attrs.fontFamily ? fontStack(m.attrs.fontFamily) : undefined }}>{node}</span>;
         }
         break;
+      case 'userLink':
+        if (m.attrs?.href) node = <a className="doc-link user-link" href={m.attrs.href} target="_blank" rel="noopener noreferrer">{node}</a>;
+        break;
       case 'link':
         if (m.attrs?.href) node = <a className="doc-link" href={m.attrs.href} target="_blank" rel="noopener noreferrer">{node}</a>;
         break;

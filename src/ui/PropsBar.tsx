@@ -12,6 +12,7 @@ import { SLIDE_FONTS, deckFont, type SlideFont } from '../model/fonts';
 import { HighlightButton, PaletteColorButton, ShapeFillButton, TextColorButton, ThemeColorButton } from './TextColorPalette';
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
+import { openLinkPopover } from '../editor/linkMark';
 
 /** Re-render on every transaction of the active editor (for B/I/U state). */
 function useEditorTick() {
@@ -86,6 +87,7 @@ function TextProps({ el, editing, box = true }: { el: TextElement; editing: bool
       <Btn title="취소선" active={markActive('strike', el, editing)} onClick={() => toggleMark('strike')}><s>S</s></Btn>
       <TextColorButton value={activeTextColor(el, editing)} />
       <HighlightButton value={activeTextColor(el, editing, 'highlight')} />
+      <Btn title="링크 ⌘K (⌘+클릭으로 열기)" active={!!ed?.isActive('userLink')} disabled={!ed} onClick={() => ed && openLinkPopover(ed)}>🔗</Btn>
       <Btn title="인라인 코드 (Inline Code)" active={markActive('code', el, editing)} onClick={() => toggleMark('code')}>{Icons.code}</Btn>
       <Sep />
       <Btn title="왼쪽 정렬" active={el.style.align === 'left'} onClick={() => setTextStyle({ align: 'left' })}>{Icons.tAlignL}</Btn>

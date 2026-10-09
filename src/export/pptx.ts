@@ -91,7 +91,7 @@ function runOptions(textNode: Node, base: TextElement, text: string): TextPropsO
     italic: cs.fontStyle === 'italic',
     lang: /[ㄱ-힝]/.test(text) ? 'ko-KR' : 'en-US',
   };
-  if (parent.closest('u')) o.underline = { style: 'sng' };
+  if (parent.closest('u') || parent.closest('a.user-link')) o.underline = { style: 'sng' };
   if (parent.closest('s') || parent.closest('.todo[data-checked="true"]')) o.strike = 'sngStrike';
   const highlight = parent.closest('mark');
   if (highlight) o.highlight = hex(getComputedStyle(highlight).backgroundColor);

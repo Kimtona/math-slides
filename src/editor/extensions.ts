@@ -18,6 +18,7 @@ import type { PMNode } from '../model/types';
 import { MARKDOWN_SIZES, TYPOGRAPHY } from '../model/typography';
 import { ACADEMIC_BLOCK_TYPES, DEFAULT_BLOCK_TYPE, blockTypeInfo } from '../model/academicBlocks';
 import { Highlight, InlineCode } from './formattingMarks';
+import { UserLink } from './linkMark';
 import { createQuickEmojiPanel } from './quickEmojiPanel';
 import { DEFAULT_QUICK_EMOJIS } from '../model/userPrefs';
 import { getQuickEmojis } from '../store/userPrefs';
@@ -85,6 +86,7 @@ export function scaleParagraphSizes(doc: PMNode, k: number): PMNode {
 const LinkMark = Mark.create({
   name: 'link',
   inclusive: false,
+  excludes: 'link userLink',
   addAttributes() {
     return { href: { default: null } };
   },
@@ -660,6 +662,7 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } =
     AcademicBlock,
     TodoItem,
     LinkMark,
+    UserLink,
     TocSections.configure({ enabled: !!opts.toc }),
   ];
   if (withPlaceholder) exts.push(Placeholder.configure({ placeholder: "텍스트 입력, '/' 로 명령 (/math)" }));
