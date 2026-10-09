@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid';
 import type { Deck, EmojiElement, LineElement, PMNode, ShapeElement, ShapeKind, Slide, TextElement, TextStyle } from './types';
 import { SLIDE_H, SLIDE_W } from './types';
-import { HIGHLIGHT_COLORS, presetHex } from './colors';
+import { presetHex } from './colors';
 import { REFERENCES_LAYOUT } from './referencesLayout';
 import { TYPOGRAPHY } from './typography';
 import { BLOCK_ARROW_DEFAULTS } from './blockArrow';
@@ -47,7 +47,7 @@ export const shapeTextInset = (el: Pick<ShapeElement, 'shape' | 'w' | 'h'>) =>
 
 export function newShape(shape: ShapeKind, x: number, y: number, w = 240, h = 160): ShapeElement {
   const arrow = shape === 'blockArrow' ? { ...BLOCK_ARROW_DEFAULTS } : {};
-  return { id: uid(), type: 'shape', shape, x, y, w, h, fill: HIGHLIGHT_COLORS[0].hex, stroke: null, strokeWidth: 2, radius: 16, ...arrow };
+  return { id: uid(), type: 'shape', shape, x, y, w, h, fill: null, stroke: presetHex('Black'), strokeWidth: 1, radius: 16, ...arrow };
 }
 
 /** Glyph size relative to the (square) element box: Apple Color Emoji ink is ~1.03em wide, so this keeps it inside the frame. */

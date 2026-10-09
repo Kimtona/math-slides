@@ -1,5 +1,5 @@
 import { useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { HIGHLIGHT_COLORS, parseHex, sameColor, STANDARD_COLORS, THEME_COLORS } from '../model/colors';
+import { parseHex, sameColor, STANDARD_COLORS, THEME_COLORS } from '../model/colors';
 import { captureTextSelection, setHighlight, setTextColor } from './textFormat';
 import { Icons, Popover } from './controls';
 import { getSavedColors, removeSavedColor, saveColor, subscribeUserPrefs } from '../store/userPrefs';
@@ -18,14 +18,7 @@ function SavedColorSwatches({ value, apply, remove }: { value: string | null; ap
     : <Swatch key={c} color={c} label={`My Color`} value={value} apply={apply} />)}</>;
 }
 
-/** My Colors row for palettes that only offer saved colors (Highlight, Shape Fill); hidden while the user has none. */
-function SavedColorsRow({ value, apply }: { value: string | null; apply: (color: string) => void }) {
-  const saved = useSyncExternalStore(subscribeUserPrefs, getSavedColors);
-  if (!saved.length) return null;
-  return <><div className="palette-heading">My Colors</div><div className="my-colors"><SavedColorSwatches value={value} apply={apply} /></div></>;
-}
-
-function ColorPalette({ value, apply, close, noneLabel, onNone }: { value: string | null; apply: (color: string) => void; close: () => void; noneLabel?: string; onNone?: () => void }) {
+function ColorPalette({ value, apply, close, noneLabel, onNone, label = 'Text Color' }: { value: string | null; apply: (color: string) => void; close: () => void; noneLabel?: string; onNone?: () => void; label?: string }) {
   const [custom, setCustom] = useState(false);
   const [hex, setHex] = useState(value || '#3B82F6');
   const [manage, setManage] = useState(false);
@@ -35,7 +28,7 @@ function ColorPalette({ value, apply, close, noneLabel, onNone }: { value: strin
   const eyeDropper = (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper;
   const pick = () => { if (eyeDropper) new eyeDropper().open().then((r) => setHex(parseHex(r.sRGBHex) ?? r.sRGBHex)).catch(() => {}); };
   const choose = (color: string) => { apply(color); close(); };
-  return <div className="text-palette" role="dialog" aria-label="Text Color" onKeyDown={(e) => {
+  return <div className="text-palette" role="dialog" aria-label={label} onKeyDown={(e) => {
     e.stopPropagation();
     if (e.key === 'Escape') { e.preventDefault(); close(); }
   }}>
@@ -110,21 +103,12 @@ export function ThemeColorButton({ value, onChange }: { value: string; onChange:
   </Popover>;
 }
 
-/** Shape Fill: the Highlight palette (shared HIGHLIGHT_COLORS) applied to a shape's fill; null = no fill. */
+/** Shape Fill: the full palette applied to a shape's fill; null = no fill. */
 export function ShapeFillButton({ value, onChange }: { value: string | null; onChange: (c: string | null) => void }) {
   return <Popover title={`채우기 (Fill): ${value ?? 'None'}`} button={
     <span className="color-btn"><span className="small-label">채우기</span><span className={`swatch${value ? '' : ' none'}`} style={{ backgroundColor: value ?? undefined }} /></span>
   }>
-    {(close) => {
-      const apply = (color: string | null) => { onChange(color); close(); };
-      return <div className="highlight-palette" role="dialog" aria-label="Fill" onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') close(); }}>
-        <div className="palette-heading">Fill</div>
-        <div className="highlight-colors">{HIGHLIGHT_COLORS.map((c) =>
-          <Swatch key={c.name} color={c.hex} label={`Fill ${c.name}`} value={value} apply={apply} />)}</div>
-        <SavedColorsRow value={value} apply={apply} />
-        <button className="palette-other" onClick={() => apply(null)}>None / Remove Fill</button>
-      </div>;
-    }}
+    {(close) => <ColorPalette value={value} close={close} label="Fill" apply={onChange} onNone={() => onChange(null)} noneLabel="None / Remove Fill" />}
   </Popover>;
 }
 
@@ -133,17 +117,8 @@ export function HighlightButton({ value }: { value: string | null }) {
   return <Popover title={`강조 (Highlight): ${value === null ? 'Mixed' : value || 'None'}`} onOpen={() => { restore.current = captureTextSelection(); }} button={
     <span className="color-btn">{Icons.highlight}<span className={`swatch${value === null ? ' mixed' : !value ? ' none' : ''}`} style={{ backgroundColor: value || undefined }} /></span>
   }>
-    {(close) => {
-      const apply = (color: string | null) => { if (restore.current()) setHighlight(color); close(); };
-      return <div className="highlight-palette" role="dialog" aria-label="Highlight" onKeyDown={(e) => {
-        e.stopPropagation(); if (e.key === 'Escape') close();
-      }}>
-        <div className="palette-heading">Highlight</div>
-        <div className="highlight-colors">{HIGHLIGHT_COLORS.map((c) =>
-          <Swatch key={c.name} color={c.hex} label={`Highlight ${c.name}`} value={value} apply={apply} />)}</div>
-        <SavedColorsRow value={value} apply={apply} />
-        <button className="palette-other" onClick={() => apply(null)}>None / Remove Highlight</button>
-      </div>;
-    }}
+    {(close) => <ColorPalette value={value} close={close} label="Highlight"
+      apply={(c) => { if (restore.current()) setHighlight(c); }}
+      onNone={() => { if (restore.current()) setHighlight(null); }} noneLabel="None / Remove Highlight" />}
   </Popover>;
 }

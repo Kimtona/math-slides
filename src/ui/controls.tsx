@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { PRESET_COLORS, colorName, sameColor } from '../model/colors';
 
 export function Btn(props: {
   title?: string; active?: boolean; disabled?: boolean; onClick: () => void; children: ReactNode; className?: string; wide?: boolean;
@@ -66,37 +65,6 @@ export function MenuItem({ onClick, children, shortcut }: { onClick: () => void;
       <span>{children}</span>
       {shortcut && <span className="menu-kbd">{shortcut}</span>}
     </div>
-  );
-}
-
-/** Small preset palette (colors come from model/colors.ts). `allowNone` adds a transparent / "no color" cell. */
-export function ColorButton({ value, onChange, allowNone, noneLabel = '없음', title, label }: {
-  value: string | null; onChange: (c: string | null) => void; allowNone?: boolean; noneLabel?: string; title: string; label?: ReactNode;
-}) {
-  return (
-    <Popover title={`${title}: ${value ? colorName(value) : noneLabel}`} button={
-      <span className="color-btn">
-        {label}
-        <span className={`swatch${value ? '' : ' none'}`} style={{ background: value ?? undefined }} />
-      </span>
-    }>
-      {(close) => (
-        <div className="palette" aria-label={title}>
-          <div className="palette-grid">
-            {PRESET_COLORS.map((c) => (
-              <button key={c.hex} className={`pal${sameColor(c.hex, value) ? ' sel' : ''}`} style={{ background: c.hex }}
-                title={c.name} aria-label={c.name} data-color={c.name}
-                onClick={() => { onChange(c.hex); close(); }} />
-            ))}
-            {allowNone && (
-              <button className={`pal none${value ? '' : ' sel'}`} title={noneLabel} aria-label={noneLabel} data-color="none"
-                onClick={() => { onChange(null); close(); }} />
-            )}
-          </div>
-          <div className="palette-caption">{value ? colorName(value) : noneLabel}</div>
-        </div>
-      )}
-    </Popover>
   );
 }
 
