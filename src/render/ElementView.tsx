@@ -7,6 +7,7 @@ import { isDocEmpty } from '../editor/docUtils';
 import { themeLayout, themedTextColor, todoAccent } from '../model/theme';
 import { EMOJI_GLYPH_SCALE, shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { slideFontVars } from '../model/fonts';
+import { imageRadius } from '../model/imageCrop';
 import { blockArrowOutline } from '../model/blockArrow';
 import { displayCitation } from '../citations/format';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
@@ -100,12 +101,13 @@ export function ElementBody({ el, assets, caption }: { el: SlideElement; assets:
       if (!a) return <div className="el-img missing">image</div>;
       // The caption hangs below the element box (its geometry stays the image's); empty = none.
       const cap = caption ?? (el.caption?.trim() ? <div className="img-caption" style={captionStyle}>{el.caption}</div> : null);
-      if (!el.crop) return <><img className="el-img" src={a.dataUrl} draggable={false} alt="" />{cap}</>;
+      const br = imageRadius(el) || undefined;
+      if (!el.crop) return <><img className="el-img" src={a.dataUrl} draggable={false} alt="" style={br ? { borderRadius: br } : undefined} />{cap}</>;
       // Cropped: the full image is drawn larger and offset; the element box clips it.
       const c = el.crop;
       return (
         <>
-          <div className="el-img-crop">
+          <div className="el-img-crop" style={br ? { borderRadius: br } : undefined}>
             <img className="el-img-src" src={a.dataUrl} draggable={false} alt=""
               style={{ left: `${(-c.x / c.w) * 100}%`, top: `${(-c.y / c.h) * 100}%`, width: `${100 / c.w}%`, height: `${100 / c.h}%` }} />
           </div>
@@ -146,7 +148,7 @@ export function instanceBorderStyle(el: SlideElement): CSSProperties {
 }
 
 export function elementBoxStyle(el: SlideElement, fg?: string | null): CSSProperties {
-  const base: CSSProperties = { left: el.x, top: el.y, width: el.w, ...instanceBorderStyle(el) };
+  const base: CSSProperties = { left: el.x, top: el.y, width: el.w, ...instanceBorderStyle(el), ...(el.type === 'image' && imageRadius(el) ? { borderRadius: imageRadius(el) } : {}) };
   if (el.type === 'text') return { ...base, ...textBoxStyle(el), ...(fg ? { color: fg } : {}), minHeight: el.style.fontSize * el.style.lineHeight };
   return { ...base, height: el.h };
 }

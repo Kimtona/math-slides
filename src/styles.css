@@ -64,6 +64,11 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .small-label { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .hint { color: var(--muted); font-size: 12px; margin-left: 10px; white-space: nowrap; }
 .num { height: 28px; border: 1px solid var(--line); border-radius: 6px; text-align: center; font: inherit; font-size: 13px; margin: 0 2px; }
+.radius-preset { height: 24px; min-width: 28px; padding: 0 6px; margin: 0 2px; border: 1px solid transparent; border-radius: 6px; background: #f1f3f5; color: var(--muted); font-size: 12px; cursor: pointer; }
+.radius-preset:hover:not(:disabled) { background: #e5e8eb; color: var(--ink); }
+.radius-preset.active { background: var(--accent-soft); color: var(--accent); }
+.radius-preset:disabled { opacity: .4; cursor: default; }
+.radius-slider { width: 90px; margin: 0 2px; accent-color: var(--accent); }
 .num:focus { outline: none; border-color: var(--accent); }
 .a-glyph { font-weight: 700; font-size: 14px; }
 .color-btn { display: inline-flex; align-items: center; gap: 4px; }
