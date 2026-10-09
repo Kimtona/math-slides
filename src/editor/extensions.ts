@@ -7,7 +7,7 @@ import { Plugin, PluginKey, type EditorState } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PMNodeType } from '@tiptap/pm/model';
 import { CODE_LANGUAGES, highlightCode, isSupportedLanguage } from './codeHighlight';
-import { uid } from '../model/defaults';
+import { headingSize, uid } from '../model/defaults';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextStyle from '@tiptap/extension-text-style';
@@ -15,7 +15,7 @@ import { Color } from '@tiptap/extension-color';
 import Placeholder from '@tiptap/extension-placeholder';
 import { MathBlock, MathInline } from './mathNodes';
 import type { PMNode } from '../model/types';
-import { MARKDOWN_SIZES, TYPOGRAPHY } from '../model/typography';
+import { TYPOGRAPHY } from '../model/typography';
 import { ACADEMIC_BLOCK_TYPES, DEFAULT_BLOCK_TYPE, blockTypeInfo } from '../model/academicBlocks';
 import { Highlight, InlineCode } from './formattingMarks';
 import { UserLink } from './linkMark';
@@ -51,7 +51,7 @@ const ParagraphFontSize = Extension.create({
         handler: ({ state, range, match }) => {
           const $from = state.doc.resolve(range.from);
           if ($from.parent.type.name !== 'paragraph') return null;
-          const size = MARKDOWN_SIZES[match[1].length];
+          const size = headingSize(match[1].length);
           state.tr.delete(range.from, range.to);
           state.tr.setNodeMarkup($from.before(), undefined, { ...$from.parent.attrs, fontSize: size });
         },

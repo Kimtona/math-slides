@@ -9,6 +9,9 @@ declare global {
       openReady?: () => Promise<{ path?: string; name?: string; text?: string; error?: string }[]>;
       onOpenFile?: (cb: (file: { path?: string; name?: string; text?: string; error?: string }) => void) => void;
       writeFile?: (path: string, text: string) => Promise<{ ok: boolean; error?: string }>;
+      readConfig?: () => Promise<{ path: string; text: string | null; error?: string }>;
+      openConfig?: (template: string) => Promise<{ ok: boolean; path: string; created: boolean; error?: string }>;
+      onConfigCommand?: (cb: (command: string) => void) => void;
     };
   }
 }

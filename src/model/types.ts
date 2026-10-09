@@ -20,6 +20,8 @@ export interface TextStyle {
   align: 'left' | 'center' | 'right';
   lineHeight: number; // multiplier
   fill: string | null; // background color of the box
+  /** A SLIDE_FONTS id for this box. Absent = the presentation font (older files, and every box created with the default font). */
+  fontFamily?: string;
 }
 
 interface ElementBase {

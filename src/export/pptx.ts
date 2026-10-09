@@ -80,11 +80,14 @@ function linkOf(node: Node): TextPropsOptions['hyperlink'] | undefined {
   return /^https?:\/\//.test(href) ? { url: href, tooltip: href } : undefined;
 }
 
+/** Font of a text box: its own (configured at creation) else the presentation font. */
+const boxFont = (base: Pick<TextElement, 'style'>): string => (base.style.fontFamily ? deckFont(base.style.fontFamily) : PPT_FONT);
+
 function runOptions(textNode: Node, base: TextElement, text: string): TextPropsOptions {
   const parent = textNode.parentElement!;
   const cs = getComputedStyle(parent);
   const o: TextPropsOptions = {
-    fontFace: parent.closest('code') ? INLINE_CODE_FONT : fontFromCss(cs.fontFamily) ?? PPT_FONT,
+    fontFace: parent.closest('code') ? INLINE_CODE_FONT : fontFromCss(cs.fontFamily) ?? boxFont(base),
     fontSize: PT(parseFloat(cs.fontSize) || base.style.fontSize),
     color: hex(cs.color),
     bold: parseInt(cs.fontWeight) >= 600,
@@ -131,7 +134,7 @@ function paragraphRuns(p: Element, content: Element, base: TextElement, last: bo
   };
   walk(p);
   if (soft) runs.push({ text: '', options: { softBreakBefore: true, fontSize: PT(base.style.fontSize) } });
-  if (!runs.length) runs.push({ text: '', options: { fontSize: PT(base.style.fontSize), fontFace: PPT_FONT } });
+  if (!runs.length) runs.push({ text: '', options: { fontSize: PT(base.style.fontSize), fontFace: boxFont(base) } });
 
   const li = listInfo(p, content, base);
   if (li) {
@@ -160,7 +163,7 @@ function boxOptions(base: TextElement, r: Rect): PptxGenJS.TextPropsOptions {
   return {
     x: IN(x), y: IN(r.y), w: IN(w), h: IN(r.h),
     margin: 0, valign: 'top', wrap: true, fit: 'none',
-    fontFace: PPT_FONT, fontSize: PT(base.style.fontSize), color: hex(base.style.color),
+    fontFace: boxFont(base), fontSize: PT(base.style.fontSize), color: hex(base.style.color),
     align: base.style.align, lineSpacing: PT(base.style.fontSize * base.style.lineHeight),
     paraSpaceBefore: 0, paraSpaceAfter: 0,
   };
@@ -188,7 +191,7 @@ function addFragments(s: Slide, base: TextElement, p: Element, content: Element,
     const fs = base.style.fontSize;
     s.addText(marker, {
       x: IN(pr.x - fs * 1.3), y: IN(pr.y), w: IN(fs * 1.3), h: IN(fs * base.style.lineHeight),
-      margin: 0, valign: 'top', wrap: false, fontFace: PPT_FONT, fontSize: PT(fs), color: hex(base.style.color),
+      margin: 0, valign: 'top', wrap: false, fontFace: boxFont(base), fontSize: PT(fs), color: hex(base.style.color),
     });
   }
   const range = document.createRange();
@@ -200,7 +203,7 @@ function addFragments(s: Slide, base: TextElement, p: Element, content: Element,
     const o = runOptions(node, base, text);
     s.addText([{ text, options: o }], {
       x: IN(left - origin.left), y: IN(top - origin.top), w: IN(right - left + Math.max(3, (right - left) * 0.03)), h: IN(bottom - top),
-      margin: 0, valign: 'top', wrap: false, fit: 'none', fontFace: PPT_FONT, fontSize: o.fontSize, color: o.color,
+      margin: 0, valign: 'top', wrap: false, fit: 'none', fontFace: o.fontFace ?? boxFont(base), fontSize: o.fontSize, color: o.color,
     });
   };
   const walk = (n: Node) => {
@@ -440,7 +443,7 @@ function addShape(pptx: PptxGenJS, s: Slide, el: ShapeElement, slideDom: Element
   s.addText(runs, {
     ...geometry, shape: type, align: base.style.align, valign: 'middle', wrap: true, fit: 'none',
     margin: [PT(inset.y), PT(inset.x), PT(inset.y), PT(inset.x)],
-    fontFace: PPT_FONT, fontSize: PT(base.style.fontSize), color: hex(base.style.color),
+    fontFace: boxFont(base), fontSize: PT(base.style.fontSize), color: hex(base.style.color),
     lineSpacing: PT(base.style.fontSize * base.style.lineHeight), paraSpaceBefore: 0, paraSpaceAfter: 0, objectName: 'Shape Text',
   });
 }

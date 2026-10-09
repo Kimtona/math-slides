@@ -1,11 +1,12 @@
-import { useEffect, useReducer } from 'react';
+import { useEffect, useReducer, useSyncExternalStore } from 'react';
 import type { ImageElement, LineElement, ShapeElement, SlideElement, TextElement } from '../model/types';
 import { useStore } from '../store/store';
 import { getActiveEditor, onActiveEditorChange } from '../editor/active';
 import { Btn, Icons, NumberField, Popover, Sep, WidthButton } from './controls';
 import { themeColorOf } from '../model/theme';
 import { DEFAULT_TEXT_COLOR, emptyDoc, shapeTextStyle } from '../model/defaults';
-import { cropOf, DEFAULT_RADIUS_PRESET, imageRadius, isCropped, sourceRect } from '../model/imageCrop';
+import { getConfig, subscribeConfig } from '../model/config';
+import { cropOf, imageRadius, isCropped, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { activeTextColor, activeTextFont, markActive, setDeckFont, setSelectionFont, setTextStyle, toggleList, toggleMark } from './textFormat';
 import { SLIDE_FONTS, deckFont, type SlideFont } from '../model/fonts';
@@ -48,7 +49,7 @@ function BorderButton({ el }: { el: TextElement | ImageElement }) {
 function RadiusControl({ el }: { el: ImageElement }) {
   const max = Math.max(1, Math.floor(Math.min(el.w, el.h) / 2));
   const value = Math.round(imageRadius(el));
-  const preset = DEFAULT_RADIUS_PRESET; // the one preset; a Settings preference can replace this later
+  const preset = useSyncExternalStore(subscribeConfig, () => getConfig().imageRadiusPreset); // `image-radius-preset` in config.txt
   const set = (v: number, live = false) => useStore.getState().updateElements([el.id], (d) => {
     const i = d as ImageElement;
     if (v > 0) i.radius = Math.min(v, max); else delete i.radius;
@@ -61,7 +62,7 @@ function RadiusControl({ el }: { el: ImageElement }) {
         onPointerUp={() => useStore.getState().endGesture()}
         onChange={(e) => set(Number(e.target.value), !!useStore.getState().gestureBase)} />
       <NumberField value={value} min={0} max={max} title="모서리 반경 (px)" onChange={(v) => set(v)} />
-      <button type="button" className={'radius-preset' + (value === preset ? ' active' : '')} title={`모서리 ${preset}px`} aria-label={`Corner radius ${preset}px`}
+      <button type="button" className={'radius-preset' + (value === Math.round(preset) ? ' active' : '')} title={`모서리 ${preset}px`} aria-label={`Corner radius ${preset}px`}
         disabled={preset > max} onMouseDown={(e) => e.preventDefault()} onClick={() => set(preset)}>{preset}</button>
     </>
   );

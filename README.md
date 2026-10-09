@@ -100,7 +100,7 @@ The idea is to skip the font-size decision. Type a Markdown prefix at the start 
 | `### ` | **30** | Subheading / template body |
 | `#### ` | **25** | Body text |
 
-Backspace at the start of the line reverts it. The same scale drives the built-in Title and Content templates, so every slide in a deck lines up. (Sizes are px on a 1280×720 slide, which equals pt in the exported 13.33″ widescreen deck.)
+Backspace at the start of the line reverts it. The same scale drives the built-in Title and Content templates, so every slide in a deck lines up. (Sizes are px on a 1280×720 slide. The exported 13.33″ widescreen deck is that slide at 96 px per inch, so 1 px = 0.75 pt in PowerPoint: 80 → 60 pt, 50 → 37.5 pt, 30 → 22.5 pt, 25 → 18.75 pt. You can change these sizes for new content in the [configuration file](#configuration).)
 
 ### Slash commands
 
@@ -213,6 +213,53 @@ A reading-group deck built in the current app. Everything below is regular MathS
 - **Files:** autosave, `.mslides` documents (`⌘S` / `⌘O`) that open from Finder with a double-click, and recovery of displaced work.
 
 > The app's menus and tooltips are currently in **Korean** (e.g. 내보내기 = Export, 발표 = Present). Slash commands, LaTeX, and keyboard shortcuts are the same in any language.
+
+## Configuration
+
+MathSlides has no Settings window. A small text file, `config.txt`, holds the defaults used for **new** content.
+
+1. Press **`⌘,`** to open `config.txt` in your default text editor. The first time, MathSlides creates it for you with every setting written out and explained.
+2. Change a value and save the file.
+3. Back in MathSlides, press **`⌘⇧,`** to apply it. No restart is needed, and MathSlides loads the file again by itself every time it starts.
+
+Changes affect only what you create afterwards. Headings, text boxes, shapes and images that are already on your slides keep exactly the look they were created with.
+
+The file lives in MathSlides' data folder (on macOS: `~/Library/Application Support/math-slides/config.txt`), outside your presentations, so it is never saved into a `.mslides` file and survives app updates.
+
+```ini
+# Typography
+font = NanumSquare
+heading-1 = 80
+heading-2 = 50
+heading-3 = 30
+body-size = 25
+
+# Shapes
+shape-fill = none
+shape-stroke = #000000
+shape-stroke-width = 1px
+
+# Images
+image-radius-preset = 50px
+```
+
+| Setting | Built-in default | What it controls |
+|---|---|---|
+| `font` | `NanumSquare` (or `Pretendard`, `Noto Serif KR`) | Font of newly created text |
+| `heading-1` / `heading-2` / `heading-3` | `80` / `50` / `30` | Size of new `#`, `##`, `###` lines and template titles |
+| `body-size` | `25` | New text boxes, text inside new shapes, and `####` lines |
+| `shape-fill` | `none` | Fill of new shapes: a HEX color like `#FFFFFF`, or `none` |
+| `shape-stroke` | `#000000` | Outline color of new shapes |
+| `shape-stroke-width` | `1px` | Outline width of new shapes |
+| `image-radius-preset` | `50px` | The value the image corner-radius preset button applies |
+
+**Syntax.** One `key = value` per line. Blank lines are ignored, and a line starting with `#` is a comment (put comments on their own line, not after a value). For font sizes, **write a plain number without `px` or `pt`**, for example `heading-1 = 80`. Plain numbers are exactly the numbers shown in MathSlides' font-size box in the toolbar, so `heading-1 = 80` gives a line that shows 80 there. *(Advanced, optional:)* a `px` or `pt` suffix is also accepted, with `pt` meaning PowerPoint points (1 pt = 4/3 px), so `60pt` is the same size as `80` and `100pt` would show 133.33. Older files that use `pt` keep working.
+
+**Reset.** Delete a line (or put `#` in front of it) to bring back that setting's default, then press `⌘⇧,`. To reset everything, delete `config.txt` and press `⌘⇧,` (`⌘,` creates a fresh commented copy).
+
+**If there is a mistake.** MathSlides shows a message such as `Config error on line 5: invalid heading-2: …` and keeps using the last settings that worked, so nothing is half-applied. Fix the line, save, and press `⌘⇧,` again. If the file is wrong when MathSlides starts, it runs with the built-in defaults and shows the same message; it never edits or deletes your file.
+
+> The configuration file belongs to the desktop app. When running in a browser (development), the built-in defaults are used.
 
 ---
 

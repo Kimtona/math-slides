@@ -12,6 +12,7 @@ import { exportPdf, exportPptx } from '../export/run';
 import { plainText } from '../editor/docUtils';
 import { toggleMark } from './textFormat';
 import { plainSlideCopy } from '../model/structure';
+import { configShortcut, runConfigCommand } from '../store/configFile';
 
 let slideClip: Slide | null = null;
 
@@ -31,6 +32,8 @@ export function useShortcuts() {
       const go = (fn: () => void) => { e.preventDefault(); fn(); };
 
       // Global (also while typing)
+      const config = configShortcut(e);
+      if (config) return go(() => runConfigCommand(config)); // Cmd+, / Cmd+Shift+, (fallback for the menu accelerators)
       if (mod && k === 's') return go(() => saveProject(e.shiftKey));
       if (mod && k === 'o') return go(openProject);
       if (mod && k === 'p') return go(exportPdf);

@@ -4,6 +4,8 @@ import { SLIDE_H, SLIDE_W } from './types';
 import { presetHex } from './colors';
 import { REFERENCES_LAYOUT } from './referencesLayout';
 import { TYPOGRAPHY } from './typography';
+import { getConfig } from './config';
+import { DEFAULT_FONT } from './fonts';
 import { BLOCK_ARROW_DEFAULTS } from './blockArrow';
 
 export const uid = () => nanoid(10);
@@ -19,8 +21,17 @@ export const textDoc = (...paragraphs: string[]): PMNode => ({
   content: paragraphs.map((t) => (t ? { type: 'paragraph', content: [{ type: 'text', text: t }] } : { type: 'paragraph' })),
 });
 
+/**
+ * Configured creation defaults (model/config.ts), read at the moment an element is created and then stored in it.
+ * The font is stored only when it differs from the built-in default, so with no configuration new elements are
+ * identical to before and keep following the presentation font.
+ */
+const configFont = (): Pick<TextStyle, 'fontFamily'> => (getConfig().font === DEFAULT_FONT ? {} : { fontFamily: getConfig().font });
+/** Size of a Markdown/template level: 1-3 = headings, 4 (and anything else) = body. */
+export const headingSize = (level: number): number => { const c = getConfig(); return level === 1 ? c.heading1 : level === 2 ? c.heading2 : level === 3 ? c.heading3 : c.bodySize; };
+
 export function defaultTextStyle(partial: Partial<TextStyle> = {}): TextStyle {
-  return { fontSize: TYPOGRAPHY.body, color: DEFAULT_TEXT_COLOR, align: 'left', lineHeight: 1.35, fill: null, ...partial };
+  return { fontSize: getConfig().bodySize, color: DEFAULT_TEXT_COLOR, align: 'left', lineHeight: 1.35, fill: null, ...configFont(), ...partial };
 }
 
 export function newText(x: number, y: number, opts: { w?: number; doc?: PMNode; style?: Partial<TextStyle> } = {}): TextElement {
@@ -47,7 +58,11 @@ export const shapeTextInset = (el: Pick<ShapeElement, 'shape' | 'w' | 'h'>) =>
 
 export function newShape(shape: ShapeKind, x: number, y: number, w = 240, h = 160): ShapeElement {
   const arrow = shape === 'blockArrow' ? { ...BLOCK_ARROW_DEFAULTS } : {};
-  return { id: uid(), type: 'shape', shape, x, y, w, h, fill: null, stroke: presetHex('Black'), strokeWidth: 1, radius: 16, ...arrow };
+  const c = getConfig();
+  const el: ShapeElement = { id: uid(), type: 'shape', shape, x, y, w, h, fill: c.shapeFill, stroke: c.shapeStroke, strokeWidth: c.shapeStrokeWidth, radius: 16, ...arrow };
+  // Shape text falls back to built-in body text when a shape has no `textStyle`; store one only if the configuration changes it.
+  if (c.bodySize !== TYPOGRAPHY.body || c.font !== DEFAULT_FONT) el.textStyle = { ...shapeTextStyle({}), fontSize: c.bodySize, ...configFont() };
+  return el;
 }
 
 /** Glyph size relative to the (square) element box: Apple Color Emoji ink is ~1.03em wide, so this keeps it inside the frame. */
@@ -91,10 +106,10 @@ export const isTemplatePlaceholder = (text: string) => TEMPLATE_PLACEHOLDERS.has
 export function newTitleSlide(title = DEFAULT_TITLE): { slide: Slide; titleId: string } {
   const s = newSlide();
   s.kind = 'title'; // canonical Title Slide: the initial slide and every inserted one
-  const main = newText(96, 210, { w: SLIDE_W - 192, doc: textDoc(title), style: { fontSize: TYPOGRAPHY.h1, align: 'center' } });
+  const main = newText(96, 210, { w: SLIDE_W - 192, doc: textDoc(title), style: { fontSize: headingSize(1), align: 'center' } });
   const sub = newText(96, 350, {
     w: SLIDE_W - 192, doc: textDoc(TEMPLATE_TEXT.subtitle),
-    style: { fontSize: TYPOGRAPHY.h3, align: 'center', color: presetHex('Dark Gray') },
+    style: { fontSize: headingSize(3), align: 'center', color: presetHex('Dark Gray') },
   });
   s.elements.push(main, sub);
   return { slide: s, titleId: main.id };
@@ -104,10 +119,10 @@ export function newTitleSlide(title = DEFAULT_TITLE): { slide: Slide; titleId: s
 export function newContentSlide(): Slide {
   const s = newSlide();
   const x = 64, y = 40, w = SLIDE_W - 128;
-  const titleH = Math.round(TYPOGRAPHY.h2 * 1.35);
+  const titleH = Math.round(headingSize(2) * 1.35);
   s.elements.push(
-    newText(x, y, { w, doc: textDoc(TEMPLATE_TEXT.contentTitle), style: { fontSize: TYPOGRAPHY.h2 } }),
-    newText(x, y + titleH + 24, { w, doc: textDoc(TEMPLATE_TEXT.contentBody), style: { fontSize: TYPOGRAPHY.h3 } }),
+    newText(x, y, { w, doc: textDoc(TEMPLATE_TEXT.contentTitle), style: { fontSize: headingSize(2) } }),
+    newText(x, y + titleH + 24, { w, doc: textDoc(TEMPLATE_TEXT.contentBody), style: { fontSize: headingSize(3) } }),
   );
   return s;
 }
@@ -119,14 +134,14 @@ export function newTocSlide(): Slide {
   const s = newSlide();
   s.kind = 'toc';
   const x = 64, y = 40, w = SLIDE_W - 128;
-  const titleH = Math.round(TYPOGRAPHY.h2 * 1.35);
+  const titleH = Math.round(headingSize(2) * 1.35);
   const list = newText(x, y + titleH + 32, {
     w,
     doc: { type: 'doc', content: [{ type: 'orderedList', attrs: { start: 1 }, content: [{ type: 'listItem', attrs: { sectionId: uid() }, content: [{ type: 'paragraph' }] }] }] },
-    style: { fontSize: TYPOGRAPHY.h3, lineHeight: 1.6 },
+    style: { fontSize: headingSize(3), lineHeight: 1.6 },
   });
   list.role = 'toc';
-  s.elements.push(newText(x, y, { w, doc: textDoc('목차'), style: { fontSize: TYPOGRAPHY.h2 } }), list);
+  s.elements.push(newText(x, y, { w, doc: textDoc('목차'), style: { fontSize: headingSize(2) } }), list);
   return s;
 }
 
@@ -142,9 +157,9 @@ export function newSubtitleSlide(sectionId: string): Slide {
 
 export function subtitleElement(slideId: string, which: 'current' | 'next'): TextElement {
   const current = which === 'current';
-  const el = newText(120, current ? 250 : 250 + Math.round(TYPOGRAPHY.h1 * 1.35) + 24, {
+  const el = newText(120, current ? 250 : 250 + Math.round(headingSize(1) * 1.35) + 24, {
     w: SLIDE_W - 240,
-    style: current ? { fontSize: TYPOGRAPHY.h1 } : { fontSize: TYPOGRAPHY.h3, color: presetHex('Dark Gray') },
+    style: current ? { fontSize: headingSize(1) } : { fontSize: headingSize(3), color: presetHex('Dark Gray') },
   });
   el.id = `${slideId}-${which}`;
   el.role = current ? 'subtitle-current' : 'subtitle-next';
@@ -164,7 +179,7 @@ export function newReferencesSlide(page = 1): Slide {
   const id = referencesSlideId(page);
   const s: Slide = { ...newSlide(), id, kind: 'references' };
   const x = 64, y = 40, w = SLIDE_W - 128;
-  const title = newText(x, y, { w, doc: textDoc(referencesTitleText(page)), style: { fontSize: TYPOGRAPHY.h2 } });
+  const title = newText(x, y, { w, doc: textDoc(referencesTitleText(page)), style: { fontSize: headingSize(2) } });
   title.id = `${id}-title`;
   title.role = 'references-title';
   s.elements.push(title, referencesListElement(id));
@@ -183,7 +198,7 @@ export function referencesListElement(slideId = REFERENCES_SLIDE_ID): TextElemen
 export function newThanksSlide(): Slide {
   const s = newSlide();
   s.kind = 'thanks';
-  s.elements.push(newText(96, 290, { w: SLIDE_W - 192, doc: textDoc('Thank you'), style: { fontSize: TYPOGRAPHY.h1, align: 'center' } }));
+  s.elements.push(newText(96, 290, { w: SLIDE_W - 192, doc: textDoc('Thank you'), style: { fontSize: headingSize(1), align: 'center' } }));
   return s;
 }
 
