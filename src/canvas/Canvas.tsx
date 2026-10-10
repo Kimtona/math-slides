@@ -1,12 +1,16 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Box, ImageElement, LineElement, ShapeElement, Slide, SlideElement, TextElement } from '../model/types';
+import type { Box, ImageElement, LineElement, ShapeElement, Slide, SlideElement, TableElement, TextElement } from '../model/types';
+import { resizeColumn, resizeLastColumn, resizeToWidth } from '../model/table';
+import { addCol, addRow } from '../editor/tableActions';
 import { clampFrameToSource, coverFrame, cropFrom, cropOf, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { lineBox } from '../model/defaults';
 import { themedTextColor, todoAccent } from '../model/theme';
 import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
 import { currentSlide, useStore } from '../store/store';
-import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerParts, LineSvg, ShapeView, slideNumberText, ThemeDecor, useFooterStyles } from '../render/ElementView';
+import { TableView } from '../render/TableView';
+import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerParts, LineSvg, ShapeView, slideNumberText, staticCaption, ThemeDecor, useFooterStyles } from '../render/ElementView';
+import { CAPTION_GAP } from '../model/typography';
 import { extractCitations, resolveCitation } from '../citations/resolve';
 import { findCitations } from '../citations/providers';
 import { TextEditor } from '../editor/TextEditor';
@@ -75,6 +79,12 @@ function followLinkLater(target: Element | null): boolean {
 }
 const cancelPendingLink = () => clearTimeout(pendingLink);
 
+/** The table cell (data-r / data-c on its <td>) under a viewport point, if any. */
+function cellAt(x: number, y: number): { row: number; col: number } | null {
+  const td = document.elementFromPoint(x, y)?.closest?.('td[data-r]') as HTMLElement | null;
+  return td ? { row: Number(td.dataset.r), col: Number(td.dataset.c) } : null;
+}
+
 function startMove(e: React.PointerEvent, el: SlideElement) {
   const st = useStore.getState();
   let ids = st.selection;
@@ -111,6 +121,10 @@ function startMove(e: React.PointerEvent, el: SlideElement) {
     else if (wasSelected && !e.shiftKey && el.type === 'text' && s.selection.length === 1) {
       // Click on an already-selected text box: start typing where clicked.
       s.startEditing(el.id, { x: ev.clientX, y: ev.clientY });
+    } else if (wasSelected && !e.shiftKey && el.type === 'table' && s.selection.length === 1) {
+      // Click on an already-selected table: edit the cell that was clicked.
+      const c = cellAt(ev.clientX, ev.clientY);
+      s.startCellEditing(el.id, c?.row ?? 0, c?.col ?? 0, { x: ev.clientX, y: ev.clientY });
     } else if (wasSelected && !e.shiftKey && s.selection.length > 1) s.select([el.id]);
   });
 }
@@ -153,6 +167,12 @@ function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle, op
     s.beginGesture();
     const p = toSlide(ev.clientX, ev.clientY);
     const guides: Guide[] = [];
+
+    if (o.type === 'table') {
+      resizeTableWidth(o, handle, p, ev, targets, thr(), guides);
+      useStore.setState({ guides });
+      return;
+    }
 
     if (o.type === 'image') {
       resizeImage(o, handle, p, ev, targets, thr(), guides, opts.crop || ev.shiftKey);
@@ -255,6 +275,94 @@ function startLineEndpointDrag(e: React.PointerEvent, o: LineElement, handle: 'p
     useStore.setState({ guides: [] });
     if (moved) useStore.getState().endGesture();
   });
+}
+
+/**
+ * Table width: the edge handles scale the columns proportionally from the widths at the start of the drag (no drift, ratios kept).
+ * Height is content-driven and follows by itself; nothing else on the slide moves.
+ */
+function resizeTableWidth(o: TableElement, handle: Handle, p: { x: number }, ev: PointerEvent,
+  targets: ReturnType<typeof snapTargets>, thr: number, guides: Guide[]) {
+  const hasW = handle.includes('w'), hasE = handle.includes('e');
+  let x1 = o.x, x2 = o.x + o.w;
+  if (hasW) x1 = p.x; if (hasE) x2 = p.x;
+  if (!ev.altKey) {
+    const sn = snap1([hasW ? x1 : x2], targets.xs, thr);
+    if (sn) { if (hasW) x1 += sn.delta; else x2 += sn.delta; guides.push({ axis: 'x', pos: sn.pos }); }
+  }
+  const { cols, w } = resizeToWidth(o.cols, x2 - x1);
+  const x = Math.round(hasW ? o.x + o.w - w : o.x);
+  useStore.getState().updateElements([o.id], (d) => { const t = d as TableElement; t.x = x; t.w = w; t.cols = cols; }, true);
+}
+
+/**
+ * Drag the boundary after column `i`; one undo step per drag.
+ *  - inner boundary: only the two adjacent columns change, the table width stays;
+ *  - outer right boundary (the last one): only the last column changes and the table width follows.
+ * `setActive` lets the overlay show the boundary being dragged.
+ */
+function startColumnResize(e: React.PointerEvent, el: TableElement, i: number, setActive?: (on: boolean) => void) {
+  e.stopPropagation();
+  e.preventDefault();
+  const st = useStore.getState();
+  if (st.editingId) st.stopEditing();
+  const outer = i === el.cols.length - 1;
+  setActive?.(true);
+  track(e, (_ev, dx) => {
+    const s = useStore.getState();
+    s.beginGesture();
+    if (outer) {
+      const r = resizeLastColumn(el.cols, el.x, dx);
+      s.updateElements([el.id], (d) => { const t = d as TableElement; t.cols = r.cols; t.w = r.w; }, true);
+    } else s.updateElements([el.id], (d) => { (d as TableElement).cols = resizeColumn(el.cols, i, dx); }, true);
+  }, (_ev, moved) => { setActive?.(false); if (moved) useStore.getState().endGesture(); });
+}
+
+/**
+ * Table-only overlay (editor only: the static renderers never draw it): blue column guides, the column-boundary grips
+ * (inner boundaries and the outer right edge) and the "+" controls. Guides are pointer-less lines; the grips are the hit targets.
+ * The outer-edge grip is split around the blue whole-table handle so the two never overlap.
+ */
+function TableOverlay({ el, scale }: { el: TableElement; scale: number }) {
+  const [hot, setHot] = useState<number | null>(null);
+  const [active, setActive] = useState<number | null>(null);
+  // The caption hangs below the table: keep the row "+" under it, never on top of it.
+  const [capH, setCapH] = useState(0);
+  useLayoutEffect(() => {
+    const c = el.caption === undefined ? null : document.querySelector(`[data-el-id="${el.id}"] .img-caption, [data-el-id="${el.id}"] .img-caption-input`) as HTMLElement | null;
+    setCapH(c ? c.offsetHeight + CAPTION_GAP : 0);
+  }, [el.id, el.caption, el.w, el.h]);
+  const grip = 10 / scale, btn = 22 / scale, gap = 8 / scale;
+  const handleGap = 5 / scale + 4 / scale; // half the blue handle + a margin: this band belongs to the handle
+  const n = el.cols.length;
+  const xs: number[] = [];
+  el.cols.reduce((acc, w) => { acc += w; xs.push(acc); return acc; }, el.x);
+  const mid = el.y + el.h / 2;
+  const hit = (i: number, key: string, top: number, height: number) => (
+    <div key={key} className={`col-resizer${i === n - 1 ? ' edge-right' : ''}`} data-col={i}
+      style={{ left: xs[i] - grip / 2, top, width: grip, height }}
+      onPointerEnter={() => setHot(i)} onPointerLeave={() => setHot((h) => (h === i ? null : h))}
+      onPointerDown={(e) => startColumnResize(e, el, i, (on) => setActive(on ? i : null))} />
+  );
+  return (
+    <>
+      {xs.map((x, i) => {
+        const on = active === i ? 'active' : hot === i && active === null ? 'hot' : '';
+        const w = (on === 'active' ? 2.5 : on === 'hot' ? 2 : 1.25) / scale;
+        return <div key={`g${i}`} className={`col-guide${i === n - 1 ? ' edge' : ''}${on ? ' ' + on : ''}`} data-col={i}
+          style={{ left: x - w / 2, top: el.y, height: el.h, borderLeftWidth: w }} />;
+      })}
+      {el.cols.slice(0, -1).map((_, i) => hit(i, `h${i}`, el.y, el.h))}
+      {mid - handleGap - el.y > 2 && hit(n - 1, 'e-top', el.y, mid - handleGap - el.y)}
+      {el.y + el.h - (mid + handleGap) > 2 && hit(n - 1, 'e-bottom', mid + handleGap, el.y + el.h - (mid + handleGap))}
+      <button type="button" className="table-add" title="열 추가" aria-label="Add column"
+        style={{ left: el.x + el.w + gap + grip / 2, top: el.y + el.h / 2 - btn / 2, width: btn, height: btn, fontSize: 16 / scale }}
+        onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.stopPropagation()} onClick={() => addCol(el.id, { end: true })}>+</button>
+      <button type="button" className="table-add" title="행 추가" aria-label="Add row"
+        style={{ left: el.x + el.w / 2 - btn / 2, top: el.y + el.h + capH + gap, width: btn, height: btn, fontSize: 16 / scale }}
+        onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.stopPropagation()} onClick={() => addRow(el.id, { end: true })}>+</button>
+    </>
+  );
 }
 
 /**
@@ -403,6 +511,24 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
   const fg = useStore((s) => themedTextColor(s.deck, s.deck.slides.find((x) => x.id === s.currentSlideId)!, el));
   const selected = useStore((s) => s.selection.length === 1 && s.selection[0] === el.id && s.cropEditId !== el.id);
 
+  const editCell = useStore((s) => (s.editingId === el.id ? s.editCell : null));
+  const activeCell = useStore((s) => (s.activeCell?.id === el.id && s.selection.length === 1 && s.selection[0] === el.id ? s.activeCell : null));
+
+  // Tables are content-height too: store the measured height (selection frame, snapping, export), never resizing other elements.
+  useLayoutEffect(() => {
+    if (el.type !== 'table' || !ref.current) return;
+    const node = ref.current;
+    const measure = () => {
+      const h = Math.round(node.offsetHeight);
+      const cur = currentSlide().elements.find((x) => x.id === el.id);
+      if (cur && h > 0 && cur.h !== h) useStore.getState().updateElements([el.id], (d) => { d.h = h; }, true);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, [el.id, el.type]);
+
   // Text boxes are auto-height: measure and store the height (used for selection, snapping, export).
   useLayoutEffect(() => {
     if (el.type !== 'text' || !ref.current) return;
@@ -438,6 +564,12 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
   const onDoubleClick = (e: React.MouseEvent) => {
     cancelPendingLink();
     if (el.type === 'image') { e.stopPropagation(); useStore.getState().enterCrop(el.id); return; }
+    if (el.type === 'table' && !editing) {
+      e.stopPropagation();
+      const c = cellAt(e.clientX, e.clientY);
+      useStore.getState().startCellEditing(el.id, c?.row ?? 0, c?.col ?? 0, { x: e.clientX, y: e.clientY });
+      return;
+    }
     if ((el.type !== 'text' && el.type !== 'shape') || editing) return;
     e.stopPropagation();
     useStore.getState().startEditing(el.id, { x: e.clientX, y: e.clientY });
@@ -447,6 +579,7 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
     <div ref={ref} className={`el el-${el.type}${editing ? ' editing' : ''}`} style={elementBoxStyle(el, fg)} data-el-id={el.id}
       onPointerDown={onPointerDown} onDoubleClick={onDoubleClick}>
       {editing && el.type === 'text' ? <TextEditor el={el} />
+        : el.type === 'table' ? <><TableView el={el} edit={editing ? editCell : null} active={activeCell} />{selected && el.caption !== undefined ? <CaptionInput el={el} /> : staticCaption(el)}</>
         : editing && el.type === 'shape' ? <ShapeView el={el} editor={<TextEditor el={el} />} />
         : el.type === 'line' ? <LineSvg el={el} hit />
         : <ElementBody el={el} assets={assets} caption={el.type === 'image' && selected && el.caption !== undefined ? <CaptionInput el={el} /> : undefined} />}
@@ -454,8 +587,8 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
   );
 });
 
-/** Editor-only caption field (plain text) under a selected image. One undo step per editing session. */
-function CaptionInput({ el }: { el: ImageElement }) {
+/** Editor-only caption field (plain text) under a selected image or table. One undo step per editing session. */
+function CaptionInput({ el }: { el: ImageElement | TableElement }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const active = useRef(false);
   const last = useRef(el.caption ?? '');
@@ -468,14 +601,15 @@ function CaptionInput({ el }: { el: ImageElement }) {
     active.current = false;
     const st = useStore.getState();
     // Emptied caption → back to the no-caption state (same gesture, so it is part of the editing step).
-    if (!last.current.trim()) st.updateElements([el.id], (d) => { delete (d as ImageElement).caption; }, true);
+    if (!last.current.trim()) st.updateElements([el.id], (d) => { delete (d as ImageElement | TableElement).caption; }, true);
     st.endGesture();
   }, [el.id]);
   useEffect(() => { if (!el.caption) ref.current?.focus(); return finish; }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <textarea ref={ref} className="img-caption-input" style={captionStyle} value={value} rows={1} placeholder="Add a caption..." spellCheck={false}
       onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
-      onChange={(e) => { if (!active.current) { active.current = true; useStore.getState().beginGesture(); } useStore.getState().updateElements([el.id], (d) => { (d as ImageElement).caption = e.target.value; }, true); }}
+      onFocus={() => { const st = useStore.getState(); if (st.editingId === el.id) st.stopEditing(); }} // a table's cell edit ends here, so the two undo steps never merge
+      onChange={(e) => { if (!active.current) { active.current = true; useStore.getState().beginGesture(); } useStore.getState().updateElements([el.id], (d) => { (d as ImageElement | TableElement).caption = e.target.value; }, true); }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') ref.current?.blur(); }}
       onBlur={finish} />
   );
@@ -515,6 +649,7 @@ function SelectionOverlay({ scale }: { scale: number }) {
   }
   const handles: Handle[] =
     el.type === 'text' ? ['nw', 'ne', 'se', 'sw', 'e', 'w'] :
+    el.type === 'table' ? ['w', 'e'] : // width only: height is content-driven
     el.type === 'emoji' ? ['nw', 'ne', 'se', 'sw'] : // always square: uniform scaling from the corners only
 
     ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
@@ -537,6 +672,7 @@ function SelectionOverlay({ scale }: { scale: number }) {
         <div key={h} className={`handle h-${h}`} style={{ ...pos(h), width: hs, height: hs, borderWidth: bw }}
           onPointerDown={(e) => startResize(e, el, h)} />
       ))}
+      {el.type === 'table' && <TableOverlay el={el} scale={scale} />}
       {el.type === 'shape' && el.shape === 'blockArrow' && !editing && (['shaft', 'head'] as const).map((k) => {
         const at = blockArrowHandles(el)[k];
         return <div key={k} className={`handle adjust adjust-${k}`} style={{ left: el.x + at.x, top: el.y + at.y, width: hs * 0.85, height: hs * 0.85, borderWidth: bw }}

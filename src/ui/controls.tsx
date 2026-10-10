@@ -136,6 +136,7 @@ export const Icons = {
   text: <I d="M4 7V4h16v3M9 20h6M12 4v16" />,
   image: <I><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" /></I>,
   shape: <I><rect x="3" y="3" width="10" height="10" rx="1" /><circle cx="16" cy="16" r="5" /></I>,
+  table: <I><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M3 15h18M9 3v18M15 3v18" /></I>,
   emoji: <I><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4 4 0 0 0 7 0M9 9.5h.01M15 9.5h.01" /></I>,
   eyedropper: <I d="m2 22 1-1h3l9-9M3 21v-3l9-9M15 6l3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3z" />,
   play: <I d="M6 4l14 8-14 8z" />,

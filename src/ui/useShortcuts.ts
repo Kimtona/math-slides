@@ -67,10 +67,12 @@ export function useShortcuts() {
       if (mod && k === 'a') return go(() => st.select(currentSlide().elements.map((x) => x.id)));
       if (mod && (k === 'b' || k === 'i' || k === 'u') && sel.length) return go(() => toggleMark(k === 'b' ? 'bold' : k === 'i' ? 'italic' : 'underline'));
       if (st.cropEditId && (e.key === 'Escape' || e.key === 'Enter')) return go(st.exitCrop);
+      if (e.key === 'Escape' && st.activeCell && sel.length === 1 && sel[0] === st.activeCell.id) return go(() => useStore.setState({ activeCell: null })); // table: back to "whole table" before deselecting
       if (e.key === 'Escape') return go(() => st.select([]));
       if (e.key === 'Enter' && sel.length === 1) {
         const el = currentSlide().elements.find((x) => x.id === sel[0]);
         if (el?.type === 'text') return go(() => st.startEditing(el.id, 'end'));
+        if (el?.type === 'table') return go(() => st.startCellEditing(el.id, 0, 0, 'end'));
         if (el?.type === 'image') return go(() => st.enterCrop(el.id));
       }
       if (e.code === 'BracketRight' && mod) return go(() => st.reorderSelection(e.shiftKey ? 'front' : 'forward'));

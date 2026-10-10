@@ -120,7 +120,36 @@ export interface EmojiElement extends ElementBase {
   emoji: string;
 }
 
-export type SlideElement = TextElement | ImageElement | ShapeElement | LineElement | EmojiElement;
+/** One table cell: rich text (the same ProseMirror JSON as a text box; no math/blocks/lists in v1). */
+export interface TableCell {
+  doc: PMNode;
+  /** Custom background (#rrggbb). Absent = the style's default (none, or the Header style's gray). Always wins over the style fill. */
+  fill?: string;
+}
+
+export type TableStyle = 'minimal' | 'grid' | 'header';
+
+/**
+ * A table as ONE slide element. `rows[r][c]` is a rectangular grid; `cols` holds the column widths in px and
+ * always sums to `w`. Row heights are content-driven (never stored); `h` is the measured height, like text boxes.
+ */
+export interface TableElement extends ElementBase {
+  type: 'table';
+  cols: number[];
+  rows: TableCell[][];
+  /** Appearance preset. Phase 1 renders 'minimal'; the others are reserved. */
+  style: TableStyle;
+  /** First row is emphasized (header). */
+  headerRow: boolean;
+  /** Table-wide text defaults (same shape as a text box's style; `fill` is unused). */
+  textStyle: TextStyle;
+  /** Custom line color (#rrggbb) for every table line (width stays fixed). Absent = the style's default grays. */
+  borderColor?: string;
+  /** Optional plain-text caption below the table — same behavior as an image caption (absent / empty = none; '' only while being edited). Never auto-numbered. */
+  caption?: string;
+}
+
+export type SlideElement = TextElement | ImageElement | ShapeElement | LineElement | EmojiElement | TableElement;
 
 export interface Slide {
   id: ID;

@@ -73,6 +73,7 @@ export function toggleMark(mark: MarkName) {
 /** The style object a text-like element keeps its defaults in (text box: `style`; shape: `textStyle`). */
 function styleOf(d: any): TextStyle {
   if (d.type === 'shape') return (d.textStyle ??= { ...shapeTextStyle(d) });
+  if (d.type === 'table') return d.textStyle;
   return d.style;
 }
 
@@ -149,9 +150,11 @@ export function setDeckFont(font: SlideFont) {
     else d.fontFamily = font;
     for (const slide of d.slides) for (const el of slide.elements) {
       if ((el.type === 'text' || el.type === 'shape') && el.doc) clearRunFonts(el.doc as any);
+      else if (el.type === 'table') el.rows.forEach((row) => row.forEach((c) => clearRunFonts(c.doc as any))); // cell fonts too; other formatting stays
       // "All text in the presentation": also drop the per-box font a configured default may have stamped.
       if (el.type === 'text') delete el.style.fontFamily;
       else if (el.type === 'shape' && el.textStyle) delete el.textStyle.fontFamily;
+      else if (el.type === 'table') delete el.textStyle.fontFamily;
     }
   });
 }
