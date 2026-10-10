@@ -8,39 +8,39 @@ MathSlides is a compact macOS presentation editor for technical and research tal
   <img src="docs/readme/editor-overview.png" alt="The MathSlides editor with a research slide containing a plotted figure, a diagram made of shapes, and LaTeX equations" width="100%">
 </p>
 
-## Download for macOS
+## 📦 Download MathSlides
 
-<p align="center">
-  <a href="https://github.com/Kimtona/math-slides/releases/latest"><b>⬇ Download MathSlides for macOS</b></a><br>
-  <sub>Free · runs locally · no account</sub>
-</p>
+Free · No account required · Apple Silicon (M1+) · macOS 13+
 
-**Requires:** a Mac with **Apple Silicon** (M1 or later) running **macOS 13 Ventura or newer**. Intel Macs are not supported.
+**[⬇️ Download the latest MathSlides](https://github.com/Kimtona/math-slides/releases/latest)**
 
-1. **Download** `MathSlides-<version>-arm64.dmg` from the [latest release](https://github.com/Kimtona/math-slides/releases/latest) (listed under **Assets**).
-2. **Open** the `.dmg` and drag **MathSlides** into the **Applications** folder. If you are a standard (non-administrator) user, Finder asks for an administrator's name and password to copy into Applications.
-3. **Open MathSlides** from Applications. macOS says it can't verify that the app is free of malware, because MathSlides is free and not notarized by Apple. Click **Done**. **Do not click Move to Trash**, which would move the app to the Trash.
-4. Open **System Settings → Privacy & Security** and scroll down to the **Security** section. Next to the message about MathSlides, click **Open Anyway**, and follow any prompt macOS shows (it may ask for an administrator's password or Touch ID). MathSlides then opens; if it doesn't, open it again from Applications.
+Download the `.dmg` file from GitHub Releases.
 
-You only need to do this once for the installed copy; after that MathSlides opens normally. MathSlides is signed ad-hoc (not with an Apple Developer ID) and is not notarized, which is why macOS asks for this one-time approval. Nothing in these steps turns off any macOS protection.
+1. 📥 **Download:** Download the DMG file and open it.
+2. 📂 **Install:** Drag MathSlides into the Applications folder.
+3. 🔓 **Approve:** If a warning appears on first launch, click **Done**, then choose **System Settings → Privacy & Security → Open Anyway**.
+4. 🎉 **Done:** From then on, open MathSlides as usual.
 
-Button and menu names follow your system language. For example, in Korean **Done** is **완료**, **Move to Trash** is **휴지통으로 이동**, and **Open Anyway** is **그래도 열기**. These steps were tested on macOS 26; other macOS versions may word the dialogs slightly differently.
+> **Good to know**
+>
+> - If you are a standard (non-administrator) user, Finder asks for an administrator's name and password when you drag the app into Applications.
+> - On the first-launch warning, click **Done**. **Do not click Move to Trash.**
+> - Button and menu names follow your system language. For example, in Korean **Done** is **완료** and **Open Anyway** is **그래도 열기**.
 
-### Check your download (optional)
+<details>
+<summary>🩺 Troubleshooting and details</summary>
 
-Every release includes a `SHA256SUMS` file next to the DMG. Download both into the same folder and run this in Terminal from that folder:
+**Why is there a warning?** MathSlides is free and is signed ad-hoc (not with an Apple Developer ID), so it is not notarized by Apple. macOS therefore asks for a one-time approval for the installed copy. Nothing in the steps above turns off any macOS protection. These steps were tested on macOS 26; other macOS versions may word the dialogs slightly differently. Intel Macs are not supported.
 
-```bash
-shasum -a 256 -c SHA256SUMS
-```
+**macOS says "MathSlides is damaged and can't be opened."** Please don't try to work around the message. A correct MathSlides download shows the "can't verify" warning from step 3, not "damaged". Releases before 1.1.0 were packaged with an invalid app signature that could cause this, so make sure you are using version 1.1.0 or newer. If you are, check the artifact (both commands only read information):
 
-It should print `MathSlides-<version>-arm64.dmg: OK`.
+1. Check the download. Every release includes a `SHA256SUMS` file next to the DMG; download both into one folder and run, from that folder:
 
-### Troubleshooting
+   ```bash
+   shasum -a 256 -c SHA256SUMS
+   ```
 
-**macOS says "MathSlides is damaged and can't be opened."** Please don't try to work around the message. A correct MathSlides download shows the "can't verify" warning from step 3, not "damaged". Releases before 1.1.0 were packaged with an invalid app signature that could cause this, so install the [latest release](https://github.com/Kimtona/math-slides/releases/latest). If you already have 1.1.0 or newer, check the artifact (both commands only read information):
-
-1. Verify the DMG with `shasum -a 256 -c SHA256SUMS` as above. If it doesn't print `OK`, download it again from the official Releases page.
+   It should print `MathSlides-<version>-arm64.dmg: OK`. If it doesn't, download the DMG again from the official Releases page.
 2. Check the installed app's signature:
 
    ```bash
@@ -53,27 +53,29 @@ If either check fails, or the message persists, please [open an issue](https://g
 
 **There is no "Open Anyway" button.** The button appears in **Privacy & Security** after you have tried to open the app. Open MathSlides once more, then look again. On a Mac managed by an organization, an administrator may not allow it.
 
+</details>
+
 ### Updating
 
 MathSlides has no automatic updater; updates are manual. To update:
 
 1. Download the newest `.dmg` from the [Releases page](https://github.com/Kimtona/math-slides/releases/latest).
 2. Quit MathSlides, open the `.dmg`, and drag **MathSlides** into **Applications**, choosing **Replace**.
-3. Open it again. Each version is a new, not-notarized build, so macOS may ask you to approve it once more (steps 3–4 above).
+3. Open it again. Each version is a new, not-notarized build, so macOS may ask you to approve it once more (step 3 above).
 
 Your `.mslides` files are ordinary files wherever you saved them. Your autosave, recovery data, and personal shortcuts (saved colors, quick emojis, favorite math) are stored in your user data folder, not inside the app, so replacing the app keeps all of them.
 
 <p align="center">
-  <a href="#write-like-notion">Write</a> ·
-  <a href="#math-like-overleaf">Math &amp; citations</a> ·
-  <a href="#present-as-slides">Slides</a> ·
-  <a href="#made-with-mathslides">Showcase</a> ·
-  <a href="#development">Development</a>
+  <a href="#-write-like-notion">Write</a> ·
+  <a href="#-math-like-overleaf">Math &amp; citations</a> ·
+  <a href="#-present-as-slides">Slides</a> ·
+  <a href="#-made-with-mathslides">Showcase</a> ·
+  <a href="#-development">Development</a>
 </p>
 
 ---
 
-## Why MathSlides?
+## 💡 Why MathSlides?
 
 Making a research talk involves many small, repeated decisions: what size this heading should be, where the equation or code tool lives, how to rebuild the section pages, how to format the references, how to recolor every slide for your lab. MathSlides turns each of these into a convention, so what remains is writing. It runs locally, with no account.
 
@@ -81,7 +83,7 @@ Making a research talk involves many small, repeated decisions: what size this h
 - **Math like Overleaf:** LaTeX equations rendered as you type, and arXiv links that become citations and a References slide.
 - **Present as slides:** an outline that generates section slides, one theme color for the whole deck, presentation mode, and PDF / PPTX export.
 
-## Write like Notion
+## 📝 Write like Notion
 
 ### Predictable text hierarchy
 
@@ -94,7 +96,7 @@ The idea is to skip the font-size decision. Type a Markdown prefix at the start 
 | `### ` | **30** | Subheading / template body |
 | `#### ` | **25** | Body text |
 
-Backspace at the start of the line reverts it. The same scale drives the built-in Title and Content templates, so every slide in a deck lines up. (Sizes are px on a 1280×720 slide. The exported 13.33″ widescreen deck is that slide at 96 px per inch, so 1 px = 0.75 pt in PowerPoint: 80 → 60 pt, 50 → 37.5 pt, 30 → 22.5 pt, 25 → 18.75 pt. You can change these sizes for new content in the [configuration file](#configuration).)
+Backspace at the start of the line reverts it. The same scale drives the built-in Title and Content templates, so every slide in a deck lines up. (Sizes are px on a 1280×720 slide. The exported 13.33″ widescreen deck is that slide at 96 px per inch, so 1 px = 0.75 pt in PowerPoint: 80 → 60 pt, 50 → 37.5 pt, 30 → 22.5 pt, 25 → 18.75 pt. You can change these sizes for new content in the [configuration file](#-configuration).)
 
 ### Slash commands
 
@@ -124,7 +126,7 @@ Type `/` and keep writing. `/math`, `/block`, `/code`, and `/image` add an equat
 
 `/code`, `/callout`, `/block`, `/image` and `/todo` are offered at the start of a line. Also: `| ` starts a quote, `**bold**` works as expected, `Tab` / `⇧Tab` indent list items, and the format bar adds colors, six highlight colors, and inline code to a selection.
 
-## Math like Overleaf
+## 🧮 Math like Overleaf
 
 ### LaTeX, rendered as you type
 
@@ -157,7 +159,7 @@ Every slide has a reference field in its bottom-right footer. Paste an **arXiv U
 
 This workflow is **arXiv-only** for now. Other links, DOI links, and bare arXiv IDs are not converted; they stay as plain footer text. Citations are author-year, not numbered, and fetching the metadata needs a network connection.
 
-## Present as slides
+## 🎤 Present as slides
 
 The result is an ordinary 16:9 deck: everything on a slide can still be dragged, resized, and snapped into place with alignment guides.
 
@@ -182,7 +184,7 @@ The **Theme** control in the top bar (with nothing selected) sets one presentati
 - It colors the title band, content-slide headers, section-slide backgrounds, and a thin footer accent, and keeps text on them readable.
 - **Other Colors…** accepts any HEX value (or the picker/eyedropper), and **☆** saves it to **My Colors** for all your presentations. The same bar sets the presentation font (NanumSquare, Pretendard, Noto Serif KR).
 
-## Made with MathSlides
+## 🎨 Made with MathSlides
 
 A reading-group deck built in the current app. Everything below is regular MathSlides content: themed templates, typed Markdown shortcuts, slash-command blocks, LaTeX, a plotted figure inserted as an image, shapes, and arXiv citations. Its References slide is the one shown [above](#arxiv-citations--references-slide).
 
@@ -197,7 +199,7 @@ A reading-group deck built in the current app. Everything below is regular MathS
 </tr>
 </table>
 
-## Key features
+## ✨ Key features
 
 - **Rich text:** bold, italic, underline, strike, text colors, six highlight colors, inline code, and lists.
 - **Structured blocks:** callouts, Beamer-style theorem/definition blocks, todo lists, quotes, and syntax-highlighted code.
@@ -208,7 +210,7 @@ A reading-group deck built in the current app. Everything below is regular MathS
 
 > The app's menus and tooltips are currently in **Korean** (e.g. 내보내기 = Export, 발표 = Present). Slash commands, LaTeX, and keyboard shortcuts are the same in any language.
 
-## Configuration
+## 🔧 Configuration
 
 MathSlides has no Settings window. A small text file, `config.txt`, holds the defaults used for **new** content.
 
@@ -257,11 +259,11 @@ image-radius-preset = 50px
 
 ---
 
-## Development
+## 💻 Development
 
 ### Build the app from source
 
-Most people should use the [download](#download-for-macos) above. To build your own copy you need an Apple Silicon Mac, [Node.js](https://nodejs.org/) 22 (LTS), and Git:
+Most people should use the [download](#-download-mathslides) above. To build your own copy you need an Apple Silicon Mac, [Node.js](https://nodejs.org/) 22 (LTS), and Git:
 
 ```bash
 git clone https://github.com/Kimtona/math-slides.git
@@ -270,7 +272,7 @@ npm install
 npm run dist:mac
 ```
 
-This creates, in the git-ignored `release/` folder, `MathSlides-<version>-arm64.dmg` and `mac-arm64/MathSlides.app`. A local build is signed ad-hoc like the release DMG and is not notarized, so the [first-launch approval](#download-for-macos) may apply to it too. To update a source checkout, run `git pull && npm install`; this does not change an app already installed in `/Applications`.
+This creates, in the git-ignored `release/` folder, `MathSlides-<version>-arm64.dmg` and `mac-arm64/MathSlides.app`. A local build is signed ad-hoc like the release DMG and is not notarized, so the [first-launch approval](#-download-mathslides) may apply to it too. To update a source checkout, run `git pull && npm install`; this does not change an app already installed in `/Applications`.
 
 ### Run and test
 
@@ -348,8 +350,8 @@ To run the same build and checks without creating a tag or a GitHub Release:
 
 A dry run uses the same `tests` and `package` jobs as a release, so it builds the same DMG and runs the same `scripts/verify-macos-release.sh`. It only has read access: the separate `release` job, which alone can create a draft release, runs only when a version tag is pushed (never for a manual run, even one started on a tag). The verified DMG and `SHA256SUMS` are kept for 14 days as an **artifact** on the workflow run page so you can download and try exactly that build.
 
-## Project status
+## 📌 Project status
 
-- **Platform:** macOS on Apple Silicon is the primary, tested platform (current version **1.1.0**). A Windows installer configuration exists but has **not** been validated on a real Windows machine.
+- **Platform:** macOS on Apple Silicon is the primary, tested platform. A Windows installer configuration exists but has **not** been validated on a real Windows machine.
 - **Distribution:** ad-hoc signed (not Developer-ID signed), un-notarized Apple Silicon DMGs via [GitHub Releases](https://github.com/Kimtona/math-slides/releases), updated manually; the first launch needs a one-time Open Anyway approval. Developer ID signing, notarization and automatic updates are not implemented.
 - **Development stage:** in active use for real presentations. Fixes come from that day-to-day use. Planned work is tracked in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) and [`docs/V2_PLAN.md`](docs/V2_PLAN.md).
