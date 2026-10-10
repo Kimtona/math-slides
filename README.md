@@ -18,13 +18,13 @@ MathSlides is a compact macOS presentation editor for technical and research tal
 **Requires:** a Mac with **Apple Silicon** (M1 or later) running **macOS 13 Ventura or newer**. Intel Macs are not supported.
 
 1. **Download** `MathSlides-<version>-arm64.dmg` from the [latest release](https://github.com/Kimtona/math-slides/releases/latest) (listed under **Assets**).
-2. **Open** the `.dmg` and drag **MathSlides** into the **Applications** folder.
-3. **Open MathSlides** from Applications. macOS will say it can't verify the app, because MathSlides is free and not notarized by Apple. Click **Done**.
-4. Open **System Settings → Privacy & Security**, scroll down to **Security**, click **Open Anyway** next to "MathSlides was blocked", and confirm with your password or Touch ID. Then open MathSlides again.
+2. **Open** the `.dmg` and drag **MathSlides** into the **Applications** folder. If you are a standard (non-administrator) user, Finder asks for an administrator's name and password to copy into Applications.
+3. **Open MathSlides** from Applications. macOS says it can't verify that the app is free of malware, because MathSlides is free and not notarized by Apple. Click **Done**. **Do not click Move to Trash**, which would move the app to the Trash.
+4. Open **System Settings → Privacy & Security** and scroll down to the **Security** section. Next to the message about MathSlides, click **Open Anyway**, and follow any prompt macOS shows (it may ask for an administrator's password or Touch ID). MathSlides then opens; if it doesn't, open it again from Applications.
 
-You only need to do this once for each installed version; after that MathSlides opens normally. On macOS 14 and older, right-clicking **MathSlides** and choosing **Open** also works.
+You only need to do this once for the installed copy; after that MathSlides opens normally. MathSlides is signed ad-hoc (not with an Apple Developer ID) and is not notarized, which is why macOS asks for this one-time approval. Nothing in these steps turns off any macOS protection.
 
-MathSlides is signed ad-hoc (not with an Apple Developer ID) and is not notarized, which is why macOS asks for this one-time approval. Nothing in the steps above turns off any macOS protection.
+Button and menu names follow your system language. For example, in Korean **Done** is **완료**, **Move to Trash** is **휴지통으로 이동**, and **Open Anyway** is **그래도 열기**. These steps were tested on macOS 26; other macOS versions may word the dialogs slightly differently.
 
 ### Check your download (optional)
 
