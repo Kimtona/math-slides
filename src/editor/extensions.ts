@@ -22,6 +22,7 @@ import { UserLink } from './linkMark';
 import { createQuickEmojiPanel } from './quickEmojiPanel';
 import { DEFAULT_QUICK_EMOJIS } from '../model/userPrefs';
 import { getQuickEmojis } from '../store/userPrefs';
+import { convertToDivider } from './divider';
 import { fontFromCss, fontStack } from '../model/fonts';
 
 /**
@@ -70,6 +71,47 @@ const ParagraphFontSize = Extension.create({
     };
   },
 });
+
+/**
+ * Notion-style horizontal divider: a top-level paragraph holding exactly `---` plus Space or Enter becomes a
+ * slide-level line element (see divider.ts). Never inside code, tables, lists, quotes, callouts or during IME composition.
+ */
+const MarkdownDivider = Extension.create({
+  name: 'markdownDivider',
+  priority: 1000,
+  addInputRules() {
+    const editor = this.editor;
+    return [
+      new InputRule({
+        find: /^---\s$/,
+        handler: ({ state, range }) => {
+          const $from = state.doc.resolve(range.from);
+          const p = $from.parent;
+          if ($from.depth !== 1 || p.type.name !== 'paragraph' || p.textContent !== '---' || editor.view.composing || hasCode(p)) return null;
+          state.tr.delete($from.start(), $from.end()); // consumes the Space too
+          queueMicrotask(() => convertToDivider(editor)); // after this transaction (and the box's text sync) is applied
+        },
+      }),
+    ];
+  },
+  addKeyboardShortcuts() {
+    return {
+      Enter: ({ editor }) => {
+        const { $from, empty } = editor.state.selection;
+        const p = $from.parent;
+        if (!empty || editor.view.composing || $from.depth !== 1 || p.type.name !== 'paragraph' || p.textContent !== '---' || $from.parentOffset !== 3 || hasCode(p)) return false;
+        editor.view.dispatch(editor.state.tr.delete($from.start(), $from.end()));
+        return convertToDivider(editor) || true;
+      },
+    };
+  },
+});
+
+function hasCode(p: PMNodeType) {
+  let code = false;
+  p.forEach((c) => { if (c.marks.some((m) => m.type.name === 'code' || m.type.name === 'inlineCode')) code = true; });
+  return code;
+}
 
 /** Scale per-line font sizes (used when a text box is scaled by its corner). */
 export function scaleParagraphSizes(doc: PMNode, k: number): PMNode {
@@ -656,6 +698,7 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } =
     MathInline,
     MathBlock,
     ParagraphFontSize,
+    MarkdownDivider,
     SlideCodeBlock,
     SlideBlockquote,
     Callout,
