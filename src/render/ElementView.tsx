@@ -6,7 +6,7 @@ import { StaticText } from './StaticText';
 import { isDocEmpty } from '../editor/docUtils';
 import { themeLayout, themedTextColor, todoAccent } from '../model/theme';
 import { EMOJI_GLYPH_SCALE, shapeTextInset, shapeTextStyle } from '../model/defaults';
-import { slideFontVars } from '../model/fonts';
+import { fontStack, slideFontVars } from '../model/fonts';
 import { imageRadius } from '../model/imageCrop';
 import { blockArrowOutline } from '../model/blockArrow';
 import { displayCitation } from '../citations/format';
@@ -19,6 +19,7 @@ export function textBoxStyle(el: TextElement): CSSProperties {
     textAlign: el.style.align,
     lineHeight: el.style.lineHeight,
     background: el.style.fill ?? undefined,
+    fontFamily: el.style.fontFamily ? fontStack(el.style.fontFamily) : undefined,
   };
 }
 
@@ -48,7 +49,7 @@ export function ShapeView({ el, editor }: { el: ShapeElement; editor?: ReactNode
     <>
       <ShapeSvg el={el} />
       {(editor || hasText) && (
-        <div className="shape-text" style={{ padding: `${inset.y}px ${inset.x}px`, fontSize: st.fontSize, color: st.color, textAlign: st.align, lineHeight: st.lineHeight }}>
+        <div className="shape-text" style={{ padding: `${inset.y}px ${inset.x}px`, fontSize: st.fontSize, color: st.color, textAlign: st.align, lineHeight: st.lineHeight, fontFamily: st.fontFamily ? fontStack(st.fontFamily) : undefined }}>
           {editor ?? <StaticText doc={el.doc!} />}
         </div>
       )}

@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { buildMenuTemplate } = require('./menu.cjs');
 
 // ---------- opening .mslides files from the OS (Finder double-click, "Open With", argv) ----------
 // Requests are validated here (only *.mslides files), queued until the renderer is ready, and handed to
@@ -146,15 +147,42 @@ ipcMain.handle('fetch-text', async (_event, url) => {
   }
 });
 
-// Undo/redo and select-all are intentionally not menu accelerators: the app handles
-// those keys itself (slide-level undo vs. text undo). Cut/copy/paste must stay as menu
-// roles on macOS so the page receives clipboard events.
-const template = [
-  ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
-  { label: 'Edit', submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }] },
-  { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
-  { role: 'windowMenu' },
-];
+// ---------- user configuration (config.txt in userData) ----------
+// The file is the source of truth for creation defaults; the renderer parses it (src/model/config.ts). The renderer can
+// only read or create this one fixed path — it never supplies a path, and an existing file is never overwritten.
+const MAX_CONFIG_BYTES = 256 * 1024;
+const configFile = () => path.join(app.getPath('userData'), 'config.txt');
+ipcMain.handle('config-read', () => {
+  const p = configFile();
+  try {
+    const st = fs.statSync(p);
+    if (!st.isFile() || st.size > MAX_CONFIG_BYTES) return { path: p, text: null, error: 'config.txt is not a regular file or is too large' };
+    return { path: p, text: fs.readFileSync(p, 'utf8') };
+  } catch (e) {
+    return e && e.code === 'ENOENT' ? { path: p, text: null } : { path: p, text: null, error: String((e && e.message) || e) };
+  }
+});
+ipcMain.handle('config-open', async (_event, template) => {
+  const p = configFile();
+  let created = false;
+  try {
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    if (typeof template === 'string' && template.length <= MAX_CONFIG_BYTES) {
+      try { fs.writeFileSync(p, template, { flag: 'wx' }); created = true; } catch (e) { if (!e || e.code !== 'EEXIST') throw e; } // 'wx': never overwrite
+    }
+    if (!fs.existsSync(p)) return { ok: false, path: p, created, error: 'config.txt does not exist' };
+    if (TEST_HIDDEN) return { ok: true, path: p, created }; // automated tests must not launch an editor
+    const failure = await shell.openPath(p);
+    if (failure) { shell.showItemInFolder(p); return { ok: false, path: p, created, error: failure }; }
+    return { ok: true, path: p, created };
+  } catch (e) {
+    return { ok: false, path: p, created, error: String((e && e.message) || e) };
+  }
+});
+const configCommand = (command) => () => {
+  if (rendererReady && mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('config-command', command);
+};
+const template = buildMenuTemplate({ platform: process.platform, openConfig: configCommand('open'), reloadConfig: configCommand('reload') });
 
 app.whenReady().then(() => {
   if (!singleInstance) return;
