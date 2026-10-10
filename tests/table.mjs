@@ -99,7 +99,13 @@ const domMatches = async (t) => {
   const info = await evaluate(`(() => { const el = document.querySelector(${JSON.stringify(sel(t))}); const cols = [...el.querySelectorAll('col')].map((c) => parseFloat(c.style.width)); return { cols, h: el.offsetHeight, w: el.offsetWidth, rows: el.querySelectorAll('tr').length, cells: el.querySelectorAll('td').length }; })()`);
   assert.deepEqual(info.cols, t.cols, 'rendered column widths = model'); assert.equal(info.w, t.w, 'rendered width = model');
   assert.equal(info.rows, t.rows.length); assert.equal(info.cells, t.rows.length * t.cols.length);
-  assert.ok(Math.abs(info.h - t.h) <= 1, `stored height ${t.h} follows the rendered height ${info.h}`);
+  // The stored height is measured asynchronously (ResizeObserver): it must settle on the rendered height, but may lag a frame or two under load.
+  const settled = await until(async () => {
+    const live = (await tables()).find((x) => x.id === t.id);
+    const rendered = await evaluate(`document.querySelector(${JSON.stringify(sel(t))}).offsetHeight`);
+    return live && Math.abs(live.h - rendered) <= 1 ? { stored: live.h, rendered } : false;
+  }, `stored height ${t.h} never settled on the rendered height ${info.h}`, 5000);
+  assert.ok(Math.abs(settled.stored - settled.rendered) <= 1, `stored height ${settled.stored} follows the rendered height ${settled.rendered}`);
 };
 
 try {
@@ -751,6 +757,45 @@ try {
   assert.match(box, /sz="1050"/, 'caption font size 10.5pt (14px)'); assert.match(capXml, /<a:tbl>/, 'the table is still a native table');
   await evaluate(`store.getState().select(['${t.id}'])`); await pause(300);
   console.log('PASS Table Caption: add / type / remove / undo-redo, attached to move / resize / rows / columns, duplicate, static outputs, PPTX text box');
+
+  // ======== UI polish: Add Column centered on the right edge; Table toolbar icon ========
+  // -- toolbar icon: same icon system and size as Image / Shape; button size and alignment unchanged --
+  const tbIcons = await evaluate(`(() => { const find = (txt) => [...document.querySelectorAll('.tb-center button')].find((b) => b.textContent.includes(txt)); const info = (b) => { const s = b.querySelector('svg'); const r = s.getBoundingClientRect(), br = b.getBoundingClientRect(); const lab = [...b.querySelectorAll('span')].find((x) => x.textContent.trim() && !x.querySelector('svg')); const cs = getComputedStyle(s); return { w: r.width, h: r.height, vb: s.getAttribute('viewBox'), stroke: cs.strokeWidth, cy: r.top + r.height / 2, btnH: br.height, btnTop: br.top, label: lab && getComputedStyle(lab).fontSize, glyph: !!b.querySelector('svg') }; }; return { table: info(find('표')), image: info(find('이미지')), shape: info(find('도형')), text: info(find('텍스트')) }; })()`);
+  for (const k2 of ['image', 'shape', 'text']) { assert.equal(tbIcons.table.w, tbIcons[k2].w, `Table icon is as wide as ${k2}`); assert.equal(tbIcons.table.h, tbIcons[k2].h, `and as tall as ${k2}`); assert.equal(tbIcons.table.vb, tbIcons[k2].vb, 'same viewBox'); assert.equal(tbIcons.table.stroke, tbIcons[k2].stroke, 'same stroke width'); assert.ok(Math.abs(tbIcons.table.cy - tbIcons[k2].cy) < 0.6, `icon vertically aligned with ${k2}`); assert.equal(tbIcons.table.btnH, tbIcons[k2].btnH, `button height unchanged vs ${k2}`); assert.equal(tbIcons.table.btnTop, tbIcons[k2].btnTop, 'same top'); }
+  assert.deepEqual([tbIcons.table.w, tbIcons.table.h], [18, 18]); assert.equal(tbIcons.table.btnH, 32); assert.equal(tbIcons.table.label, tbIcons.image.label, 'label font size unchanged');
+  assert.equal(await evaluate("[...document.querySelectorAll('.tb-center button')].find((b) => b.textContent.includes('표')).textContent.includes('▦')"), false, 'the small text glyph is gone');
+  const nTables = (await tables()).length; await evaluate("[...document.querySelectorAll('.tb-center button')].find((b) => b.textContent.includes('표')).click()"); await pause(400); assert.equal((await tables()).length, nTables + 1, 'the Table toolbar button still inserts a table'); await evaluate('store.getState().undo()'); await pause(300); assert.equal((await tables()).length, nTables);
+
+  // -- "+" controls: column + centered on the table grid's right edge, row + centered under the table / caption --
+  await evaluate('store.getState().stopEditing(); store.getState().select([])'); await pause(250);
+  t = await T(); await evaluate(`store.getState().select(['${t.id}'])`); await pause(350);
+  const plusGeom = () => evaluate(`(() => { const el = document.querySelector(${JSON.stringify(sel(t))}); const tb = el.querySelector('table').getBoundingClientRect(); const c = document.querySelector('.table-add[aria-label="Add column"]').getBoundingClientRect(); const r = document.querySelector('.table-add[aria-label="Add row"]').getBoundingClientRect(); const cap = el.querySelector('.img-caption, .img-caption-input'); const cr = cap ? cap.getBoundingClientRect() : null; const h = document.querySelector('.overlay .handle.h-e').getBoundingClientRect(); const strips = [...document.querySelectorAll('.col-resizer.edge-right')].map((e) => e.getBoundingClientRect()); const hit = (a, b) => !(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top); return { colDy: (c.top + c.height / 2) - (tb.top + tb.height / 2), colGap: c.left - tb.right, rowDx: (r.left + r.width / 2) - (tb.left + tb.width / 2), rowBelowCaption: cr ? r.top - cr.bottom : null, rowBelowTable: r.top - tb.bottom, hasCaption: !!cr, overlapHandle: hit(c, h), overlapStrips: strips.some((s) => hit(c, s)), overlapCaption: cr ? hit(c, cr) || hit(r, cr) : false, colSize: [Math.round(c.width), Math.round(c.height)], rowSize: [Math.round(r.width), Math.round(r.height)] }; })()`);
+  const ok2 = (g) => Math.abs(g.colDy) <= 1 && Math.abs(g.rowDx) <= 1 && !g.overlapHandle && !g.overlapStrips && !g.overlapCaption;
+  // The "+" position follows the measured (asynchronously stored) table height: wait for it to settle, then require exact centering.
+  const settledPlus = async (why) => { const g = await until(async () => { const x = await plusGeom(); return ok2(x) ? x : false; }, `Add Column / Add Row not centered ${why}: ${JSON.stringify(await plusGeom())}`, 5000); assert.ok(Math.abs(g.colDy) <= 1, `Add Column is vertically centered on the grid ${why}`); assert.ok(Math.abs(g.rowDx) <= 1, `Add Row is horizontally centered ${why}`); assert.ok(!g.overlapHandle && !g.overlapStrips && !g.overlapCaption, `no overlap with the handle, edge strips or caption ${why}`); return g; };
+  await writeFile(path.join(output, 'table-polish.png'), Buffer.from((await send('Page.captureScreenshot')).data, 'base64')); // for a manual look
+  const pg0 = await settledPlus('with a caption'); assert.equal(pg0.hasCaption, true); assert.ok(pg0.rowBelowCaption >= -0.5, 'Add Row stays below the caption'); assert.ok(pg0.colGap > 8 * await scaleOf(t) - 1, 'Add Column stays outside the right edge');
+  const capFree = pg0.rowBelowTable;
+  // the caption does not influence the vertical centre: remove it and compare
+  const dy0 = pg0.colDy; await evaluate(`store.getState().updateElements(['${t.id}'], (d) => { delete d.caption }, true)`); await pause(350);
+  const pg1 = await settledPlus('without a caption'); assert.equal(pg1.hasCaption, false); assert.ok(Math.abs(pg1.colDy - dy0) <= 1, 'the caption makes no difference to the Add Column position'); assert.ok(pg1.rowBelowTable < capFree, 'Add Row moves up to the table when there is no caption'); assert.deepEqual(pg1.colSize, pg0.colSize, 'button size unchanged'); assert.deepEqual(pg1.rowSize, pg0.rowSize);
+  // adding / removing rows and changing row heights
+  await clickOp('+ 행'); await settledPlus('after adding a row'); await clickOp('+ 행'); await settledPlus('after adding another row'); await clickOp('− 행'); await settledPlus('after removing a row');
+  t = await T(); await evaluate(`store.getState().startCellEditing('${t.id}', 1, 1, 'end')`); await pause(250); await type(' a long text that wraps onto several lines in this narrow cell to change the row height'); await esc(); await evaluate(`store.getState().select(['${t.id}'])`); await pause(350);
+  const tall = await settledPlus('after a row grows taller'); t = await T(); await domMatches(t);
+  // columns added / removed, table moved and resized
+  await clickOp('+ 열'); await settledPlus('after adding a column'); await clickOp('− 열'); await settledPlus('after removing a column');
+  t = await T(); k = await scaleOf(t); await drag(await center(td(t, 1, 0)), 50 * k, 20 * k); await settledPlus('after moving the table');
+  t = await T(); k = await scaleOf(t); await dragFrom('.overlay .handle.h-e', -150 * k); await settledPlus('after resizing the width (rows re-wrap)');
+  t = await T(); k = await scaleOf(t); await dragFrom('.overlay .handle.h-w', 60 * k); await settledPlus('after resizing from the left');
+  await dragFrom('.col-resizer[data-col="0"]', 25 * k); await settledPlus('after a column drag');
+  for (let i = 0; i < 6; i++) await evaluate('store.getState().undo()'); await pause(400); await settledPlus('after undoing'); for (let i = 0; i < 6; i++) await evaluate('store.getState().redo()'); await pause(400); await settledPlus('after redoing');
+  for (let i = 0; i < 6; i++) await evaluate('store.getState().undo()'); await pause(300);
+  // behaviour is unchanged: the controls still add at the end, one undo step each
+  t = await T(); const hp2 = await history(); const colsN = t.cols.length; await evaluate("document.querySelector('.table-add[aria-label=\"Add column\"]').click()"); await pause(350); assert.equal((await T()).cols.length, colsN + 1, 'the + column control still adds a column'); assert.equal(await history(), hp2 + 1); await settledPlus('after clicking it'); await evaluate('store.getState().undo()'); await pause(300);
+  // restore the caption that the persistence / export checks below expect
+  await evaluate(`store.getState().updateElements(['${t.id}'], (d) => { d.caption = 'Table 1: Final caption' })`); await pause(300); await settledPlus('with the caption back'); assert.ok((await plusGeom()).rowBelowCaption >= -0.5);
+  console.log('PASS UI polish: Add Column centered on the grid (with / without caption, rows, columns, move, resize, undo), Table toolbar icon matches Image / Shape');
 
   // leave the table resized and pasted so the persistence / export checks below cover it
   t = await T(); await evaluate(`store.getState().select(['${t.id}'])`); await pause(300);

@@ -325,7 +325,7 @@ function TableOverlay({ el, scale }: { el: TableElement; scale: number }) {
       {mid - handleGap - el.y > 2 && hit(n - 1, 'e-top', el.y, mid - handleGap - el.y)}
       {el.y + el.h - (mid + handleGap) > 2 && hit(n - 1, 'e-bottom', mid + handleGap, el.y + el.h - (mid + handleGap))}
       <button type="button" className="table-add" title="열 추가" aria-label="Add column"
-        style={{ left: el.x + el.w + gap + grip / 2, top: el.y + gap / 2, width: btn, height: btn, fontSize: 16 / scale }}
+        style={{ left: el.x + el.w + gap + grip / 2, top: el.y + el.h / 2 - btn / 2, width: btn, height: btn, fontSize: 16 / scale }}
         onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.stopPropagation()} onClick={() => addCol(el.id, { end: true })}>+</button>
       <button type="button" className="table-add" title="행 추가" aria-label="Add row"
         style={{ left: el.x + el.w / 2 - btn / 2, top: el.y + el.h + capH + gap, width: btn, height: btn, fontSize: 16 / scale }}
