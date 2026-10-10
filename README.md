@@ -11,53 +11,47 @@ MathSlides is a compact macOS presentation editor for technical and research tal
 ## Download for macOS
 
 <p align="center">
-  <a href="https://github.com/Kimtona/math-slides/releases/latest"><b>⬇ Download MathSlides for macOS</b></a> (latest: 1.0.2)<br>
+  <a href="https://github.com/Kimtona/math-slides/releases/latest"><b>⬇ Download MathSlides for macOS</b></a><br>
   <sub>Free · runs locally · no account</sub>
 </p>
 
 **Requires:** a Mac with **Apple Silicon** (M1 or later) running **macOS 13 Ventura or newer**. Intel Macs are not supported.
 
 1. **Download** `MathSlides-<version>-arm64.dmg` from the [latest release](https://github.com/Kimtona/math-slides/releases/latest) (listed under **Assets**).
-2. **Open** the `.dmg` and drag **MathSlides.app** into the **Applications** folder.
-3. **Launch** MathSlides from Applications (see the first-launch note below).
+2. **Open** the `.dmg` and drag **MathSlides** into the **Applications** folder.
+3. **Open MathSlides** from Applications. macOS will say it can't verify the app, because MathSlides is free and not notarized by Apple. Click **Done**.
+4. Open **System Settings → Privacy & Security**, scroll down to **Security**, click **Open Anyway** next to "MathSlides was blocked", and confirm with your password or Touch ID. Then open MathSlides again.
 
-### First launch
+You only need to do this once for each installed version; after that MathSlides opens normally. On macOS 14 and older, right-clicking **MathSlides** and choosing **Open** also works.
 
-MathSlides is not signed or notarized by Apple, so macOS shows a security warning the first time you open it. There are two different messages; check which one you see.
+MathSlides is signed ad-hoc (not with an Apple Developer ID) and is not notarized, which is why macOS asks for this one-time approval. Nothing in the steps above turns off any macOS protection.
 
-**A. "Apple could not verify MathSlides…" (the normal warning).** This is expected, and you only need to approve the app once per installed copy:
+### Check your download (optional)
 
-1. Open **MathSlides** from Applications, then click **Done** (or **OK**) on the warning.
-2. Open **System Settings → Privacy & Security** and scroll down to the **Security** section.
-3. Next to "MathSlides was blocked", click **Open Anyway**, then confirm with your password or Touch ID.
+Every release includes a `SHA256SUMS` file next to the DMG. Download both into the same folder and run this in Terminal from that folder:
 
-On macOS 14 and older, right-clicking **MathSlides.app → Open** also works. On macOS 15 (Sequoia) and newer, use the steps above.
+```bash
+shasum -a 256 -c SHA256SUMS
+```
 
-**B. "MathSlides is damaged and can't be opened" (uncommon).** If you see this and there is no **Open Anyway** button in Privacy & Security, use the advanced fallback below.
+It should print `MathSlides-<version>-arm64.dmg: OK`.
 
-<details>
-<summary>Advanced fallback: remove the quarantine flag (Terminal)</summary>
+### Troubleshooting
 
-macOS may quarantine an unsigned download and report that the app is damaged even when the download is intact. **Only follow these steps for MathSlides downloaded from this repository's official [Releases page](https://github.com/Kimtona/math-slides/releases/latest).** Removing quarantine bypasses a macOS security check; it does not verify an app's integrity.
+**macOS says "MathSlides is damaged and can't be opened."** Please don't try to work around the message. A correct MathSlides download shows the "can't verify" warning from step 3, not "damaged". Releases before 1.1.0 were packaged with an invalid app signature that could cause this, so install the [latest release](https://github.com/Kimtona/math-slides/releases/latest). If you already have 1.1.0 or newer, check the artifact (both commands only read information):
 
-1. Quit MathSlides. Open **Terminal** and run:
-
-   ```bash
-   xattr -dr com.apple.quarantine /Applications/MathSlides.app
-   ```
-
-2. If you see **`Operation not permitted`**, retry with administrator privileges:
+1. Verify the DMG with `shasum -a 256 -c SHA256SUMS` as above. If it doesn't print `OK`, download it again from the official Releases page.
+2. Check the installed app's signature:
 
    ```bash
-   sudo xattr -dr com.apple.quarantine /Applications/MathSlides.app
+   codesign --verify --deep --strict --verbose=2 /Applications/MathSlides.app
    ```
 
-3. **Still getting `Operation not permitted` even with `sudo`?** Open **System Settings → Privacy & Security → Full Disk Access** and enable **Terminal** (or the terminal app you're using). Quit Terminal completely with **⌘Q**, reopen it, and run the `sudo xattr` command again.
-4. Try launching MathSlides again. After the command succeeds, you can disable Full Disk Access for Terminal.
+   It should report `valid on disk` and `satisfies its Designated Requirement`.
 
-If the warning persists, download a fresh DMG from the official Releases page. Do not disable System Integrity Protection (SIP) to install MathSlides.
+If either check fails, or the message persists, please [open an issue](https://github.com/Kimtona/math-slides/issues) with your macOS version and the output of both commands.
 
-</details>
+**There is no "Open Anyway" button.** The button appears in **Privacy & Security** after you have tried to open the app. Open MathSlides once more, then look again. On a Mac managed by an organization, an administrator may not allow it.
 
 ### Updating
 
@@ -65,7 +59,7 @@ MathSlides has no automatic updater; updates are manual. To update:
 
 1. Download the newest `.dmg` from the [Releases page](https://github.com/Kimtona/math-slides/releases/latest).
 2. Quit MathSlides, open the `.dmg`, and drag **MathSlides** into **Applications**, choosing **Replace**.
-3. Open it again. Because the new version is also unsigned, macOS may ask you to approve it once more (see First launch).
+3. Open it again. Each version is a new, not-notarized build, so macOS may ask you to approve it once more (steps 3–4 above).
 
 Your `.mslides` files are ordinary files wherever you saved them. Your autosave, recovery data, and personal shortcuts (saved colors, quick emojis, favorite math) are stored in your user data folder, not inside the app, so replacing the app keeps all of them.
 
@@ -276,7 +270,7 @@ npm install
 npm run dist:mac
 ```
 
-This creates, in the git-ignored `release/` folder, `MathSlides-<version>-arm64.dmg` and `mac-arm64/MathSlides.app`. A local build is also unsigned, so the [first-launch](#first-launch) steps apply. To update a source checkout, run `git pull && npm install`; this does not change an app already installed in `/Applications`.
+This creates, in the git-ignored `release/` folder, `MathSlides-<version>-arm64.dmg` and `mac-arm64/MathSlides.app`. A local build is signed ad-hoc like the release DMG and is not notarized, so the [first-launch approval](#download-for-macos) may apply to it too. To update a source checkout, run `git pull && npm install`; this does not change an app already installed in `/Applications`.
 
 ### Run and test
 
@@ -342,11 +336,11 @@ Pushing a version tag builds the DMG on GitHub Actions ([`release.yml`](.github/
 
 1. Set `version` in `package.json` (and the lockfile), commit, and push to `main`.
 2. Tag and push: `git tag -a v1.1.0 -m "MathSlides v1.1.0" && git push origin v1.1.0`. A suffix such as `v1.1.0-rc.1` creates a prerelease draft.
-3. The workflow checks that the tag matches `package.json`, runs typecheck, tests and build, then uploads `MathSlides-<version>-arm64.dmg`. It fails rather than touch an existing release.
-4. Download and try the DMG from the draft, then publish the release manually on GitHub.
+3. The workflow checks that the tag matches `package.json`, runs typecheck, tests and build, and packages the DMG with an explicit ad-hoc signature (`mac.identity: "-"` in `package.json`; no Apple credentials). [`scripts/verify-macos-release.sh`](scripts/verify-macos-release.sh) then checks the DMG layout, the bundle metadata, a strictly valid code signature, the Gatekeeper assessment of a quarantined copy and a launch smoke test. It generates `SHA256SUMS`, uploads both files to a draft, and re-downloads them to confirm they match. It fails rather than touch an existing release.
+4. Before publishing, try the draft on a fresh macOS user account or VM, downloading the DMG in Safari, and walk through the install steps above. You can also run the same checks locally: `scripts/verify-macos-release.sh release/MathSlides-<version>-arm64.dmg <version> release/SHA256SUMS`. Then publish the release manually on GitHub.
 
 ## Project status
 
-- **Platform:** macOS on Apple Silicon is the primary, tested platform (current version **1.0.2**). A Windows installer configuration exists but has **not** been validated on a real Windows machine.
-- **Distribution:** unsigned, un-notarized Apple Silicon DMGs via [GitHub Releases](https://github.com/Kimtona/math-slides/releases), updated manually. Apple signing/notarization and automatic updates are not implemented.
+- **Platform:** macOS on Apple Silicon is the primary, tested platform (current version **1.1.0**). A Windows installer configuration exists but has **not** been validated on a real Windows machine.
+- **Distribution:** ad-hoc signed (not Developer-ID signed), un-notarized Apple Silicon DMGs via [GitHub Releases](https://github.com/Kimtona/math-slides/releases), updated manually; the first launch needs a one-time Open Anyway approval. Developer ID signing, notarization and automatic updates are not implemented.
 - **Development stage:** in active use for real presentations. Fixes come from that day-to-day use. Planned work is tracked in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) and [`docs/V2_PLAN.md`](docs/V2_PLAN.md).
