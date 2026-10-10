@@ -1,23 +1,40 @@
 name: Release
 
-# Builds the macOS (Apple Silicon) DMG for a version tag and attaches it to a DRAFT
-# GitHub Release. Publishing is always a manual step. The app is signed ad-hoc ("-", set in
-# package.json) and is NOT Developer-ID signed or notarized: no Apple credentials are used, so
-# macOS asks for a one-time Privacy & Security → Open Anyway approval. The signature must still
-# be VALID (a stale or missing bundle signature makes macOS say the app is "damaged"), so
-# scripts/verify-macos-release.sh checks it strictly before anything is uploaded.
+# Builds the macOS (Apple Silicon) DMG and, for a version tag, attaches it to a DRAFT GitHub Release.
+# Publishing is always a manual step. The app is signed ad-hoc ("-", set in package.json) and is NOT
+# Developer-ID signed or notarized: no Apple credentials are used, so macOS asks for a one-time
+# Privacy & Security → Open Anyway approval. The signature must still be VALID (a stale or missing
+# bundle signature makes macOS say the app is "damaged"), so scripts/verify-macos-release.sh checks
+# it strictly before anything is uploaded.
 #
-# Two jobs: `tests` (typecheck + full test suite) and `package` (DMG + draft release).
-# Packaging does not wait for the tests to PASS, but it does wait for them to FINISH:
-# a failing test run keeps the workflow red and is stated in the draft release notes.
+# Three ways to run it:
+#   * Tag `vX.Y.Z` (or `vX.Y.Z-suffix`)   -> tests, package, verify, DRAFT release (the real release path).
+#   * Manual "Run workflow" (workflow_dispatch) -> DRY RUN. GitHub only offers this once this file is on the
+#     default branch; `gh workflow run release.yml --ref <branch> -f run_tests=false` also works from then on.
+#   * Push to a branch named `dry-run/...`  -> DRY RUN that works BEFORE this file is on the default branch:
+#         git push origin <your-branch>:dry-run/<name>        (delete the branch afterwards)
+#
+# A DRY RUN runs exactly the same `tests` and `package` jobs as a release (same build, same checks, same
+# scripts/verify-macos-release.sh). It never creates or modifies a tag or a GitHub Release: the `release` job
+# below is the only place with write access and it only runs for a pushed version tag (never for a manual run, even
+# if that is started on a tag). The DMG and SHA256SUMS of a dry run are
+# kept as a workflow artifact (14 days) so the exact build can be downloaded and tried.
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
+    branches:
+      - 'dry-run/**'
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: 'Run typecheck and the full test suite first (as a release does)'
+        type: boolean
+        default: true
 
 permissions:
-  contents: write # create the draft release; nothing else is needed
+  contents: read # building and verifying need nothing more; the release job asks for write access itself
 
 concurrency:
   group: release-${{ github.ref_name }}
@@ -25,6 +42,8 @@ concurrency:
 
 jobs:
   tests:
+    # Always for a tag and for a branch dry run; a manual dry run can skip them.
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_tests }}
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
@@ -42,14 +61,17 @@ jobs:
       - run: npm test
 
   package:
+    # Does not wait for the tests to PASS, only to FINISH: a failing test run keeps the workflow red and is stated in
+    # the draft release notes.
     needs: tests
     if: ${{ !cancelled() }}
     runs-on: macos-latest
     timeout-minutes: 45
     env:
-      TAG: ${{ github.ref_name }}
+      REF_NAME: ${{ github.ref_name }}
       GH_TOKEN: ${{ github.token }}
-      TEST_RESULT: ${{ needs.tests.result }}
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -58,19 +80,26 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Check tag matches package.json version
+      - name: Read the version (and, for a release tag, check it matches)
+        id: meta
         run: |
           version="$(node -p "require('./package.json').version")"
-          if [ "$TAG" != "v$version" ]; then
-            echo "::error::Tag $TAG does not match package.json version $version"
-            exit 1
+          if [ "${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}" = "true" ]; then
+            if [ "$REF_NAME" != "v$version" ]; then
+              echo "::error::Tag $REF_NAME does not match package.json version $version"
+              exit 1
+            fi
+          else
+            echo "::notice::Dry run of $REF_NAME: build and verify only. No tag, GitHub Release or Release asset is created."
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Refuse to touch an existing release
+        if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
         run: |
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::A release for $TAG already exists; refusing to modify it"
+          if gh release view "$REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::A release for $REF_NAME already exists; refusing to modify it"
             exit 1
           fi
 
@@ -94,13 +123,53 @@ jobs:
           shasum -a 256 "$(basename "$DMG")" > SHA256SUMS
           shasum -a 256 -c SHA256SUMS
           echo "SUMS=release/SHA256SUMS" >> "$GITHUB_ENV"
-          echo "DMG_SHA256=$(cut -d' ' -f1 SHA256SUMS)" >> "$GITHUB_ENV"
 
       - name: Verify DMG, signature and launch
         run: scripts/verify-macos-release.sh "$DMG" "$VERSION" "$SUMS"
 
+      - name: Keep the verified build (DMG and SHA256SUMS) as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MathSlides-${{ env.VERSION }}-macos-arm64
+          path: |
+            ${{ env.DMG }}
+            ${{ env.SUMS }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    # The ONLY job that can write to the repository, and it only exists for a version tag.
+    needs: [tests, package]
+    if: ${{ !cancelled() && needs.package.result == 'success' && (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
+    runs-on: macos-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # create the draft release; nothing else is needed
+    env:
+      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      TEST_RESULT: ${{ needs.tests.result }}
+    steps:
+      - name: Download the verified build
+        uses: actions/download-artifact@v4
+        with:
+          name: MathSlides-${{ needs.package.outputs.version }}-macos-arm64
+          path: candidate
+
+      - name: Re-check the artifact before uploading it
+        run: |
+          set -euo pipefail
+          cd candidate
+          ls -la
+          shasum -a 256 -c SHA256SUMS
+
       - name: Create draft release
         run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          DMG="candidate/MathSlides-${VERSION}-arm64.dmg"
+          SUMS="candidate/SHA256SUMS"
+          DMG_SHA256="$(cut -d' ' -f1 "$SUMS")"
           flags=""
           case "$VERSION" in *-*) flags="--prerelease" ;; esac
           if [ "$TEST_RESULT" = "success" ]; then
@@ -123,10 +192,11 @@ jobs:
       - name: Verify the uploaded assets
         run: |
           set -euo pipefail
+          VERSION="${TAG#v}"
           dl="${RUNNER_TEMP:-/tmp}/uploaded"
           rm -rf "$dl"; mkdir -p "$dl"
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$dl" --pattern 'MathSlides-*.dmg' --pattern SHA256SUMS
           ( cd "$dl" && shasum -a 256 -c SHA256SUMS )
-          cmp "$dl/$(basename "$DMG")" "$DMG"
-          cmp "$dl/SHA256SUMS" "$SUMS"
+          cmp "$dl/MathSlides-${VERSION}-arm64.dmg" "candidate/MathSlides-${VERSION}-arm64.dmg"
+          cmp "$dl/SHA256SUMS" "candidate/SHA256SUMS"
           echo "Uploaded DMG and SHA256SUMS match the verified build."
