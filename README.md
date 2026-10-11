@@ -10,29 +10,27 @@
 
 <p align="center">
   <a href="https://kimtona.github.io/math-slides/"><b>▶ Watch the full video with music</b></a> (1 min)<br>
-  <sub>Music: <i>Cat Walk</i> by Arulo, from <a href="https://mixkit.co/free-stock-music/cat-walk-371/">Mixkit</a> (<a href="https://mixkit.co/license/#musicFree">Mixkit Stock Music Free License</a>). Not part of this repository's license.</sub>
+  <a href="https://github.com/Kimtona/math-slides/issues/new?template=bug_report.yml">🐞 Report a Bug</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/Kimtona/math-slides/issues/new?template=improvement.yml">💡 Suggest an Improvement</a><br>
+  <sub>🎵 Music: <i>Cat Walk</i> by Arulo, from <a href="https://mixkit.co/free-stock-music/cat-walk-371/">Mixkit</a> (<a href="https://mixkit.co/license/#musicFree">Mixkit Stock Music Free License</a>). Not part of this repository's license.</sub>
 </p>
 
-## Feedback
-
-Seen the demo? Tell us what broke or what to improve:
-
-- 🐞 **[Report a Bug](https://github.com/Kimtona/math-slides/issues/new?template=bug_report.yml)**
-- 💡 **[Suggest an Improvement](https://github.com/Kimtona/math-slides/issues/new?template=improvement.yml)**
-
-## Installation
+## 📦 Installation
 
 Free · No account · Apple Silicon (M1+) · macOS 13+
 
 **[⬇️ Download the latest MathSlides (.dmg)](https://github.com/Kimtona/math-slides/releases/latest)**
 
-1. **Open** the downloaded `.dmg` and drag **MathSlides** into **Applications**.
-2. **Launch** it. If macOS shows a warning, click **Done** (not *Move to Trash*).
-3. **Approve** it in **System Settings → Privacy & Security → Open Anyway**.
+1. 📥 **Open** the downloaded `.dmg` and drag **MathSlides** into **Applications**.
+2. 🚀 **Launch** it. If macOS shows a warning, click **Done** (not *Move to Trash*).
+3. 🔓 **Approve** it in **System Settings → Privacy & Security → Open Anyway**.
 
 <p align="center">
   <img src="docs/readme/macos-open-anyway.png" alt="macOS System Settings, Privacy &amp; Security: the message that MathSlides.app was blocked, with the Open Anyway button (그래도 열기) on the right" width="560">
 </p>
+
+4. 🎉 **Done:** from then on, open MathSlides as usual.
 
 - The warning appears because the app is ad-hoc signed, not notarized. It is a one-time approval per installed version.
 - The screenshot is from macOS 26 in Korean; wording differs by version and language (**Done** = 완료, **Open Anyway** = 그래도 열기).
@@ -40,7 +38,7 @@ Free · No account · Apple Silicon (M1+) · macOS 13+
 - There is no auto-updater. To update, install the newest `.dmg` over the old app (**Replace**). Your files, autosave and preferences are kept.
 
 <details>
-<summary>Troubleshooting</summary>
+<summary>🩺 Troubleshooting</summary>
 
 - **No "Open Anyway" button:** try opening the app once more, then check Privacy & Security again. Managed Macs may block it.
 - **"MathSlides is damaged":** use version 1.1.0 or newer (earlier builds had an invalid signature), then verify the download and the installed app. Both commands only read information:
@@ -54,7 +52,7 @@ Free · No account · Apple Silicon (M1+) · macOS 13+
 
 </details>
 
-## Slash Commands
+## 📝 Slash Commands
 
 A local 16:9 slide editor, no account needed. App menus are in Korean; slash commands, LaTeX and shortcuts are language-independent.
 
@@ -65,31 +63,31 @@ Type `/` in a text box, then keep typing to filter. Commands marked ● only app
 | `/math` | Block equation |
 | `/inline` | Inline equation (also `⌘⇧E` or `$$x^2$$`) |
 | `/code` ● | Code block |
-| `/callout` ● | Callout |
+| `/callout` ● | 💡 Callout |
 | `/block` ● | Theorem, Definition and other academic blocks |
-| `/image` ● | Image from a file |
+| `/image` ● | 🖼 Image from a file |
 | `/table` ● | 3×3 table |
-| `/todo` ● | Checklist item |
+| `/todo` ● | ☑️ Checklist item |
 | `/divider` ● | Horizontal divider (also `---`) |
 | `/bullet` | Bulleted list (also `- `) |
 | `/number` | Numbered list (also `1. `) |
 
 Extra search words: `/equation` `/latex` `/tex` `/note` `/tip` `/warning` `/theorem` `/definition` `/lemma` `/img` `/photo` `/grid` `/task` `/hr` `/ul` `/ol`.
 
-Beyond slash commands:
+✨ Beyond slash commands:
 
-- **Text:** `#` `##` `###` `####` set sizes 80 / 50 / 30 / 25; bold, italic, underline, strike, text colors, 6 highlights, inline code, links (`⌘K` or a typed URL), `Tab` / `⇧Tab` to indent lists, `\| ` for a quote. Font size can also be set per paragraph, word or selection.
-- **Math:** LaTeX is rendered by MathJax as vectors in the editor, PDF and PPTX; a symbol palette and favorites are built in. Callouts take any emoji icon; code blocks support Plain Text / Python / C / Bash.
-- **Images and tables:** drag-and-drop or paste images; crop, corner radius, and an optional caption on images and tables.
-- **Shapes:** rectangle, rounded rectangle, ellipse, line, arrow, block arrow (double-click to type in a shape), plus emoji with 10 quick emojis and a searchable picker.
-- **Layout:** snap and alignment guides, align / distribute, z-order, duplicate, nudge.
-- **Contents slides:** right-click a slide in the list to add Title, Contents or Thank-you slides; each numbered Contents entry auto-generates a linked *Part N* slide.
-- **arXiv references:** paste an arXiv URL in a slide's bottom-right reference field to get a citation and an auto-built References slide (arXiv only, needs network).
-- **Theme and style:** one theme color for the whole deck, a background color per slide, and fonts NanumSquare / Pretendard / Noto Serif KR.
-- **Present and export:** presentation mode, PDF with vector text, editable PPTX with speaker notes ([example PDF](docs/examples/denoising-diffusion-models.pdf)).
-- **Files:** `.mslides` documents, autosave and recovery.
+- 📝 **Text:** `#` `##` `###` `####` set sizes 80 / 50 / 30 / 25; bold, italic, underline, strike, text colors, 6 highlights, inline code, links (`⌘K` or a typed URL), `Tab` / `⇧Tab` to indent lists, `\| ` for a quote. Font size can also be set per paragraph, word or selection.
+- 🧮 **Math:** LaTeX is rendered by MathJax as vectors in the editor, PDF and PPTX; a symbol palette and favorites are built in. Callouts take any emoji icon; code blocks support Plain Text / Python / C / Bash.
+- 🖼 **Images and tables:** drag-and-drop or paste images; crop, corner radius, and an optional caption on images and tables.
+- 🔷 **Shapes:** rectangle, rounded rectangle, ellipse, line, arrow, block arrow (double-click to type in a shape), plus emoji with 10 quick emojis and a searchable picker.
+- 📐 **Layout:** snap and alignment guides, align / distribute, z-order, duplicate, nudge.
+- 📑 **Contents slides:** right-click a slide in the list to add Title, Contents or Thank-you slides; each numbered Contents entry auto-generates a linked *Part N* slide.
+- 📚 **arXiv references:** paste an arXiv URL in a slide's bottom-right reference field to get a citation and an auto-built References slide (arXiv only, needs network).
+- 🎨 **Theme and style:** one theme color for the whole deck, a background color per slide, and fonts NanumSquare / Pretendard / Noto Serif KR.
+- 🎤 **Present and export:** presentation mode, PDF with vector text, editable PPTX with speaker notes ([example PDF](docs/examples/denoising-diffusion-models.pdf)).
+- 💾 **Files:** `.mslides` documents, autosave and recovery.
 
-## Shortcuts
+## ⌨️ Shortcuts
 
 <details>
 <summary>Keyboard Shortcuts</summary>
@@ -112,7 +110,7 @@ Beyond slash commands:
 
 </details>
 
-## Configuration
+## 🔧 Configuration
 
 MathSlides has no Settings window. A small text file, `config.txt`, sets the defaults for **new** content.
 
