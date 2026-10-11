@@ -5,10 +5,10 @@
 
 > **Write like Notion. Math like Overleaf. Present as slides.**
 
-<p align="center">
-  <b>Simple is Best.</b><br>
-  <b>Less formatting, more thinking. 💙</b>
-</p>
+<h3 align="center">
+  Simple is Best.<br>
+  Less formatting, more thinking. 💙
+</h3>
 
 <p align="center">
   <a href="https://kimtona.github.io/math-slides/">
