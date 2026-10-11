@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MathSlides — Demo</title>
+<meta name="description" content="A one-minute tour of MathSlides, a macOS presentation editor for technical and research talks. Write like Notion. Math like Overleaf. Present as slides.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MathSlides — Demo">
+<meta property="og:description" content="Write like Notion. Math like Overleaf. Present as slides.">
+<meta property="og:image" content="https://kimtona.github.io/math-slides/demo/poster.jpg">
+<style>
+  :root { --navy: #101d3a; --blue: #2454c6; --bg: #f5f7fb; --card: #fff; --muted: #5b6577; --line: #dde3ee; }
+  @media (prefers-color-scheme: dark) { :root { --navy: #eef2fb; --blue: #6f95f0; --bg: #0c1220; --card: #141c2e; --muted: #9aa6bd; --line: #26314a; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--navy); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 20px 56px; }
+  h1 { margin: 0; font-size: 34px; letter-spacing: -.01em; }
+  .slogan { margin: 6px 0 24px; color: var(--muted); font-size: 18px; }
+  .player { background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 30px rgba(16, 29, 58, .18); }
+  video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 22px 0 18px; }
+  .btn { display: inline-block; padding: 10px 18px; border-radius: 8px; border: 1px solid var(--blue); color: var(--blue); text-decoration: none; font-weight: 600; }
+  .btn.primary { background: var(--blue); color: #fff; }
+  .btn:hover { filter: brightness(1.08); }
+  .credit { color: var(--muted); font-size: 13px; line-height: 1.55; border-top: 1px solid var(--line); padding-top: 14px; }
+  .credit a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>MathSlides</h1>
+  <p class="slogan">Write like Notion. Math like Overleaf. Present as slides.</p>
+
+  <div class="player">
+    <video controls preload="metadata" playsinline poster="demo/poster.jpg">
+      <source src="demo/mathslides-demo.mp4" type="video/mp4">
+      Your browser can't play this video. <a href="demo/mathslides-demo.mp4">Download the MP4</a> instead.
+    </video>
+  </div>
+
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/Kimtona/math-slides/releases/latest">⬇️ Download MathSlides for macOS</a>
+    <a class="btn" href="https://github.com/Kimtona/math-slides">View on GitHub</a>
+    <a class="btn" href="demo/mathslides-demo.mp4" download>Download this video (MP4, 14 MB)</a>
+  </div>
+
+  <p class="credit">
+    🎵 Music: <i>Cat Walk</i> by Arulo, from <a href="https://mixkit.co/free-stock-music/cat-walk-371/">Mixkit</a>
+    (<a href="https://mixkit.co/license/#musicFree">Mixkit Stock Music Free License</a>).
+    The music in this video is not part of MathSlides' source code and is not covered by any license of the MathSlides repository.
+  </p>
+</main>
+</body>
+</html>

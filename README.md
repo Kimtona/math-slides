@@ -5,7 +5,22 @@
 MathSlides is a compact macOS presentation editor for technical and research talks, built around one idea: spend less time making formatting decisions and more time writing the talk.
 
 <p align="center">
-  <img src="docs/readme/editor-overview.png" alt="The MathSlides editor with a research slide containing a plotted figure, a diagram made of shapes, and LaTeX equations" width="100%">
+  <a href="https://github.com/Kimtona/math-slides/releases/latest"><b>⬇️ Download for macOS</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/Kimtona/math-slides/issues/new?template=bug_report.yml">🐞 Report a Bug</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/Kimtona/math-slides/issues/new?template=improvement.yml">💡 Suggest an Improvement</a>
+</p>
+
+<p align="center">
+  <a href="https://kimtona.github.io/math-slides/">
+    <img src="docs/readme/demo-preview.webp" alt="An 18-second silent preview of MathSlides: typing on a slide, a LaTeX equation after /math, a Definition block, section slides generated from an outline, and the theme color changing across the whole deck" width="100%">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://kimtona.github.io/math-slides/"><b>▶ Watch the full demo with sound</b></a> <sub>(1 min, plays in your browser)</sub><br>
+  <sub>🎵 Music: <i>Cat Walk</i> by Arulo, from <a href="https://mixkit.co/free-stock-music/cat-walk-371/">Mixkit</a> (<a href="https://mixkit.co/license/#musicFree">Mixkit Stock Music Free License</a>). The music in the demo video is not part of MathSlides' source code and is not covered by any license of this repository.</sub>
 </p>
 
 ## 📦 Download MathSlides
@@ -92,6 +107,13 @@ A short deck made entirely in MathSlides and exported to PDF: **[Denoising Diffu
   </a>
 </p>
 
+## 💬 Feedback
+
+Found a problem, or something felt awkward? Tell us. It takes a minute and no GitHub experience is needed beyond a free account.
+
+- 🐞 **[Report a Bug](https://github.com/Kimtona/math-slides/issues/new?template=bug_report.yml)**: what went wrong, how to see it again, and your macOS version.
+- 💡 **[Suggest an Improvement](https://github.com/Kimtona/math-slides/issues/new?template=improvement.yml)**: what was frustrating or missing, and any idea for making it better.
+
 ## 💡 Why MathSlides?
 
 Making a research talk involves many small, repeated decisions: what size this heading should be, where the equation or code tool lives, how to rebuild the section pages, how to format the references, how to recolor every slide for your lab. MathSlides turns each of these into a convention, so what remains is writing. It runs locally, with no account.
@@ -99,6 +121,10 @@ Making a research talk involves many small, repeated decisions: what size this h
 - **Write like Notion:** `#` to `####` pick from four fixed sizes, and `/math`, `/block`, `/code`, `/image` add research content without leaving the line you are typing.
 - **Math like Overleaf:** LaTeX equations rendered as you type, and arXiv links that become citations and a References slide.
 - **Present as slides:** an outline that generates section slides, one theme color for the whole deck, presentation mode, and PDF / PPTX export.
+
+<p align="center">
+  <img src="docs/readme/editor-overview.png" alt="The MathSlides editor with a research slide containing a plotted figure, a diagram made of shapes, and LaTeX equations" width="100%">
+</p>
 
 ## 📝 Write like Notion
 

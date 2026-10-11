@@ -1,0 +1,37 @@
+name: Bug Report
+description: Something in MathSlides does not work as expected.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What went wrong?
+      description: "A sentence or two is enough. Screenshots are welcome - paste them right here."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we make it happen again?
+      description: What did you click or type, step by step?
+      placeholder: |
+        1. Open a slide
+        2. Type /math
+        3. ...
+    validations:
+      required: false
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: false
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      description: "Apple menu → About This Mac"
+      placeholder: "e.g. macOS 15.1"
+    validations:
+      required: false
