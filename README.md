@@ -171,7 +171,7 @@ image-radius-preset = 50px
 
 ## 🗺️ Roadmap
 
-Ideas we're exploring for future updates:
+Ideas for future updates:
 
 - 🪟 **Windows Support** — Bring MathSlides to Windows.
 - 📝 **Notion → MathSlides** — Turn Notion notes into presentation slides automatically.
