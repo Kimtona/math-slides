@@ -15,7 +15,7 @@ import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
 import { TableProps } from './TableProps';
 import { openLinkPopover } from '../editor/linkMark';
-import { inSizedBlock, selectionLineSize, setSelectionLineSize } from '../editor/extensions';
+import { charSizeAt, inLineSelection, inSizedBlock, selectionLineSize, setSelectionCharSize, setSelectionLineSize } from '../editor/extensions';
 
 /** Re-render on every transaction of the active editor (for B/I/U state). */
 function useEditorTick() {
@@ -94,10 +94,15 @@ function TextProps({ el, editing, box = true }: { el: TextElement; editing: bool
   const codeSize = inCode ? (ed!.getAttributes('codeBlock').fontSize as number | null) ?? Math.round(el.style.fontSize * 0.85 * 2) / 2 : undefined;
   // Inside a Callout / Quote the field sizes just the selected lines (same per-line `fontSize` as #/##/###).
   const inBlock = !!ed && !inCode && inSizedBlock(ed);
-  const lineSize = inCode ? codeSize : inBlock ? selectionLineSize(ed!) ?? undefined : (ed?.getAttributes('paragraph').fontSize as number | undefined);
-  const size = lineSize ?? el.style.fontSize;
+  // In a plain text box: a selection inside one line sizes just those characters; otherwise the selected lines
+  // (the caret's line when nothing is selected). Table cells / shapes (no per-line size) keep sizing the whole box.
+  const inLine = !!ed && !inCode && !inBlock && ed.schema.nodes.paragraph.spec.attrs?.fontSize !== undefined;
+  const inChars = inLine && inLineSelection(ed!.state);
+  const lineSize = inCode ? codeSize : inBlock || inLine ? selectionLineSize(ed!) ?? undefined : (ed?.getAttributes('paragraph').fontSize as number | undefined);
+  const size = (inChars ? charSizeAt(ed!.state) ?? undefined : undefined) ?? lineSize ?? el.style.fontSize;
   const setSize = (v: number) => {
-    if (ed && inBlock) setSelectionLineSize(ed, v === el.style.fontSize ? null : v);
+    if (ed && inChars) setSelectionCharSize(ed, v === (lineSize ?? el.style.fontSize) ? null : v);
+    else if (ed && (inBlock || inLine)) setSelectionLineSize(ed, v === el.style.fontSize ? null : v);
     else if (ed && inCode) ed.chain().focus().updateAttributes('codeBlock', { fontSize: v }).run();
     else if (ed && lineSize) ed.chain().focus().updateAttributes('paragraph', { fontSize: v }).run();
     else setTextStyle({ fontSize: v });
@@ -105,7 +110,7 @@ function TextProps({ el, editing, box = true }: { el: TextElement; editing: bool
   return (
     <>
       <Btn title="글자 작게" onClick={() => setSize(Math.max(6, size - 2))}>−</Btn>
-      <NumberField value={size} min={6} max={300} title={inCode ? '코드 블록 글자 크기 (px)' : inBlock ? '선택한 줄의 글자 크기 (px)' : lineSize ? '이 줄의 글자 크기 (px)' : '글자 크기 (px)'} onChange={setSize} />
+      <NumberField value={size} min={6} max={300} title={inCode ? '코드 블록 글자 크기 (px)' : inChars ? '선택한 글자 크기 (px)' : inBlock || inLine ? '선택한 줄의 글자 크기 (px)' : lineSize ? '이 줄의 글자 크기 (px)' : '글자 크기 (px)'} onChange={setSize} />
       <Btn title="글자 크게" onClick={() => setSize(size + 2)}>+</Btn>
       <Sep />
       <FontButton title="선택한 텍스트 글꼴 (전체 글꼴은 슬라이드 빈 곳 선택 후 상단 '글꼴')" value={activeTextFont(el, editing)} onChange={setSelectionFont} />

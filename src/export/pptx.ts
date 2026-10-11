@@ -123,10 +123,12 @@ function listInfo(p: Element, content: Element, base: TextElement) {
 function paragraphRuns(p: Element, content: Element, base: TextElement, last: boolean): TextProps[] {
   const runs: TextProps[] = [];
   let soft = false;
+  let maxPx = parseFloat(getComputedStyle(p).fontSize) || 0; // largest text in the line (sets its line spacing)
   const walk = (n: Node) => {
     if (n.nodeType === Node.TEXT_NODE) {
       const text = n.textContent ?? '';
       if (!text) return;
+      maxPx = Math.max(maxPx, parseFloat(getComputedStyle(n.parentElement!).fontSize) || 0);
       runs.push({ text, options: { ...runOptions(n, base, text), ...(soft ? { softBreakBefore: true } : {}) } });
       soft = false;
     } else if (n instanceof HTMLBRElement) {
@@ -144,10 +146,9 @@ function paragraphRuns(p: Element, content: Element, base: TextElement, last: bo
       ? li.ordered ? { type: 'number', indent: li.indent, numberStartAt: li.start } : { indent: li.indent }
       : false;
   }
-  // Lines sized with #/##/### get their own exact line spacing (font size × line height).
-  const pSize = parseFloat(getComputedStyle(p).fontSize);
-  if (pSize && Math.abs(pSize - base.style.fontSize) > 0.01) {
-    const spacing = PT(pSize * base.style.lineHeight);
+  // Lines sized with #/##/### (or holding bigger/smaller characters) get their own exact line spacing (font size × line height).
+  if (maxPx && Math.abs(maxPx - base.style.fontSize) > 0.01) {
+    const spacing = PT(maxPx * base.style.lineHeight);
     runs.forEach((r) => { r.options!.lineSpacing = spacing; });
   }
   if (!last) runs[runs.length - 1].options!.breakLine = true;

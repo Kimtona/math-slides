@@ -32,8 +32,8 @@ function renderMarks(text: string, marks: PMNode['marks'], key: number): ReactNo
       case 'highlight': node = <mark style={{ backgroundColor: m.attrs?.color, color: 'inherit' }}>{node}</mark>; break;
       case 'code': node = <code style={codeStyle}>{node}</code>; break;
       case 'textStyle':
-        if (m.attrs?.color || m.attrs?.fontFamily) {
-          node = <span style={{ color: m.attrs.color || undefined, fontFamily: m.attrs.fontFamily ? fontStack(m.attrs.fontFamily) : undefined }}>{node}</span>;
+        if (m.attrs?.color || m.attrs?.fontFamily || m.attrs?.fontSize) {
+          node = <span style={{ color: m.attrs.color || undefined, fontFamily: m.attrs.fontFamily ? fontStack(m.attrs.fontFamily) : undefined, fontSize: m.attrs.fontSize || undefined }}>{node}</span>;
         }
         break;
       case 'userLink':

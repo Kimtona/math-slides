@@ -146,11 +146,36 @@ export const setSelectionLineSize = (editor: Editor, size: number | null) =>
     return true;
   }).run();
 
-/** Scale per-line font sizes (used when a text box is scaled by its corner). */
+/** True when the selection is part of one line (not all of it): the size field then sizes just those characters. */
+export function inLineSelection(state: EditorState): boolean {
+  const { $from, $to, empty } = state.selection;
+  return !empty && $from.sameParent($to) && $from.parent.type.name === 'paragraph'
+    && $from.parent.type.spec.attrs?.fontSize !== undefined
+    && ($from.pos > $from.start() || $to.pos < $to.end());
+}
+
+/** Size (px) of the first sized character of the selection, or null when it follows its line. */
+export function charSizeAt(state: EditorState): number | null {
+  const { from, to } = state.selection;
+  let size: number | null = null;
+  state.doc.nodesBetween(from, to, (n) => {
+    if (size === null && n.isText) size = (n.marks.find((m) => m.type.name === 'textStyle')?.attrs.fontSize as number | null) ?? null;
+  });
+  return size;
+}
+
+/** Sets (or with `null` clears) the size of the selected characters: a `fontSize` attribute on the textStyle mark. */
+export const setSelectionCharSize = (editor: Editor, size: number | null) =>
+  editor.chain().focus().setMark('textStyle', { fontSize: size }).run();
+
+/** Scale per-line and per-character font sizes (used when a text box is scaled by its corner). */
 export function scaleParagraphSizes(doc: PMNode, k: number): PMNode {
   const walk = (n: PMNode): PMNode => {
     const out: PMNode = { ...n };
     if ((n.type === 'paragraph' || n.type === 'codeBlock') && n.attrs?.fontSize) out.attrs = { ...n.attrs, fontSize: Math.max(6, Math.round(n.attrs.fontSize * k * 2) / 2) };
+    if (n.marks?.some((m) => m.attrs?.fontSize)) {
+      out.marks = n.marks.map((m) => (m.attrs?.fontSize ? { ...m, attrs: { ...m.attrs, fontSize: Math.max(6, Math.round(m.attrs.fontSize * k * 2) / 2) } } : m));
+    }
     if (n.content) out.content = n.content.map(walk);
     return out;
   };
@@ -711,6 +736,23 @@ const FontFamily = Extension.create({
   },
 });
 
+/** Size of a selected range inside a line: a `fontSize` attribute (px) on the textStyle mark, like the font. */
+const CharFontSize = Extension.create({
+  name: 'charFontSize',
+  addGlobalAttributes() {
+    return [{
+      types: ['textStyle'],
+      attributes: {
+        fontSize: {
+          default: null,
+          parseHTML: (el) => parseFloat((el as HTMLElement).style.fontSize) || null,
+          renderHTML: (attrs) => (attrs.fontSize ? { style: `font-size: ${attrs.fontSize}px` } : {}),
+        },
+      },
+    }];
+  },
+});
+
 export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean; cell?: boolean } = {}): Extensions {
   const exts: Extensions = [
     StarterKit.configure({
@@ -728,6 +770,7 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean; ce
     TextStyle,
     Color,
     FontFamily,
+    CharFontSize,
     Highlight, // priority 102 → wraps the TextStyle color span (see formattingMarks.ts)
     InlineCode,
     // Table cells: no equations, dividers, code/quote/callout/academic blocks, todo items or paragraph-size lines.
