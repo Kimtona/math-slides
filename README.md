@@ -8,8 +8,11 @@
   </a>
 </p>
 
+<h3 align="center">
+  <a href="https://kimtona.github.io/math-slides/">🎬 Watch the Full Video</a> <sub>(1 min)</sub>
+</h3>
+
 <p align="center">
-  <a href="https://kimtona.github.io/math-slides/"><b>▶ Watch the full video with music</b></a> (1 min)<br>
   <a href="https://github.com/Kimtona/math-slides/issues/new?template=bug_report.yml">🐞 Report a Bug</a>
   &nbsp;·&nbsp;
   <a href="https://github.com/Kimtona/math-slides/issues/new?template=improvement.yml">💡 Suggest an Improvement</a><br>
