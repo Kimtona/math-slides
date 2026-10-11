@@ -113,6 +113,39 @@ function hasCode(p: PMNodeType) {
   return code;
 }
 
+/** True when the caret/selection is inside a Callout or Quote, where the size field sizes only the selected lines. */
+export const inSizedBlock = (editor: Editor) => editor.isActive('callout') || editor.isActive('blockquote');
+
+/** Size (px) of the first line touched by the selection, or null when it follows the box size. */
+export function lineSizeAt(state: EditorState): number | null {
+  const { from, to } = state.selection;
+  let size: number | null = null, seen = false;
+  state.doc.nodesBetween(from, to, (n) => {
+    if (n.type.name !== 'paragraph') return !seen;
+    if (!seen) { seen = true; size = (n.attrs.fontSize as number | null) ?? null; }
+    return false;
+  });
+  return size;
+}
+
+/** Transaction giving every paragraph touched by the selection a px size (`null` = back to the box size). */
+export function lineSizeTransaction(state: EditorState, size: number | null) {
+  const { from, to } = state.selection;
+  const tr = state.tr;
+  state.doc.nodesBetween(from, to, (n, pos) => {
+    if (n.type.name === 'paragraph') tr.setNodeMarkup(pos, undefined, { ...n.attrs, fontSize: size });
+    return n.type.name !== 'paragraph';
+  });
+  return tr;
+}
+
+export const selectionLineSize = (editor: Editor) => lineSizeAt(editor.state);
+export const setSelectionLineSize = (editor: Editor, size: number | null) =>
+  editor.chain().focus().command(({ dispatch, state, tr }) => {
+    if (dispatch) lineSizeTransaction(state, size).steps.forEach((st) => tr.step(st));
+    return true;
+  }).run();
+
 /** Scale per-line font sizes (used when a text box is scaled by its corner). */
 export function scaleParagraphSizes(doc: PMNode, k: number): PMNode {
   const walk = (n: PMNode): PMNode => {
