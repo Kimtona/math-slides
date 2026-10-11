@@ -534,7 +534,9 @@ try {
   // -- defaults: Minimal is unchanged, old-style tables carry no new fields --
   assert.equal(t.style, 'minimal'); assert.ok(!('borderColor' in t), 'no borderColor by default'); assert.ok(hasNoFillKeys(t), 'no cell fill keys by default');
   assert.equal(await css2(td(t, 1, 0), 'borderBottomWidth'), '1px'); assert.equal(await css2(td(t, 1, 0), 'borderBottomColor'), rgb('#E5E7EB')); assert.equal(await css2(td(t, 1, 0), 'borderLeftWidth'), '0px');
-  assert.equal(await css2(td(t, 0, 0), 'borderBottomWidth'), '1.5px'); assert.equal(await css2(td(t, 0, 0), 'borderBottomColor'), rgb('#9CA3AF')); assert.equal(await css2(td(t, 0, 0), 'backgroundColor'), clear, 'no header fill in Minimal'); assert.equal(await css2(td(t, 0, 0), 'fontWeight'), '700');
+  // The header rule is 1.5 CSS px; the computed width snaps down to whole device pixels (1px at 1x, 1.5px at 2x/Retina).
+  const headRule = `${Math.floor(1.5 * (await evaluate('devicePixelRatio'))) / (await evaluate('devicePixelRatio'))}px`;
+  assert.equal(await css2(td(t, 0, 0), 'borderBottomWidth'), headRule, 'header rule is 1.5px snapped to the device pixel grid'); assert.equal(await css2(td(t, 0, 0), 'borderBottomColor'), rgb('#9CA3AF')); assert.equal(await css2(td(t, 0, 0), 'backgroundColor'), clear, 'no header fill in Minimal'); assert.equal(await css2(td(t, 0, 0), 'fontWeight'), '700');
   assert.equal(await evaluate(`${barBtn('/^Minimal ▾$/')} ? 1 : 0`), 1, 'style control shows the current style');
 
   // -- style switching: one undo step, nothing else changes --
