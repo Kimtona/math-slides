@@ -1772,6 +1772,23 @@ try {
   const archiveSig = () => evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())");
   const setTitle2 = async (t) => { await evaluate(`store.getState().commit(d => { d.title = ${JSON.stringify(t)}; })`); await pause(); };
   const settled = () => until(() => evaluate("store.getState().saveState === 'saved'"), 'autosave settled');
+  // Opens the ∑ file menu once the app is really ready: loaded, fonts done, autosave idle and the logo not moving. A click that
+  // lands while the page is still settling right after a reload can be lost, so a click that left the menu closed is repeated
+  // (at most 3 attempts, only while no menu is open). A menu that never opens still fails, with what was under the pointer.
+  const openFileMenu = async () => {
+    const logoRect = () => evaluate("(() => { const r = document.querySelector('.logo')?.getBoundingClientRect(); return r ? [r.x, r.y, r.width, r.height].join() : null; })()");
+    await until(() => evaluate("document.readyState === 'complete' && store.getState().saveState === 'saved'").then((ready) => ready && evaluate('document.fonts.ready.then(() => true)')), 'the app did not become ready before opening the ∑ menu');
+    let before = null;
+    await until(async () => { const now = await logoRect(); const stable = now !== null && now === before; before = now; return stable; }, 'the ∑ logo position never settled');
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (await evaluate("!!document.querySelector('.menu')")) return;
+      await click('.logo');
+      try { await until(() => evaluate("!!document.querySelector('.menu')"), 'menu closed', 3000); return; } catch {}
+      console.log(`  ∑ menu did not open on click attempt ${attempt}`);
+    }
+    const why = await evaluate("(() => { const l = document.querySelector('.logo'); const r = l.getBoundingClientRect(); const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return JSON.stringify({ expanded: l.closest('button')?.getAttribute('aria-expanded'), top: top && (top.tagName + '.' + top.className), rect: [r.x, r.y, r.width, r.height], focus: document.hasFocus(), size: [innerWidth, innerHeight] }); })()");
+    throw new Error('the ∑ menu did not open after clicking the logo (3 attempts): ' + why);
+  };
   const restart = async (opts) => { await settled(); await pause(300); socket.close(); electron.kill('SIGTERM'); await new Promise((r) => electron.once('exit', r)); await launch(opts); };
   const assoc = () => evaluate(`new Promise((res) => { const o = indexedDB.open('keyval-store'); o.onsuccess = () => { const g = o.result.transaction('keyval').objectStore('keyval').get('file:v1'); g.onsuccess = () => res(g.result ? {name: g.result.name, deckId: g.result.deckId, hasHandle: !!g.result.handle} : null); }; })`);
   const stubSavePicker = (name) => evaluate(`window.__picks = 0; window.showSaveFilePicker = async () => { __picks++; return await (await __opfsDir()).getFileHandle(${JSON.stringify(name)}, {create: true}); };`);
@@ -1893,9 +1910,8 @@ try {
   assert.ok((await archiveIds()).length <= 3, 'recovery storage stays bounded');
   // Internal autosave exists and is separate from the explicit file; the ∑ menu has no presentation list.
   assert.equal((await idb('deck:v1')).id, await deckId(), 'deck:v1 holds the working presentation');
-  await click('.logo');
   // Wait for the menu itself and for its recovery item (read asynchronously) instead of a fixed pause: slow CI runners need longer than 300 ms.
-  await until(() => evaluate("!!document.querySelector('.menu')"), 'the ∑ menu did not open after clicking the logo');
+  await openFileMenu();
   await until(() => evaluate("document.querySelector('.menu').textContent.includes('직전 작업 복구')"), 'the recovery item (직전 작업 복구) did not appear in the ∑ menu');
   const menuText = await evaluate("document.querySelector('.menu').textContent");
   assert.ok(!menuText.includes('이전 프레젠테이션') && !menuText.includes('Legacy work') && !menuText.includes('Untitled presentation ·'), 'no previous-presentation entries in the ∑ menu');
@@ -2033,7 +2049,7 @@ try {
   // New Presentation shows no success toast.
   await pause(2500);
   assert.equal(await evaluate("document.querySelectorAll('.toast').length"), 0, 'no stray toasts before the check');
-  await click('.logo');
+  await openFileMenu();
   await until(() => evaluate("[...document.querySelectorAll('.menu-item')].some(e => e.textContent.includes('새 프레젠테이션'))"), 'the ∑ menu did not offer 새 프레젠테이션 after clicking the logo');
   await evaluate("[...document.querySelectorAll('.menu-item')].find(e => e.textContent.includes('새 프레젠테이션')).click()"); await pause(600);
   assert.equal(await evaluate("document.querySelectorAll('.toast').length"), 0, 'New Presentation shows no success toast');
