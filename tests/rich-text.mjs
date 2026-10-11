@@ -150,6 +150,28 @@ function marksAt(d, offset) {
   return [];
 }
 const attrAt = (d, offset, type, attr) => marksAt(d, offset).find((m) => m.type === type)?.attrs?.[attr];
+/**
+ * Whole-deck comparison for a deck that was just (re)loaded by a freshly started app. The stored `h` of a TEXT box is not user
+ * data: it is measured from the rendered text (auto height) and re-measured after a restart, so it may differ by 1 px while fonts and
+ * layout settle (seen on CI: 41 vs 42 for a 30 px title box that settles to the saved 42). Only that one number gets a ±1 px tolerance;
+ * everything else (ids, order, positions, widths, styles, documents, every non-text element incl. its `h`) must be identical.
+ */
+function assertDeckEqualMeasured(actual, expected, message) {
+  const a = structuredClone(actual), e = structuredClone(expected);
+  assert.equal(a.slides.length, e.slides.length, `${message}: slide count`);
+  a.slides.forEach((sa, i) => {
+    const se = e.slides[i];
+    assert.deepEqual(sa.elements.map((x) => x.id), se.elements.map((x) => x.id), `${message}: element ids/order on slide ${i + 1}`);
+    sa.elements.forEach((ea, j) => {
+      const ee = se.elements[j];
+      if (ea.type === 'text' && ee.type === 'text' && typeof ea.h === 'number' && typeof ee.h === 'number') {
+        assert.ok(Math.abs(ea.h - ee.h) <= 1, `${message}: text box ${ea.id} (slide ${i + 1}) height ${ea.h} differs from the saved ${ee.h} by more than 1 px`);
+        ea.h = ee.h;
+      }
+    });
+  });
+  assert.deepEqual(a, e, message);
+}
 try {
   await launch();
   if (process.argv.includes('--interactive')) {
@@ -1647,7 +1669,7 @@ try {
   const archiveBeforeRestart = await evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())");
   socket.close(); electron.kill('SIGTERM'); await new Promise(r=>electron.once('exit',r));
   await launch();
-  assert.deepEqual(await evaluate('store.getState().deck'), saved.deck, 'restart restores the working presentation (same Deck.id and content)');
+  assertDeckEqualMeasured(await evaluate('store.getState().deck'), saved.deck, 'restart restores the working presentation (same Deck.id and content)');
   assert.equal(await evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())"), archiveBeforeRestart, 'restart does not displace anything');
   console.log('PASS autosave, desktop restart, recovery swap, .mslides save/open');
   // Exercise both existing export actions from the fixed toolbar.
@@ -1871,7 +1893,10 @@ try {
   assert.ok((await archiveIds()).length <= 3, 'recovery storage stays bounded');
   // Internal autosave exists and is separate from the explicit file; the ∑ menu has no presentation list.
   assert.equal((await idb('deck:v1')).id, await deckId(), 'deck:v1 holds the working presentation');
-  await click('.logo'); await pause(300);
+  await click('.logo');
+  // Wait for the menu itself and for its recovery item (read asynchronously) instead of a fixed pause: slow CI runners need longer than 300 ms.
+  await until(() => evaluate("!!document.querySelector('.menu')"), 'the ∑ menu did not open after clicking the logo');
+  await until(() => evaluate("document.querySelector('.menu').textContent.includes('직전 작업 복구')"), 'the recovery item (직전 작업 복구) did not appear in the ∑ menu');
   const menuText = await evaluate("document.querySelector('.menu').textContent");
   assert.ok(!menuText.includes('이전 프레젠테이션') && !menuText.includes('Legacy work') && !menuText.includes('Untitled presentation ·'), 'no previous-presentation entries in the ∑ menu');
   assert.ok(menuText.includes('직전 작업 복구'), 'the single recovery item appears while displaced work exists');
@@ -2008,7 +2033,9 @@ try {
   // New Presentation shows no success toast.
   await pause(2500);
   assert.equal(await evaluate("document.querySelectorAll('.toast').length"), 0, 'no stray toasts before the check');
-  await click('.logo'); await pause(300); await evaluate("[...document.querySelectorAll('.menu-item')].find(e => e.textContent.includes('새 프레젠테이션')).click()"); await pause(600);
+  await click('.logo');
+  await until(() => evaluate("[...document.querySelectorAll('.menu-item')].some(e => e.textContent.includes('새 프레젠테이션'))"), 'the ∑ menu did not offer 새 프레젠테이션 after clicking the logo');
+  await evaluate("[...document.querySelectorAll('.menu-item')].find(e => e.textContent.includes('새 프레젠테이션')).click()"); await pause(600);
   assert.equal(await evaluate("document.querySelectorAll('.toast').length"), 0, 'New Presentation shows no success toast');
   assert.notEqual(await deckId(), 'NATIVE-F');
   console.log('PASS .mslides opened by the OS (cold launch, queued early request, running app, invalid files, write-back, association, New without toast)');
