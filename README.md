@@ -169,6 +169,16 @@ image-radius-preset = 50px
 
 <sub>Building from source, tests and releases: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).</sub>
 
+## 🗺️ Roadmap
+
+Ideas we're exploring for future updates:
+
+- 🪟 **Windows Support** — Bring MathSlides to Windows.
+- 📝 **Notion → MathSlides** — Turn Notion notes into presentation slides automatically.
+- 🏷️ **More Slash Commands** — Add `/badge` and other presentation-friendly blocks.
+
+Have an idea of your own? [Suggest an Improvement](https://github.com/Kimtona/math-slides/issues/new?template=improvement.yml).
+
 ---
 
 <p align="center">
