@@ -73,7 +73,7 @@ A local 16:9 slide editor, no account needed. App menus are in Korean; slash com
 <details>
 <summary>🔍 More features</summary>
 
-- 📝 **Text:** `#` `##` `###` `####` set sizes 80 / 50 / 30 / 25; bold, italic, underline, strike, text colors, 6 highlights, inline code, links (`⌘K` or a typed URL), `Tab` / `⇧Tab` to indent lists, `\| ` for a quote. Font size can also be set per paragraph, word or selection.
+- 📝 **Text:** `#` `##` `###` `####` set sizes 80 / 50 / 30 / 25; bold, italic, underline, strike, text colors, 6 highlights, inline code, links (`⌘K` or a typed URL), `Tab` / `Shift + Tab` to indent lists, `\| ` for a quote. Font size can also be set per paragraph, word or selection.
 - 🖼 **Images and tables:** drag-and-drop or paste images; crop, corner radius, and an optional caption on images and tables. Code blocks support Plain Text / Python / C / Bash.
 - 🔷 **Shapes:** rectangle, rounded rectangle, ellipse, line, arrow, block arrow (double-click to type in a shape), plus emoji with 10 quick emojis and a searchable picker.
 - 📐 **Layout:** alignment guides and snap, align / distribute, z-order, duplicate, nudge. Math has a symbol palette and favorites.
@@ -90,7 +90,7 @@ Type `/` in a text box, then keep typing to filter. Commands marked ● only app
 | Command | Inserts |
 |---|---|
 | `/math` | Block equation |
-| `/inline` | Inline equation (also `⌘⇧E` or `$$x^2$$`) |
+| `/inline` | Inline equation (also `⌘ + Shift + E` or `$$x^2$$`) |
 | `/code` ● | Code block |
 | `/callout` ● | 💡 Callout |
 | `/block` ● | Theorem, Definition and other academic blocks |
@@ -113,41 +113,44 @@ Extra search words: `/equation` `/latex` `/tex` `/note` `/tip` `/warning` `/theo
 | New text box · equation · image | `T` · `M` · `I` (or click an empty spot for text) |
 | Rectangle · ellipse · line · arrow | `R` · `O` · `L` · `A` |
 | Bold · italic · underline · link | `⌘B` · `⌘I` · `⌘U` · `⌘K` |
-| Inline equation | `⌘⇧E` |
-| Undo · redo | `⌘Z` · `⌘⇧Z` |
+| Inline equation | `⌘ + Shift + E` |
+| Undo · redo | `⌘Z` · `⌘ + Shift + Z` |
 | Copy · paste · cut · duplicate | `⌘C` · `⌘V` · `⌘X` · `⌘D` |
-| Nudge (×10) | Arrow keys (`⇧`+Arrow) |
-| Bring forward · send backward (to front / back) | `⌘]` · `⌘[` (`⇧`) |
-| Disable snapping · preview guides | Hold `⌥` while dragging · hold `⇧` on empty canvas |
+| Nudge (×10) | Arrow keys (`Shift + Arrow`) |
+| Bring forward · send backward (to front / back) | `⌘]` · `⌘[` (add `Shift` for front / back) |
+| Disable snapping · preview guides | Hold `⌥` while dragging · hold `Shift` on empty canvas |
 | Present | `⌘↵` or `F5` |
 | Export PDF · PPTX | `⌘P` · `⌘E` |
-| Save · save as · open | `⌘S` · `⌘⇧S` · `⌘O` |
-| Open config file · apply it | `⌘,` · `⌘⇧,` |
+| Save · save as · open | `⌘S` · `⌘ + Shift + S` · `⌘O` |
+| Open config file · apply it | `⌘,` · `⌘ + Shift + ,` |
 
 </details>
 
 ## 🔧 Configuration
 
-MathSlides has no Settings window. A small text file, `config.txt`, sets the defaults for **new** content.
+Press **`⌘,`** to make MathSlides yours: set the font sizes for `#`, `##`, `###` and `####`, pick the default font, and tune the default look of shapes and images.
 
-1. Press **`⌘,`** to open `config.txt` in your text editor (created on first use).
-2. Edit a value and save.
-3. Back in MathSlides, press **`⌘⇧,`** to apply it. No restart needed.
-
-Existing content keeps its look. If a line is invalid, an error is shown and the last working settings stay active.
+1. **`⌘,`** opens `config.txt` in your text editor.
+2. Change a value and save.
+3. **`⌘ + Shift + ,`** in MathSlides applies it, with no restart.
 
 ```ini
+# Font
 font = NanumSquare
+
+# Text sizes: #, ##, ###, ####
 heading-1 = 80
 heading-2 = 50
 heading-3 = 30
 body-size = 25
+
+# Shapes and images
 shape-fill = none
 shape-stroke = #000000
 shape-stroke-width = 1px
 image-radius-preset = 50px
 ```
 
-One `key = value` per line; plain numbers are px. `font` is NanumSquare, Pretendard or Noto Serif KR; `shape-fill` is `none` or a HEX color. Put `#` comments on their own line, never after a value. Delete a line to restore its default. The file lives at `~/Library/Application Support/math-slides/config.txt`.
+`font` can be NanumSquare, Pretendard or Noto Serif KR. Changes apply to new content only, and a mistake in the file is reported while your last working settings stay active.
 
 <sub>Building from source, tests and releases: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).</sub>
