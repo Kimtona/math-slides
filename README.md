@@ -78,6 +78,12 @@ A local 16:9 slide editor, no account needed. App menus are in Korean; slash com
 </tr>
 </table>
 
+> ⚙️ **Make MathSlides yours.**
+>
+> Customize heading sizes (`#`–`####`), fonts, and other defaults. Apply changes instantly—no restart needed.
+>
+> `⌘,` → Edit & save → `⌘ + Shift + ,`
+
 <details>
 <summary>🔍 More features</summary>
 
