@@ -1,4 +1,7 @@
-# MathSlides
+<h1>
+  <img src="docs/readme/logo.png" alt="MathSlides logo" width="48" height="48" align="absmiddle">
+  MathSlides
+</h1>
 
 > **Write like Notion. Math like Overleaf. Present as slides.**
 
@@ -154,3 +157,10 @@ image-radius-preset = 50px
 `font` can be NanumSquare, Pretendard or Noto Serif KR. Changes apply to new content only, and a mistake in the file is reported while your last working settings stay active.
 
 <sub>Building from source, tests and releases: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).</sub>
+
+---
+
+<p align="center">
+  Made with ❤️ for researchers.<br>
+  If you find MathSlides useful, consider giving it a ⭐!
+</p>
