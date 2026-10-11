@@ -13,6 +13,13 @@
   <sub>Music: <i>Cat Walk</i> by Arulo, from <a href="https://mixkit.co/free-stock-music/cat-walk-371/">Mixkit</a> (<a href="https://mixkit.co/license/#musicFree">Mixkit Stock Music Free License</a>). Not part of this repository's license.</sub>
 </p>
 
+## Feedback
+
+Seen the demo? Tell us what broke or what to improve:
+
+- 🐞 **[Report a Bug](https://github.com/Kimtona/math-slides/issues/new?template=bug_report.yml)**
+- 💡 **[Suggest an Improvement](https://github.com/Kimtona/math-slides/issues/new?template=improvement.yml)**
+
 ## Installation
 
 Free · No account · Apple Silicon (M1+) · macOS 13+
@@ -47,27 +54,9 @@ Free · No account · Apple Silicon (M1+) · macOS 13+
 
 </details>
 
-## Features
+## Slash Commands
 
-A local 16:9 slide editor with no account. The app's menus are in Korean; slash commands, LaTeX and shortcuts are language-independent.
-
-| Area | What you get |
-|---|---|
-| **Text** | `#` `##` `###` `####` set sizes 80 / 50 / 30 / 25; bold, italic, underline, strike, colors, 6 highlights, inline code, links (`⌘K` or a typed URL), bullet / numbered lists (`Tab` / `⇧Tab` to indent), `\| ` quote, `---` divider |
-| **Font size** | Per paragraph, and per word or selection |
-| **Math** | Inline and block LaTeX (MathJax, vector everywhere), symbol palette, favorites |
-| **Blocks** | Callout (any emoji icon), Beamer-style Block (Block, Theorem, Definition, Lemma, Proposition, Example, Remark), Todo checklist, code block (Plain Text / Python / C / Bash) |
-| **Images** | Insert, drag-and-drop or paste; crop, corner radius, optional caption |
-| **Tables** | Editable cells with inline formatting, optional caption |
-| **Shapes** | Rectangle, rounded rectangle, ellipse, line, arrow, block arrow (double-click a shape to type in it), emoji with 10 quick emojis and a searchable picker |
-| **Layout** | Snap and alignment guides, align / distribute, z-order, duplicate, nudge |
-| **Deck** | Right-click a slide in the list to add Title, Contents or Thank-you slides; each numbered Contents entry auto-generates a linked *Part N* slide |
-| **References** | Paste an arXiv URL in a slide's bottom-right reference field to get a citation and an auto-built References slide (arXiv only, needs network) |
-| **Style** | One theme color for the deck, background color per slide, fonts NanumSquare / Pretendard / Noto Serif KR |
-| **Present & export** | Presentation mode, PDF with vector text, editable PPTX with speaker notes ([example PDF](docs/examples/denoising-diffusion-models.pdf)) |
-| **Files** | `.mslides` files, autosave and recovery |
-
-### Slash commands
+A local 16:9 slide editor, no account needed. App menus are in Korean; slash commands, LaTeX and shortcuts are language-independent.
 
 Type `/` in a text box, then keep typing to filter. Commands marked ● only appear when `/` is the first character of a line.
 
@@ -87,7 +76,23 @@ Type `/` in a text box, then keep typing to filter. Commands marked ● only app
 
 Extra search words: `/equation` `/latex` `/tex` `/note` `/tip` `/warning` `/theorem` `/definition` `/lemma` `/img` `/photo` `/grid` `/task` `/hr` `/ul` `/ol`.
 
-## Shortcuts & Configuration
+Beyond slash commands:
+
+- **Text:** `#` `##` `###` `####` set sizes 80 / 50 / 30 / 25; bold, italic, underline, strike, text colors, 6 highlights, inline code, links (`⌘K` or a typed URL), `Tab` / `⇧Tab` to indent lists, `\| ` for a quote. Font size can also be set per paragraph, word or selection.
+- **Math:** LaTeX is rendered by MathJax as vectors in the editor, PDF and PPTX; a symbol palette and favorites are built in. Callouts take any emoji icon; code blocks support Plain Text / Python / C / Bash.
+- **Images and tables:** drag-and-drop or paste images; crop, corner radius, and an optional caption on images and tables.
+- **Shapes:** rectangle, rounded rectangle, ellipse, line, arrow, block arrow (double-click to type in a shape), plus emoji with 10 quick emojis and a searchable picker.
+- **Layout:** snap and alignment guides, align / distribute, z-order, duplicate, nudge.
+- **Contents slides:** right-click a slide in the list to add Title, Contents or Thank-you slides; each numbered Contents entry auto-generates a linked *Part N* slide.
+- **arXiv references:** paste an arXiv URL in a slide's bottom-right reference field to get a citation and an auto-built References slide (arXiv only, needs network).
+- **Theme and style:** one theme color for the whole deck, a background color per slide, and fonts NanumSquare / Pretendard / Noto Serif KR.
+- **Present and export:** presentation mode, PDF with vector text, editable PPTX with speaker notes ([example PDF](docs/examples/denoising-diffusion-models.pdf)).
+- **Files:** `.mslides` documents, autosave and recovery.
+
+## Shortcuts
+
+<details>
+<summary>Keyboard Shortcuts</summary>
 
 | Action | Shortcut |
 |---|---|
@@ -105,7 +110,17 @@ Extra search words: `/equation` `/latex` `/tex` `/note` `/tip` `/warning` `/theo
 | Save · save as · open | `⌘S` · `⌘⇧S` · `⌘O` |
 | Open config file · apply it | `⌘,` · `⌘⇧,` |
 
-**Configuration.** There is no Settings window. `⌘,` opens `config.txt` (created on first use) in your text editor; edit, save, then press `⌘⇧,` in MathSlides to apply. No restart needed, and only **new** content is affected. If a line is invalid, an error is shown and the last working settings stay active.
+</details>
+
+## Configuration
+
+MathSlides has no Settings window. A small text file, `config.txt`, sets the defaults for **new** content.
+
+1. Press **`⌘,`** to open `config.txt` in your text editor (created on first use).
+2. Edit a value and save.
+3. Back in MathSlides, press **`⌘⇧,`** to apply it. No restart needed.
+
+Existing content keeps its look. If a line is invalid, an error is shown and the last working settings stay active.
 
 ```ini
 font = NanumSquare
@@ -120,10 +135,5 @@ image-radius-preset = 50px
 ```
 
 One `key = value` per line; plain numbers are px. `font` is NanumSquare, Pretendard or Noto Serif KR; `shape-fill` is `none` or a HEX color. Put `#` comments on their own line, never after a value. Delete a line to restore its default. The file lives at `~/Library/Application Support/math-slides/config.txt`.
-
-## Feedback
-
-- 🐞 **[Report a Bug](https://github.com/Kimtona/math-slides/issues/new?template=bug_report.yml)**
-- 💡 **[Suggest an Improvement](https://github.com/Kimtona/math-slides/issues/new?template=improvement.yml)**
 
 <sub>Building from source, tests and releases: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).</sub>
