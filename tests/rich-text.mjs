@@ -1871,7 +1871,10 @@ try {
   assert.ok((await archiveIds()).length <= 3, 'recovery storage stays bounded');
   // Internal autosave exists and is separate from the explicit file; the ∑ menu has no presentation list.
   assert.equal((await idb('deck:v1')).id, await deckId(), 'deck:v1 holds the working presentation');
-  await click('.logo'); await pause(300);
+  await click('.logo');
+  // Wait for the menu itself and for its recovery item (read asynchronously) instead of a fixed pause: slow CI runners need longer than 300 ms.
+  await until(() => evaluate("!!document.querySelector('.menu')"), 'the ∑ menu did not open after clicking the logo');
+  await until(() => evaluate("document.querySelector('.menu').textContent.includes('직전 작업 복구')"), 'the recovery item (직전 작업 복구) did not appear in the ∑ menu');
   const menuText = await evaluate("document.querySelector('.menu').textContent");
   assert.ok(!menuText.includes('이전 프레젠테이션') && !menuText.includes('Legacy work') && !menuText.includes('Untitled presentation ·'), 'no previous-presentation entries in the ∑ menu');
   assert.ok(menuText.includes('직전 작업 복구'), 'the single recovery item appears while displaced work exists');
@@ -2008,7 +2011,9 @@ try {
   // New Presentation shows no success toast.
   await pause(2500);
   assert.equal(await evaluate("document.querySelectorAll('.toast').length"), 0, 'no stray toasts before the check');
-  await click('.logo'); await pause(300); await evaluate("[...document.querySelectorAll('.menu-item')].find(e => e.textContent.includes('새 프레젠테이션')).click()"); await pause(600);
+  await click('.logo');
+  await until(() => evaluate("[...document.querySelectorAll('.menu-item')].some(e => e.textContent.includes('새 프레젠테이션'))"), 'the ∑ menu did not offer 새 프레젠테이션 after clicking the logo');
+  await evaluate("[...document.querySelectorAll('.menu-item')].find(e => e.textContent.includes('새 프레젠테이션')).click()"); await pause(600);
   assert.equal(await evaluate("document.querySelectorAll('.toast').length"), 0, 'New Presentation shows no success toast');
   assert.notEqual(await deckId(), 'NATIVE-F');
   console.log('PASS .mslides opened by the OS (cold launch, queued early request, running app, invalid files, write-back, association, New without toast)');
