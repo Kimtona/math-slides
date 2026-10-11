@@ -6,6 +6,11 @@
 > **Write like Notion. Math like Overleaf. Present as slides.**
 
 <p align="center">
+  <b>Simple is Best.</b><br>
+  <b>Less formatting, more thinking. 💙</b>
+</p>
+
+<p align="center">
   <a href="https://kimtona.github.io/math-slides/">
     <img src="docs/readme/demo-preview.webp" alt="An 18-second silent preview of MathSlides: typing on a slide, a LaTeX equation after /math, a Definition block, section slides generated from an outline, and the theme color changing across the whole deck" width="100%">
   </a>
