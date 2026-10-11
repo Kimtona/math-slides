@@ -52,9 +52,35 @@ Free · No account · Apple Silicon (M1+) · macOS 13+
 
 </details>
 
-## 📝 Slash Commands
+## ✨ Features
 
 A local 16:9 slide editor, no account needed. App menus are in Korean; slash commands, LaTeX and shortcuts are language-independent.
+
+<table>
+<tr>
+<td width="50%" valign="top"><img src="docs/readme/showcase-equations.png" alt="Slide 'The forward process' with a Definition block, a Remark block, two display equations and a callout"><br><b>🧮 LaTeX &amp; Structured Blocks</b><br>Live vector equations plus Theorem, Definition and callout blocks.</td>
+<td width="50%" valign="top"><img src="docs/readme/structure-sections.png" alt="An Outline slide with three numbered sections; the slide list shows the generated 'Part 1', 'Part 2' and 'Part 3' section slides"><br><b>📑 Automatic Contents &amp; Section Slides</b><br>Write the outline once; linked <i>Part N</i> slides are generated for you.</td>
+</tr>
+<tr>
+<td width="50%" valign="top"><img src="docs/readme/citation-footer.png" alt="Slide footer before and after: a pasted arXiv URL becomes the short citation 'Deep Unsupervised Learning using Nonequilibrium Thermodynamics, Sohl-Dickstein et al., 2015'"><br><b>📚 arXiv Citations</b><br>Paste an arXiv URL in the footer for a citation and an auto-built References slide.</td>
+<td width="50%" valign="top"><img src="docs/readme/theme-colors.png" alt="The Theme color palette with theme colors, standard colors, saved My Colors, and a custom HEX field, over a deck themed navy"><br><b>🎨 Themes &amp; Colors</b><br>Pick one theme color for the whole deck from presets, saved My Colors, or any HEX value.</td>
+</tr>
+</table>
+
+<details>
+<summary>🔍 More features</summary>
+
+- 📝 **Text:** `#` `##` `###` `####` set sizes 80 / 50 / 30 / 25; bold, italic, underline, strike, text colors, 6 highlights, inline code, links (`⌘K` or a typed URL), `Tab` / `⇧Tab` to indent lists, `\| ` for a quote. Font size can also be set per paragraph, word or selection.
+- 🖼 **Images and tables:** drag-and-drop or paste images; crop, corner radius, and an optional caption on images and tables. Code blocks support Plain Text / Python / C / Bash.
+- 🔷 **Shapes:** rectangle, rounded rectangle, ellipse, line, arrow, block arrow (double-click to type in a shape), plus emoji with 10 quick emojis and a searchable picker.
+- 📐 **Layout:** alignment guides and snap, align / distribute, z-order, duplicate, nudge. Math has a symbol palette and favorites.
+- 🎨 **Style:** a background color per slide; fonts NanumSquare / Pretendard / Noto Serif KR.
+- 🎤 **Present and export:** presentation mode, PDF with vector text, editable PPTX with speaker notes ([example PDF](docs/examples/denoising-diffusion-models.pdf)).
+- 💾 **Files:** `.mslides` documents, autosave and recovery. Right-click a slide in the list to add Title, Contents or Thank-you slides.
+
+</details>
+
+## 📝 Slash Commands
 
 Type `/` in a text box, then keep typing to filter. Commands marked ● only appear when `/` is the first character of a line.
 
@@ -73,19 +99,6 @@ Type `/` in a text box, then keep typing to filter. Commands marked ● only app
 | `/number` | Numbered list (also `1. `) |
 
 Extra search words: `/equation` `/latex` `/tex` `/note` `/tip` `/warning` `/theorem` `/definition` `/lemma` `/img` `/photo` `/grid` `/task` `/hr` `/ul` `/ol`.
-
-✨ Beyond slash commands:
-
-- 📝 **Text:** `#` `##` `###` `####` set sizes 80 / 50 / 30 / 25; bold, italic, underline, strike, text colors, 6 highlights, inline code, links (`⌘K` or a typed URL), `Tab` / `⇧Tab` to indent lists, `\| ` for a quote. Font size can also be set per paragraph, word or selection.
-- 🧮 **Math:** LaTeX is rendered by MathJax as vectors in the editor, PDF and PPTX; a symbol palette and favorites are built in. Callouts take any emoji icon; code blocks support Plain Text / Python / C / Bash.
-- 🖼 **Images and tables:** drag-and-drop or paste images; crop, corner radius, and an optional caption on images and tables.
-- 🔷 **Shapes:** rectangle, rounded rectangle, ellipse, line, arrow, block arrow (double-click to type in a shape), plus emoji with 10 quick emojis and a searchable picker.
-- 📐 **Layout:** snap and alignment guides, align / distribute, z-order, duplicate, nudge.
-- 📑 **Contents slides:** right-click a slide in the list to add Title, Contents or Thank-you slides; each numbered Contents entry auto-generates a linked *Part N* slide.
-- 📚 **arXiv references:** paste an arXiv URL in a slide's bottom-right reference field to get a citation and an auto-built References slide (arXiv only, needs network).
-- 🎨 **Theme and style:** one theme color for the whole deck, a background color per slide, and fonts NanumSquare / Pretendard / Noto Serif KR.
-- 🎤 **Present and export:** presentation mode, PDF with vector text, editable PPTX with speaker notes ([example PDF](docs/examples/denoising-diffusion-models.pdf)).
-- 💾 **Files:** `.mslides` documents, autosave and recovery.
 
 ## ⌨️ Shortcuts
 
