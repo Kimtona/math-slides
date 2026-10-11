@@ -19,12 +19,19 @@ Download the `.dmg` file from GitHub Releases.
 1. 📥 **Download:** Download the DMG file and open it.
 2. 📂 **Install:** Drag MathSlides into the Applications folder.
 3. 🔓 **Approve:** If a warning appears on first launch, click **Done**, then choose **System Settings → Privacy & Security → Open Anyway**.
+
+   <p align="center">
+     <img src="docs/readme/macos-open-anyway.png" alt="macOS System Settings, Privacy &amp; Security: the message that MathSlides.app was blocked, with the Open Anyway button (그래도 열기) on the right" width="560">
+   </p>
+
+   <sub>Privacy &amp; Security after the first launch attempt (shown on macOS 26 with a Korean system language). Click **Open Anyway** next to the message about MathSlides.</sub>
 4. 🎉 **Done:** From then on, open MathSlides as usual.
 
 > **Good to know**
 >
 > - If you are a standard (non-administrator) user, Finder asks for an administrator's name and password when you drag the app into Applications.
 > - On the first-launch warning, click **Done**. **Do not click Move to Trash.**
+> - The screenshot is from macOS 26. On other macOS versions the System Settings layout and the wording of the warning may differ slightly; look for the message about MathSlides and the **Open Anyway** button in **Privacy & Security**.
 > - Button and menu names follow your system language. For example, in Korean **Done** is **완료** and **Open Anyway** is **그래도 열기**.
 
 <details>
@@ -74,6 +81,16 @@ Your `.mslides` files are ordinary files wherever you saved them. Your autosave,
 </p>
 
 ---
+
+## 📄 Example Presentation
+
+A short deck made entirely in MathSlides and exported to PDF: **[Denoising Diffusion Models (PDF, 11 slides)](docs/examples/denoising-diffusion-models.pdf)**.
+
+<p align="center">
+  <a href="docs/examples/denoising-diffusion-models.pdf">
+    <img src="docs/examples/denoising-diffusion-models-preview.png" alt="First slide of the example presentation: Denoising Diffusion Models, a short tour of the forward and reverse processes" width="70%">
+  </a>
+</p>
 
 ## 💡 Why MathSlides?
 
