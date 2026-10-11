@@ -534,7 +534,9 @@ try {
   // -- defaults: Minimal is unchanged, old-style tables carry no new fields --
   assert.equal(t.style, 'minimal'); assert.ok(!('borderColor' in t), 'no borderColor by default'); assert.ok(hasNoFillKeys(t), 'no cell fill keys by default');
   assert.equal(await css2(td(t, 1, 0), 'borderBottomWidth'), '1px'); assert.equal(await css2(td(t, 1, 0), 'borderBottomColor'), rgb('#E5E7EB')); assert.equal(await css2(td(t, 1, 0), 'borderLeftWidth'), '0px');
-  assert.equal(await css2(td(t, 0, 0), 'borderBottomWidth'), '1.5px'); assert.equal(await css2(td(t, 0, 0), 'borderBottomColor'), rgb('#9CA3AF')); assert.equal(await css2(td(t, 0, 0), 'backgroundColor'), clear, 'no header fill in Minimal'); assert.equal(await css2(td(t, 0, 0), 'fontWeight'), '700');
+  // The header rule is 1.5 CSS px; the computed width snaps down to whole device pixels (1px at 1x, 1.5px at 2x/Retina).
+  const headRule = `${Math.floor(1.5 * (await evaluate('devicePixelRatio'))) / (await evaluate('devicePixelRatio'))}px`;
+  assert.equal(await css2(td(t, 0, 0), 'borderBottomWidth'), headRule, 'header rule is 1.5px snapped to the device pixel grid'); assert.equal(await css2(td(t, 0, 0), 'borderBottomColor'), rgb('#9CA3AF')); assert.equal(await css2(td(t, 0, 0), 'backgroundColor'), clear, 'no header fill in Minimal'); assert.equal(await css2(td(t, 0, 0), 'fontWeight'), '700');
   assert.equal(await evaluate(`${barBtn('/^Minimal ▾$/')} ? 1 : 0`), 1, 'style control shows the current style');
 
   // -- style switching: one undo step, nothing else changes --
@@ -600,7 +602,7 @@ try {
   // -- border color (fixed 1px width) --
   const hb = await history(); const bcol = await pickColor('표 선 색', 'Standard Red'); tf = await T();
   assert.equal(tf.borderColor.toUpperCase(), bcol); assert.equal(await history(), hb + 1, 'one undo step');
-  assert.equal(await css2(td(t, 1, 0), 'borderBottomColor'), rgb(bcol)); assert.equal(await css2(td(t, 1, 0), 'borderBottomWidth'), '1px', 'width stays 1px'); assert.equal(await css2(td(t, 0, 0), 'borderBottomColor'), rgb(bcol)); assert.equal(await css2(td(t, 0, 0), 'borderBottomWidth'), '1.5px', 'header rule keeps its width'); assert.equal(await css2(td(t, 2, 0), 'borderBottomColor'), rgb(bcol));
+  assert.equal(await css2(td(t, 1, 0), 'borderBottomColor'), rgb(bcol)); assert.equal(await css2(td(t, 1, 0), 'borderBottomWidth'), '1px', 'width stays 1px'); assert.equal(await css2(td(t, 0, 0), 'borderBottomColor'), rgb(bcol)); assert.equal(await css2(td(t, 0, 0), 'borderBottomWidth'), headRule, 'header rule keeps its width'); assert.equal(await css2(td(t, 2, 0), 'borderBottomColor'), rgb(bcol));
   assert.equal(await css2(td(t, 1, 1), 'borderLeftWidth'), '0px', 'Minimal still has no vertical lines');
   await chooseStyle('Grid'); tg = await T(); assert.equal(tg.borderColor.toUpperCase(), bcol, 'switching style keeps the border color'); assert.equal(await css2(td(t, 1, 1), 'borderLeftColor'), rgb(bcol)); assert.equal(await css2(td(t, 1, 1), 'borderLeftWidth'), '1px');
   await evaluate('store.getState().undo()'); await pause(250); await evaluate('store.getState().undo()'); await pause(300); assert.ok(!('borderColor' in await T()), 'undo steps back through style and color'); await evaluate('store.getState().redo()'); await evaluate('store.getState().redo()'); await pause(300);

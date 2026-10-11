@@ -7,7 +7,9 @@ name: Release
 # bundle signature makes macOS say the app is "damaged"), so scripts/verify-macos-release.sh checks
 # it strictly before anything is uploaded.
 #
-# Three ways to run it:
+# Four ways to run it:
+#   * Push to `main`                      -> typecheck and tests ONLY (so the latest main commit shows its CI status).
+#                                            Nothing is packaged, signed or released from a main push.
 #   * Tag `vX.Y.Z` (or `vX.Y.Z-suffix`)   -> tests, package, verify, DRAFT release (the real release path).
 #   * Manual "Run workflow" (workflow_dispatch) -> DRY RUN. GitHub only offers this once this file is on the
 #     default branch; `gh workflow run release.yml --ref <branch> -f run_tests=false` also works from then on.
@@ -25,6 +27,7 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
     branches:
+      - main
       - 'dry-run/**'
   workflow_dispatch:
     inputs:
@@ -64,7 +67,8 @@ jobs:
     # Does not wait for the tests to PASS, only to FINISH: a failing test run keeps the workflow red and is stated in
     # the draft release notes.
     needs: tests
-    if: ${{ !cancelled() }}
+    # A push to main only runs the tests; packaging is for version tags and dry runs.
+    if: ${{ !cancelled() && !(github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     runs-on: macos-latest
     timeout-minutes: 45
     env:
