@@ -1,6 +1,6 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Box, ImageElement, LineElement, ShapeElement, Slide, SlideElement, TableElement, TextElement } from '../model/types';
-import { resizeColumn, resizeLastColumn, resizeToWidth } from '../model/table';
+import { resizeColumn, resizeLastColumn, scaleTable } from '../model/table';
 import { addCol, addRow } from '../editor/tableActions';
 import { clampFrameToSource, coverFrame, cropFrom, cropOf, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
@@ -278,8 +278,9 @@ function startLineEndpointDrag(e: React.PointerEvent, o: LineElement, handle: 'p
 }
 
 /**
- * Table width: the edge handles scale the columns proportionally from the widths at the start of the drag (no drift, ratios kept).
- * Height is content-driven and follows by itself; nothing else on the slide moves.
+ * Whole-table resize: the edge and corner handles scale the table like a picture: column widths keep their ratios (from the table at the start of
+ * the drag, so no drift) and the text size, paragraph sizes and cell padding scale by the same factor. Corners follow the horizontal drag;
+ * height is content-driven and follows by itself. Column widths alone are changed with the column grips instead.
  */
 function resizeTableWidth(o: TableElement, handle: Handle, p: { x: number }, ev: PointerEvent,
   targets: ReturnType<typeof snapTargets>, thr: number, guides: Guide[]) {
@@ -290,9 +291,16 @@ function resizeTableWidth(o: TableElement, handle: Handle, p: { x: number }, ev:
     const sn = snap1([hasW ? x1 : x2], targets.xs, thr);
     if (sn) { if (hasW) x1 += sn.delta; else x2 += sn.delta; guides.push({ axis: 'x', pos: sn.pos }); }
   }
-  const { cols, w } = resizeToWidth(o.cols, x2 - x1);
-  const x = Math.round(hasW ? o.x + o.w - w : o.x);
-  useStore.getState().updateElements([o.id], (d) => { const t = d as TableElement; t.x = x; t.w = w; t.cols = cols; }, true);
+  const r = scaleTable(o, x2 - x1);
+  const x = Math.round(hasW ? o.x + o.w - r.w : o.x);
+  // The top handles keep the bottom edge where it was (the new height is the old one times the same factor).
+  const y = handle.includes('n') ? Math.round(o.y + o.h - o.h * r.ratio) : o.y;
+  useStore.getState().updateElements([o.id], (d) => {
+    const t = d as TableElement;
+    t.x = x; t.y = y; t.w = r.w; t.cols = r.cols; t.rows = r.rows;
+    t.textStyle = { ...t.textStyle, fontSize: r.fontSize };
+    if (r.padScale === 1) delete t.padScale; else t.padScale = r.padScale;
+  }, true);
 }
 
 /**
@@ -321,7 +329,7 @@ function startColumnResize(e: React.PointerEvent, el: TableElement, i: number, s
 /**
  * Table-only overlay (editor only: the static renderers never draw it): blue column guides, the column-boundary grips
  * (inner boundaries and the outer right edge) and the "+" controls. Guides are pointer-less lines; the grips are the hit targets.
- * The outer-edge grip is split around the blue whole-table handle so the two never overlap.
+ * The outer-edge grip is split around the blue whole-table handles (middle and the two right corners) so they never overlap.
  */
 function TableOverlay({ el, scale }: { el: TableElement; scale: number }) {
   const [hot, setHot] = useState<number | null>(null);
@@ -353,8 +361,8 @@ function TableOverlay({ el, scale }: { el: TableElement; scale: number }) {
           style={{ left: x - w / 2, top: el.y, height: el.h, borderLeftWidth: w }} />;
       })}
       {el.cols.slice(0, -1).map((_, i) => hit(i, `h${i}`, el.y, el.h))}
-      {mid - handleGap - el.y > 2 && hit(n - 1, 'e-top', el.y, mid - handleGap - el.y)}
-      {el.y + el.h - (mid + handleGap) > 2 && hit(n - 1, 'e-bottom', mid + handleGap, el.y + el.h - (mid + handleGap))}
+      {mid - handleGap - (el.y + handleGap) > 2 && hit(n - 1, 'e-top', el.y + handleGap, mid - handleGap - (el.y + handleGap))}
+      {el.y + el.h - handleGap - (mid + handleGap) > 2 && hit(n - 1, 'e-bottom', mid + handleGap, el.y + el.h - handleGap - (mid + handleGap))}
       <button type="button" className="table-add" title="열 추가" aria-label="Add column"
         style={{ left: el.x + el.w + gap + grip / 2, top: el.y + el.h / 2 - btn / 2, width: btn, height: btn, fontSize: 16 / scale }}
         onMouseDown={(e) => e.preventDefault()} onPointerDown={(e) => e.stopPropagation()} onClick={() => addCol(el.id, { end: true })}>+</button>
@@ -649,7 +657,7 @@ function SelectionOverlay({ scale }: { scale: number }) {
   }
   const handles: Handle[] =
     el.type === 'text' ? ['nw', 'ne', 'se', 'sw', 'e', 'w'] :
-    el.type === 'table' ? ['w', 'e'] : // width only: height is content-driven
+    el.type === 'table' ? ['nw', 'ne', 'se', 'sw', 'e', 'w'] : // scales the whole table (text included); height is content-driven
     el.type === 'emoji' ? ['nw', 'ne', 'se', 'sw'] : // always square: uniform scaling from the corners only
 
     ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];

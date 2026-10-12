@@ -1,7 +1,7 @@
 import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
 import type { Asset, Deck, EmojiElement, ImageElement, LineElement, ShapeElement, TableElement, TextElement } from '../model/types';
-import { TABLE_CELL_PAD_X, TABLE_CELL_PAD_Y, cellBorders, cellFill, cellPlainText, estimateTableHeight, repairTable, type Edge } from '../model/table';
+import { cellBorders, cellFill, cellPlainText, estimateTableHeight, repairTable, tablePad, type Edge } from '../model/table';
 import { imageRadius, roundRectAdj, sourceRect } from '../model/imageCrop';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 import { themeLayout } from '../model/theme';
@@ -419,29 +419,33 @@ function addTable(s: Slide, el: TableElement, dom: Element | null, origin: DOMRe
   const base = { ...el, style: t.textStyle } as unknown as TextElement;
   const none = { type: 'none' as const };
   const edge = (e: Edge | null) => (e ? { type: 'solid' as const, pt: PT(e.px), color: hex(e.color) } : none);
+  const pad = tablePad(t);
   const rows = t.rows.map((row, r) => {
     const head = t.headerRow && r === 0;
-    const border = cellBorders(t, r).map(edge) as [typeof none, typeof none, typeof none, typeof none];
-    return row.map((cell, c) => {
-      const content = trs[r]?.children[c]?.querySelector('.tb-content') ?? null;
+    let domIndex = 0; // covered (merged-away) cells have no <td>, and PowerPoint takes no cell for them either
+    return row.flatMap((cell, c) => {
+      if (cell.covered) return [];
+      const border = cellBorders(t, r + (cell.rowSpan ?? 1) - 1).map(edge) as [typeof none, typeof none, typeof none, typeof none];
+      const content = trs[r]?.children[domIndex++]?.querySelector('.tb-content') ?? null;
       const paras = content ? [...content.querySelectorAll('p')] : [];
       const runs: TextProps[] = paras.length
         ? paras.flatMap((p, i) => paragraphRuns(p, content!, base, i === paras.length - 1))
         : [{ text: cellPlainText(cell.doc), options: { fontSize: PT(t.textStyle.fontSize), fontFace: PPT_FONT, color: hex(t.textStyle.color), bold: head } }];
       const fill = cellFill(t, r, cell);
-      return {
+      return [{
         text: runs,
         options: {
           valign: 'top' as const, align: t.textStyle.align,
-          margin: [IN(TABLE_CELL_PAD_Y), IN(TABLE_CELL_PAD_X), IN(TABLE_CELL_PAD_Y), IN(TABLE_CELL_PAD_X)] as [number, number, number, number],
+          margin: [IN(pad.y), IN(pad.x), IN(pad.y), IN(pad.x)] as [number, number, number, number],
           border,
+          ...(cell.colSpan ? { colspan: cell.colSpan } : {}), ...(cell.rowSpan ? { rowspan: cell.rowSpan } : {}),
           ...(fill ? { fill: { color: hex(fill) } } : {}),
           lineSpacing: PT(t.textStyle.fontSize * t.textStyle.lineHeight),
         },
-      };
+      }];
     });
   });
-  const natural = estimateTableHeight(1, t.textStyle.fontSize, t.textStyle.lineHeight);
+  const natural = estimateTableHeight(1, t.textStyle.fontSize, t.textStyle.lineHeight, t.padScale);
   s.addTable(rows as unknown as PptxGenJS.TableRow[], {
     x: IN(el.x), y: IN(el.y), w: IN(t.w),
     colW: t.cols.map(IN),

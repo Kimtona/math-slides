@@ -177,6 +177,63 @@ try {
   const pf = { ...mk(), rows: m.setCellFill(mk().rows, 1, 1, '#FEF08A') }; const pasted = apply(pf, m.pasteGrid(pf, 1, 1, [['x']])); assert.equal(pasted.rows[1][1].fill, '#FEF08A', 'pasting text keeps the cell fill'); assert.equal(m.cellPlainText(pasted.rows[1][1].doc), 'x');
   assert.deepEqual(m.tableProblems(m.repairTable({ ...pf, cols: [10, 10] })), [], 'repair keeps working with fills');
   console.log('PASS table model: styles, header fill, border color, fills and precedence');
+
+  // ---- merged cells ----
+  const mt = (r, c) => { const t = m.newTable(640, 360, { rows: r, cols: c }); return { ...t, headerRow: false }; };
+  const txt = (t, r, c, s2) => { t.rows[r][c] = m.textCell(s2); return t; };
+  let mgrid = mt(3, 3);
+  txt(mgrid, 0, 0, 'a'); txt(mgrid, 0, 1, 'b'); txt(mgrid, 1, 0, 'c');
+  const mmg = m.mergeCells(mgrid.rows, { r1: 1, c1: 1, r2: 0, c2: 0 }); // corners in any order
+  assert.deepEqual(mmg.rect, { r1: 0, c1: 0, r2: 1, c2: 1 });
+  let mg1 = { ...mgrid, rows: mmg.rows }; ok(mg1, 'merged table is still a valid rectangular grid');
+  assert.equal(mg1.rows[0][0].rowSpan, 2); assert.equal(mg1.rows[0][0].colSpan, 2);
+  assert.ok(mg1.rows[0][1].covered && mg1.rows[1][0].covered && mg1.rows[1][1].covered && !mg1.rows[2][2].covered);
+  assert.equal(m.cellPlainText(mg1.rows[0][0].doc), 'a\nb\nc', 'texts of the merged cells are kept, nothing is lost');
+  assert.deepEqual(m.rectOf(mg1.rows, 1, 1), { r1: 0, c1: 0, r2: 1, c2: 1 }); assert.deepEqual(m.anchorOf(mg1.rows, 1, 0), { row: 0, col: 0 });
+  assert.ok(m.isMerged(mg1.rows, 1, 1) && !m.isMerged(mg1.rows, 2, 2));
+  // a selection that cuts a merged cell grows to contain it
+  assert.deepEqual(m.expandRect(mg1.rows, { r1: 1, c1: 1, r2: 2, c2: 2 }), { r1: 0, c1: 0, r2: 2, c2: 2 });
+  assert.equal(m.mergeCells(mgrid.rows, { r1: 2, c1: 2, r2: 2, c2: 2 }).rows, mgrid.rows, 'one cell: nothing to merge');
+  // unmerge restores plain cells (text stays in the top-left one)
+  const mum = m.unmergeCells(mg1.rows, 1, 1);
+  assert.ok(mum.flat().every((c) => !c.covered && !c.rowSpan && !c.colSpan)); assert.equal(m.cellPlainText(mum[0][0].doc), 'a\nb\nc');
+  // rows: inserting inside a merged cell grows it, outside leaves it; deleting shrinks it / moves the anchor down
+  let mq = apply(mg1, m.insertRow(mg1, 1)); ok(mq); assert.equal(mq.rows.length, 4); assert.equal(mq.rows[0][0].rowSpan, 3); assert.ok(mq.rows[1][0].covered && mq.rows[1][1].covered && !mq.rows[1][2].covered);
+  mq = apply(mg1, m.insertRow(mg1, 2)); ok(mq); assert.equal(mq.rows[0][0].rowSpan, 2, 'inserting below the merge leaves it alone'); assert.ok(!mq.rows[2][0].covered);
+  mq = apply(mg1, m.deleteRow(mg1, 1)); ok(mq); assert.equal(mq.rows.length, 2); assert.ok(!mq.rows[0][0].rowSpan, 'rowSpan 2 -> 1 is dropped'); assert.equal(mq.rows[0][0].colSpan, 2);
+  mq = apply(mg1, m.deleteRow(mg1, 0)); ok(mq); assert.equal(mq.rows.length, 2);
+  assert.ok(!mq.rows[0][0].covered && mq.rows[0][0].colSpan === 2 && !mq.rows[0][0].rowSpan, 'anchor row deleted: the cell below takes over');
+  assert.equal(m.cellPlainText(mq.rows[0][0].doc), 'a\nb\nc');
+  // columns (same logic through the transpose)
+  mq = apply(mg1, m.insertCol(mg1, 1)); ok(mq); assert.equal(mq.cols.length, 4); assert.equal(mq.rows[0][0].colSpan, 3); assert.equal(mq.rows[0][0].rowSpan, 2); assert.ok(mq.rows[0][1].covered && mq.rows[1][1].covered);
+  mq = apply(mg1, m.deleteCol(mg1, 1)); ok(mq); assert.equal(mq.cols.length, 2); assert.ok(!mq.rows[0][0].colSpan && mq.rows[0][0].rowSpan === 2);
+  mq = apply(mg1, m.deleteCol(mg1, 0)); ok(mq); assert.ok(!mq.rows[0][0].covered && mq.rows[0][0].rowSpan === 2 && !mq.rows[0][0].colSpan);
+  // every row/column operation on a merged table keeps a valid grid whose spans stay inside it
+  for (let n = 0; n < 40; n++) {
+    let w = mt(4, 4); w = { ...w, rows: m.mergeCells(w.rows, { r1: n % 3, c1: (n >> 1) % 3, r2: (n % 3) + 1, c2: ((n >> 1) % 3) + 1 }).rows };
+    for (const op of [m.insertRow(w, n % 5), m.deleteRow(w, n % 4), m.insertCol(w, n % 5), m.deleteCol(w, n % 4)]) {
+      const o = apply(w, op); ok(o, 'valid after op ' + n);
+      o.rows.forEach((row, r) => row.forEach((c, j) => { if (!c.covered) { assert.ok(r + (c.rowSpan ?? 1) <= o.rows.length && j + (c.colSpan ?? 1) <= o.cols.length, 'span inside grid'); } }));
+      // every covered cell belongs to exactly one anchor block
+      o.rows.forEach((row, r) => row.forEach((c, j) => { if (c.covered) { const k = m.rectOf(o.rows, r, j); assert.ok(!o.rows[k.r1][k.c1].covered && (k.r1 !== r || k.c1 !== j), 'covered cell has an anchor'); } }));
+    }
+  }
+  // paste keeps the merge structure
+  const mpg = m.pasteGrid({ ...mg1, x: mg1.x }, 0, 0, [['x', 'y'], ['z', 'w']]); assert.equal(mpg.rows[0][0].rowSpan, 2); assert.ok(mpg.rows[1][1].covered);
+  console.log('PASS table model: merge, unmerge, selection growth, row/column operations through merges');
+
+  // ---- whole-table scaling ----
+  const sbase = m.newTable(640, 360); const sfont = sbase.textStyle.fontSize;
+  let ssc = m.scaleTable(sbase, sbase.w * 2);
+  assert.equal(ssc.w, sbase.w * 2); assert.equal(ssc.fontSize, sfont * 2); assert.equal(ssc.padScale, 2); assert.equal(ssc.cols.reduce((a, b) => a + b, 0), ssc.w);
+  ssc = m.scaleTable(sbase, sbase.w); assert.equal(ssc.fontSize, sfont); assert.equal(ssc.rows, sbase.rows, 'no change: same rows object');
+  ssc = m.scaleTable(sbase, sbase.w / 2); assert.equal(ssc.fontSize, sfont / 2); assert.equal(ssc.padScale, 0.5);
+  assert.ok(m.scaleTable(sbase, 10).fontSize >= m.TABLE_MIN_FONT && m.scaleTable(sbase, 10).w >= 3 * m.TABLE_MIN_COL, 'minimums hold');
+  assert.ok(m.scaleTable(sbase, 1e6).fontSize <= m.TABLE_MAX_FONT, 'maximum text size holds');
+  const ssized = { ...sbase, rows: sbase.rows.map((r, i) => (i ? r : r.map((c) => ({ ...c, doc: { type: 'doc', content: [{ type: 'paragraph', attrs: { fontSize: 20 } }] } })))) };
+  assert.equal(m.scaleTable(ssized, ssized.w * 1.5).rows[0][0].doc.content[0].attrs.fontSize, 30, 'per-paragraph sizes scale too');
+  assert.deepEqual(m.tablePad({}), { x: m.TABLE_CELL_PAD_X, y: m.TABLE_CELL_PAD_Y }); assert.equal(m.tablePad({ padScale: 2 }).y, 2 * m.TABLE_CELL_PAD_Y);
+  console.log('PASS table model: whole-table scaling (columns, text, padding)');
 } finally {
   await server.close();
 }

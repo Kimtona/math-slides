@@ -13,6 +13,11 @@ export const TABLE_MIN_COL = 40;
 /** Cell padding (px), shared by the renderer and the height estimate. */
 export const TABLE_CELL_PAD_X = 14;
 export const TABLE_CELL_PAD_Y = 10;
+export const TABLE_MIN_FONT = 6;
+export const TABLE_MAX_FONT = 300;
+
+/** Cell padding of a table (px): the shared base scaled by its `padScale`. */
+export const tablePad = (t: Pick<TableElement, 'padScale'>) => ({ x: TABLE_CELL_PAD_X * (t.padScale ?? 1), y: TABLE_CELL_PAD_Y * (t.padScale ?? 1) });
 
 type Grid = Pick<TableElement, 'cols' | 'rows' | 'w'>;
 
@@ -20,8 +25,8 @@ export const emptyCell = (): TableCell => ({ doc: emptyDoc() });
 export const cellText = (text: string): TableCell => ({ doc: text ? { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] } : emptyDoc() });
 
 /** Rough height before the browser has measured it (rows of one line); the canvas replaces it with the real value. */
-export const estimateTableHeight = (rows: number, fontSize: number, lineHeight: number) =>
-  Math.round(rows * (fontSize * lineHeight + 2 * TABLE_CELL_PAD_Y));
+export const estimateTableHeight = (rows: number, fontSize: number, lineHeight: number, padScale = 1) =>
+  Math.round(rows * (fontSize * lineHeight + 2 * TABLE_CELL_PAD_Y * padScale));
 
 export function newTable(cx: number, cy: number, opts: { rows?: number; cols?: number; w?: number } = {}): TableElement {
   const rows = opts.rows ?? TABLE_DEFAULT_ROWS, cols = opts.cols ?? TABLE_DEFAULT_COLS, w = opts.w ?? TABLE_DEFAULT_WIDTH;
@@ -104,17 +109,141 @@ export interface TableEdit {
   w: number;
 }
 
+// ---------- merged cells ----------
+// A merge keeps the grid rectangular: the top-left cell (the anchor) carries `rowSpan` / `colSpan`, and every other cell of the block stays in
+// `rows` as an empty `covered` cell. So all grid invariants, paste and the width logic work unchanged, and unmerging just uncovers them.
+
+export interface CellRect { r1: number; c1: number; r2: number; c2: number }
+const rs = (c: TableCell) => c.rowSpan ?? 1;
+const cs = (c: TableCell) => c.colSpan ?? 1;
+const coveredCell = (): TableCell => ({ doc: emptyDoc(), covered: true });
+
+/** The block that contains (r, c): a single cell, or the whole merged cell with its anchor at the top-left. */
+export function rectOf(rows: TableCell[][], r: number, c: number): CellRect {
+  if (rows[r]?.[c]?.covered) {
+    for (let i = 0; i <= r; i++) for (let j = 0; j <= c; j++) {
+      const a = rows[i][j];
+      if (!a.covered && i + rs(a) > r && j + cs(a) > c) return { r1: i, c1: j, r2: i + rs(a) - 1, c2: j + cs(a) - 1 };
+    }
+  }
+  const a = rows[r]?.[c];
+  return { r1: r, c1: c, r2: r + (a ? rs(a) : 1) - 1, c2: c + (a ? cs(a) : 1) - 1 };
+}
+/** The anchor (editable) cell for any cell: a covered cell maps to the merged cell that hides it. */
+export const anchorOf = (rows: TableCell[][], r: number, c: number): { row: number; col: number } => { const k = rectOf(rows, r, c); return { row: k.r1, col: k.c1 }; };
+export const isMerged = (rows: TableCell[][], r: number, c: number) => { const k = rectOf(rows, r, c); return k.r2 > k.r1 || k.c2 > k.c1; };
+
+/** Grow a selection until it cuts no merged cell in half (the result is what Merge actually merges). */
+export function expandRect(rows: TableCell[][], rect: CellRect): CellRect {
+  let k = { r1: Math.min(rect.r1, rect.r2), c1: Math.min(rect.c1, rect.c2), r2: Math.max(rect.r1, rect.r2), c2: Math.max(rect.c1, rect.c2) };
+  for (let again = true; again;) {
+    again = false;
+    for (let r = k.r1; r <= k.r2; r++) for (let c = k.c1; c <= k.c2; c++) {
+      const m = rectOf(rows, r, c);
+      if (m.r1 < k.r1 || m.c1 < k.c1 || m.r2 > k.r2 || m.c2 > k.c2) {
+        k = { r1: Math.min(k.r1, m.r1), c1: Math.min(k.c1, m.c1), r2: Math.max(k.r2, m.r2), c2: Math.max(k.c2, m.c2) };
+        again = true;
+      }
+    }
+  }
+  return k;
+}
+
+const isEmptyDoc = (d: PMNode) => !cellPlainText(d).trim();
+
+/**
+ * Merge the (expanded) block into its top-left cell. The texts of the other non-empty cells are appended to the anchor as paragraphs,
+ * so nothing a user typed is lost. A block of one cell is returned unchanged.
+ */
+export function mergeCells(rows: TableCell[][], rect: CellRect): { rows: TableCell[][]; rect: CellRect } {
+  const k = expandRect(rows, rect);
+  if (k.r1 === k.r2 && k.c1 === k.c2) return { rows, rect: k };
+  const anchor = rows[k.r1][k.c1];
+  const extra: PMNode[] = [];
+  for (let r = k.r1; r <= k.r2; r++) for (let c = k.c1; c <= k.c2; c++) {
+    if ((r === k.r1 && c === k.c1) || rows[r][c].covered || isEmptyDoc(rows[r][c].doc)) continue;
+    extra.push(...(rows[r][c].doc.content ?? []));
+  }
+  const base = isEmptyDoc(anchor.doc) ? [] : anchor.doc.content ?? [];
+  const doc = extra.length || base.length ? { ...anchor.doc, content: [...base, ...extra] } : anchor.doc;
+  const out = rows.map((row, r) => row.map((cell, c) => {
+    if (r < k.r1 || r > k.r2 || c < k.c1 || c > k.c2) return cell;
+    if (r === k.r1 && c === k.c1) return { ...anchor, doc, rowSpan: k.r2 - k.r1 + 1 || undefined, colSpan: k.c2 - k.c1 + 1 || undefined };
+    return coveredCell();
+  }));
+  const a = out[k.r1][k.c1];
+  if (a.rowSpan === 1) delete a.rowSpan;
+  if (a.colSpan === 1) delete a.colSpan;
+  return { rows: out, rect: k };
+}
+
+/** Split the merged cell containing (r, c) back into single cells (the text stays in the top-left one). */
+export function unmergeCells(rows: TableCell[][], r: number, c: number): TableCell[][] {
+  const k = rectOf(rows, r, c);
+  if (k.r1 === k.r2 && k.c1 === k.c2) return rows;
+  return rows.map((row, i) => row.map((cell, j) => {
+    if (i < k.r1 || i > k.r2 || j < k.c1 || j > k.c2) return cell;
+    const { rowSpan: _r, colSpan: _c, covered: _v, ...rest } = cell;
+    return rest;
+  }));
+}
+
+/** Swap rows and columns (spans swap too): column operations are the row operations on the transposed grid. */
+function transpose(rows: TableCell[][]): TableCell[][] {
+  return (rows[0] ?? []).map((_, j) => rows.map((row) => {
+    const cell = row[j];
+    if (cell.rowSpan === undefined && cell.colSpan === undefined) return cell;
+    const { rowSpan, colSpan, ...rest } = cell;
+    return { ...rest, ...(colSpan !== undefined ? { rowSpan: colSpan } : {}), ...(rowSpan !== undefined ? { colSpan: rowSpan } : {}) };
+  }));
+}
+
+/** Insert an empty row at index `i`; a merged cell that spans across the new position grows by one row (the new cells under it are covered). */
+function insertRowIn(rows: TableCell[][], i: number, cols: number): TableCell[][] {
+  const row = Array.from({ length: cols }, emptyCell);
+  const grown = new Map<string, CellRect>();
+  if (i > 0 && i < rows.length) {
+    for (let j = 0; j < cols; j++) {
+      const k = rectOf(rows, i, j);
+      if (k.r1 < i) { row[j] = coveredCell(); grown.set(`${k.r1}:${k.c1}`, k); }
+    }
+  }
+  const out = [...rows.slice(0, i), row, ...rows.slice(i)];
+  grown.forEach((k) => { out[k.r1] = out[k.r1].map((cell, j) => (j === k.c1 ? { ...cell, rowSpan: k.r2 - k.r1 + 2 } : cell)); });
+  return out;
+}
+
+/** Delete row `at`; a merged cell loses one row, and when its anchor row goes, the cell below becomes the anchor. */
+function deleteRowIn(rows: TableCell[][], at: number): TableCell[][] {
+  const out = rows.slice(); // rows are copied only when a merge needs them changed
+  const own = new Set<number>();
+  const edit = (r: number, c: number, cell: TableCell) => { if (!own.has(r)) { out[r] = out[r].slice(); own.add(r); } out[r][c] = cell; };
+  const seen = new Set<string>();
+  for (let j = 0; j < (rows[at]?.length ?? 0); j++) {
+    const k = rectOf(rows, at, j);
+    const key = `${k.r1}:${k.c1}`;
+    if (k.r2 === k.r1 || seen.has(key)) continue;
+    seen.add(key);
+    const a = rows[k.r1][k.c1];
+    const span = k.r2 - k.r1; // rows left after removing one
+    const next = { ...a, ...(span > 1 ? { rowSpan: span } : {}) };
+    if (span === 1) delete next.rowSpan;
+    if (k.r1 < at) edit(k.r1, k.c1, next);
+    else { const { covered: _c, ...rest } = next; edit(at + 1, k.c1, rest); }
+  }
+  return out.filter((_, i) => i !== at);
+}
+
 /** Insert an empty row so it becomes row index `at` (0..rows). A header row stays the first row: `at` is clamped to ≥ 1 then. */
 export function insertRow(t: Pick<TableElement, 'rows' | 'cols' | 'w' | 'headerRow'>, at: number): TableEdit {
   const i = Math.max(t.headerRow && t.rows.length ? 1 : 0, Math.min(at, t.rows.length));
-  const row = Array.from({ length: t.cols.length }, emptyCell);
-  return { rows: [...t.rows.slice(0, i), row, ...t.rows.slice(i)], cols: t.cols, w: t.w };
+  return { rows: insertRowIn(t.rows, i, t.cols.length), cols: t.cols, w: t.w };
 }
 
 /** Delete row `at`; the last remaining row can't be deleted (returns the table unchanged). */
 export function deleteRow(t: Grid, at: number): TableEdit {
   if (t.rows.length <= 1 || at < 0 || at >= t.rows.length) return { rows: t.rows, cols: t.cols, w: t.w };
-  return { rows: t.rows.filter((_, i) => i !== at), cols: t.cols, w: t.w };
+  return { rows: deleteRowIn(t.rows, at), cols: t.cols, w: t.w };
 }
 
 /**
@@ -127,14 +256,14 @@ export function insertCol(t: Grid & { x: number }, at: number): TableEdit {
   let cols = [...t.cols.slice(0, i), add, ...t.cols.slice(i)];
   let w = t.w + add;
   if (t.x + w > SLIDE_W) { cols = scaleCols(cols, t.w); w = t.w; }
-  return { rows: t.rows.map((r) => [...r.slice(0, i), emptyCell(), ...r.slice(i)]), cols, w };
+  return { rows: transpose(insertRowIn(transpose(t.rows), i, t.rows.length)), cols, w };
 }
 
 /** Delete column `at` (the table gets narrower by its width); the last remaining column can't be deleted. */
 export function deleteCol(t: Grid, at: number): TableEdit {
   if (t.cols.length <= 1 || at < 0 || at >= t.cols.length) return { rows: t.rows, cols: t.cols, w: t.w };
   const cols = t.cols.filter((_, i) => i !== at);
-  return { rows: t.rows.map((r) => r.filter((_, i) => i !== at)), cols, w: cols.reduce((a, b) => a + b, 0) };
+  return { rows: transpose(deleteRowIn(transpose(t.rows), at)), cols, w: cols.reduce((a, b) => a + b, 0) };
 }
 
 /** Plain text of a cell (paragraphs joined with newlines) — for tests, copy and the PPTX spike's fallbacks. */
@@ -190,7 +319,7 @@ export function pasteGrid(t: Pick<TableElement, 'rows' | 'cols' | 'w' | 'x' | 'h
   while (cur.rows.length < need.rows) cur = { ...cur, ...insertRow({ ...cur, headerRow: t.headerRow }, cur.rows.length) };
   while (cur.cols.length < need.cols) cur = { ...cur, ...insertCol({ ...cur, x: t.x }, cur.cols.length) };
   const rows = cur.rows.map((r) => r.slice());
-  data.forEach((line, i) => line.forEach((text, j) => { const old = rows[row + i][col + j]; rows[row + i][col + j] = old.fill ? { ...textCell(text), fill: old.fill } : textCell(text); }));
+  data.forEach((line, i) => line.forEach((text, j) => { const old = rows[row + i][col + j]; rows[row + i][col + j] = { ...textCell(text), ...(old.fill ? { fill: old.fill } : {}), ...(old.rowSpan ? { rowSpan: old.rowSpan } : {}), ...(old.colSpan ? { colSpan: old.colSpan } : {}), ...(old.covered ? { covered: true as const } : {}) }; }));
   return { rows, cols: cur.cols, w: cur.w };
 }
 
@@ -242,4 +371,40 @@ const withFill = (c: TableCell, color: string | null): TableCell => {
 export function uniformFill(rows: TableCell[][]): string | null {
   const all = rows.flat().map((c) => c.fill ?? null);
   return all.length && all.every((f) => f === all[0]) ? all[0] : null;
+}
+
+// ---------- whole-table scaling ----------
+
+/** Multiply the per-paragraph font sizes of a cell doc (the same factor as the table text). Returns the same object when nothing is sized. */
+function scaleDocFonts(doc: PMNode, k: number): PMNode {
+  let changed = false;
+  const content = (doc.content ?? []).map((p) => {
+    const size = p.attrs?.fontSize as number | null | undefined;
+    if (!size) return p;
+    changed = true;
+    return { ...p, attrs: { ...p.attrs, fontSize: Math.max(TABLE_MIN_FONT, Math.round(size * k * 10) / 10) } };
+  });
+  return changed ? { ...doc, content } : doc;
+}
+
+/**
+ * Resize the WHOLE table to `width` (from the table `o` as it was when the gesture began): the columns keep their ratios and the text size,
+ * paragraph sizes and cell padding scale by the same factor, so the table looks the same only bigger / smaller. The factor is limited so the
+ * text stays between TABLE_MIN_FONT and TABLE_MAX_FONT and every column keeps its minimum width. Height follows by itself (content-driven).
+ */
+export function scaleTable(o: Pick<TableElement, 'rows' | 'cols' | 'w' | 'textStyle' | 'padScale'>, width: number):
+  { w: number; cols: number[]; rows: TableCell[][]; fontSize: number; padScale: number; ratio: number } {
+  const minW = o.cols.length * TABLE_MIN_COL;
+  let k = Math.max(minW, width) / o.w;
+  k = Math.min(k, TABLE_MAX_FONT / o.textStyle.fontSize);
+  k = Math.max(k, TABLE_MIN_FONT / o.textStyle.fontSize, minW / o.w);
+  const w = Math.round(o.w * k);
+  const f = w / o.w; // the factor actually applied after rounding the width
+  const resized = f !== 1;
+  return {
+    w, cols: scaleCols(o.cols, w), ratio: f,
+    fontSize: resized ? Math.round(o.textStyle.fontSize * f * 10) / 10 : o.textStyle.fontSize,
+    padScale: Math.round((o.padScale ?? 1) * f * 1000) / 1000,
+    rows: resized ? o.rows.map((row) => row.map((c) => { const doc = scaleDocFonts(c.doc, f); return doc === c.doc ? c : { ...c, doc }; })) : o.rows,
+  };
 }

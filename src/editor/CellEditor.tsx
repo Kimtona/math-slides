@@ -5,9 +5,11 @@ import type { PMNode, TableElement } from '../model/types';
 import { useStore } from '../store/store';
 import { makeExtensions } from './extensions';
 import { setActiveEditor } from './active';
-import { tabFrom } from './tableActions';
+import { arrowFrom, tabFrom, type ArrowDir } from './tableActions';
 import { isGrid, parseTsv } from '../model/tsv';
 import { pasteGrid } from '../model/table';
+
+const ARROWS: Record<string, ArrowDir | undefined> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
 
 /** In-place rich text editor for ONE table cell (the same TipTap setup as text boxes, minus blocks, lists and math). */
 export function CellEditor({ el, row, col }: { el: TableElement; row: number; col: number }) {
@@ -19,9 +21,17 @@ export function CellEditor({ el, row, col }: { el: TableElement; row: number; co
     content: cell?.doc ?? { type: 'doc', content: [{ type: 'paragraph' }] },
     editorProps: {
       attributes: { class: 'tb-content', spellcheck: 'false' },
-      handleKeyDown: (_view, event) => {
+      handleKeyDown: (view, event) => {
         if (event.isComposing || event.keyCode === 229) return false; // IME in progress
         if (event.key === 'Tab' && !event.metaKey && !event.ctrlKey && !event.altKey) return tabFrom(el.id, event.shiftKey);
+        const dir = ARROWS[event.key];
+        if (dir && !event.shiftKey && !event.metaKey && !event.ctrlKey && !event.altKey) {
+          // At the edge of the cell's text the arrow moves to the neighbouring cell; elsewhere it moves the caret as usual.
+          const { selection, doc } = view.state;
+          const atEdge = selection.empty && view.endOfTextblock(dir)
+            && (dir === 'left' || dir === 'up' ? selection.$from.index(0) === 0 : selection.$from.index(0) === doc.childCount - 1);
+          if (atEdge && arrowFrom(el.id, dir, { x: view.coordsAtPos(selection.from).left })) return true;
+        }
         if (event.key === 'Escape') {
           useStore.getState().stopEditing();
           useStore.setState({ selection: [el.id] });
@@ -64,7 +74,8 @@ export function CellEditor({ el, row, col }: { el: TableElement; row: number; co
       const hit = view.posAtCoords({ left: editCaret.x, top: editCaret.y });
       if (hit) view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(hit.pos))));
       else editor.commands.focus('end');
-    } else editor.commands.focus('end');
+    } else if (editCaret === 'start') editor.commands.focus('start');
+    else editor.commands.focus('end');
     return () => setActiveEditor(null);
   }, [editor]);
 

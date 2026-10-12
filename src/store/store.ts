@@ -27,12 +27,14 @@ export interface AppState {
   selection: ID[];
   editingId: ID | null;
   editingIsNew: boolean;
-  editCaret: { x: number; y: number } | 'end' | 'all' | 'math' | null;
+  editCaret: { x: number; y: number } | 'end' | 'start' | 'all' | 'math' | null;
   mathEdit: MathEditState | null;
   /** While a table is being edited (editingId): the cell with the text caret. */
   editCell: { row: number; col: number } | null;
   /** The table cell last edited, kept after leaving edit mode so cell-level actions (fill) keep targeting it. Esc clears it; selecting anything else forgets it. */
   activeCell: { id: ID; row: number; col: number } | null;
+  /** Multi-cell selection of a table (Shift+click / drag across cells): the block Merge acts on. Cleared by any other selection or cell move. */
+  cellRange: { id: ID; r1: number; c1: number; r2: number; c2: number } | null;
   /** Image being re-framed in crop edit mode (double-click an image). */
   cropEditId: ID | null;
   focusArea: 'canvas' | 'navigator';
@@ -57,6 +59,8 @@ export interface AppState {
   stopEditing: () => void;
   /** Edit one cell of a table (starts editing the table, or moves between its cells; each cell edit is its own undo step). */
   startCellEditing: (id: ID, row: number, col: number, caret?: AppState['editCaret']) => void;
+  /** Select a block of cells (corners in any order) in a table, or null to clear it. */
+  setCellRange: (range: AppState['cellRange']) => void;
   /** Structural table change (rows/columns) as its own undo step; while editing, stays in edit mode at `next`. */
   editTable: (id: ID, fn: (t: Draft<TableElement>) => void, next?: { row: number; col: number } | null) => void;
   setMathEdit: (m: MathEditState | null) => void;
@@ -156,6 +160,7 @@ export const useStore = create<AppState>()((set, get) => {
     mathEdit: null,
     editCell: null,
     activeCell: null,
+    cellRange: null,
     cropEditId: null,
     focusArea: 'canvas',
     guides: [],
@@ -203,7 +208,7 @@ export const useStore = create<AppState>()((set, get) => {
     },
     loadDeck: (deck, assets) => {
       set({
-        deck, assets, past: [], future: [], gestureBase: null, selection: [], editingId: null, editCell: null, activeCell: null, mathEdit: null, cropEditId: null,
+        deck, assets, past: [], future: [], gestureBase: null, selection: [], editingId: null, editCell: null, activeCell: null, cellRange: null, mathEdit: null, cropEditId: null,
         editingIsNew: false, editCaret: null, guides: [], focusArea: 'canvas', presenting: false,
         currentSlideId: deck.slides[0].id,
       });
@@ -213,7 +218,7 @@ export const useStore = create<AppState>()((set, get) => {
       const { cropEditId } = get();
       if (cropEditId && !(ids.length === 1 && ids[0] === cropEditId)) get().exitCrop();
       const { activeCell } = get();
-      set({ selection: ids, focusArea: 'canvas', ...(activeCell && !(ids.length === 1 && ids[0] === activeCell.id) ? { activeCell: null } : {}) });
+      set({ selection: ids, focusArea: 'canvas', ...(activeCell && !(ids.length === 1 && ids[0] === activeCell.id) ? { activeCell: null } : {}), cellRange: null });
     },
 
     startEditing: (id, caret = 'end', isNew = false) => {
@@ -239,12 +244,17 @@ export const useStore = create<AppState>()((set, get) => {
         // Moving between cells of the table being edited: close the previous cell's undo step (the next one opens on its first change).
         if (st.editCell?.row === row && st.editCell?.col === col) return;
         get().endGesture();
-        set({ editCell: { row, col }, activeCell: { id, row, col }, editCaret: caret });
+        set({ editCell: { row, col }, activeCell: { id, row, col }, editCaret: caret, cellRange: null });
         return;
       }
       if (st.editingId) st.stopEditing();
       // No gesture yet: CellEditor opens the undo step on the first real change, so that measuring alone never creates one.
       set({ editingId: id, editingIsNew: false, editCaret: caret, editCell: { row, col }, activeCell: { id, row, col }, selection: [id], mathEdit: null, focusArea: 'canvas' });
+    },
+    setCellRange: (cellRange) => {
+      if (!cellRange) { if (get().cellRange) set({ cellRange: null }); return; }
+      const { id, r1, c1, r2, c2 } = cellRange;
+      set({ cellRange: { id, r1: Math.min(r1, r2), c1: Math.min(c1, c2), r2: Math.max(r1, r2), c2: Math.max(c1, c2) }, activeCell: { id, row: r1, col: c1 } });
     },
     editTable: (id, fn, next) => {
       const editing = get().editingId === id;
@@ -259,7 +269,7 @@ export const useStore = create<AppState>()((set, get) => {
       if (!editingId) return;
       const slide = findSlide(get().deck, currentSlideId);
       const el = slide?.elements.find((e) => e.id === editingId);
-      set({ editingId: null, editCell: null, mathEdit: null, editCaret: null });
+      set({ editingId: null, editCell: null, mathEdit: null, editCaret: null, cellRange: null });
       if (el && el.type === 'text' && !isDocEmpty(el.doc)) {
         const trimmed = trimTrailingEmpty(el.doc);
         if (trimmed !== el.doc) get().updateElements([el.id], (e) => { (e as any).doc = trimmed; }, true);

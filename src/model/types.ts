@@ -125,6 +125,11 @@ export interface TableCell {
   doc: PMNode;
   /** Custom background (#rrggbb). Absent = the style's default (none, or the Header style's gray). Always wins over the style fill. */
   fill?: string;
+  /** Merged cell (top-left anchor of the block): how many rows / columns it spans (absent = 1). The cells it covers stay in the grid as `covered`. */
+  rowSpan?: number;
+  colSpan?: number;
+  /** Hidden by the merged cell that covers it. Its (empty) doc is kept so the grid stays rectangular and unmerging restores plain cells. */
+  covered?: true;
 }
 
 export type TableStyle = 'minimal' | 'grid' | 'header';
@@ -143,6 +148,8 @@ export interface TableElement extends ElementBase {
   headerRow: boolean;
   /** Table-wide text defaults (same shape as a text box's style; `fill` is unused). */
   textStyle: TextStyle;
+  /** Multiplier of the cell padding (absent = 1). Whole-table resizing scales it together with the text, so the table keeps its proportions. */
+  padScale?: number;
   /** Custom line color (#rrggbb) for every table line (width stays fixed). Absent = the style's default grays. */
   borderColor?: string;
   /** Optional plain-text caption below the table — same behavior as an image caption (absent / empty = none; '' only while being edited). Never auto-numbered. */

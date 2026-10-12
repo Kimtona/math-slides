@@ -4,11 +4,11 @@ import { getActiveEditor, onActiveEditorChange } from '../editor/active';
 import { Btn, Icons, MenuItem, NumberField, Popover, Sep } from './controls';
 import { HighlightButton, PaletteColorButton, TextColorButton } from './TextColorPalette';
 import { useStore } from '../store/store';
-import { uniformFill } from '../model/table';
+import { expandRect, isMerged, uniformFill } from '../model/table';
 import type { TableStyle } from '../model/types';
 import { activeTextColor, markActive, setTextStyle, toggleMark } from './textFormat';
 import { emptyDoc } from '../model/defaults';
-import { addCol, addRow, addTableCaption, removeCol, removeRow, removeTableCaption, setHeaderRow, setTableBorder, setTableFill, setTableStyle, targetCell } from '../editor/tableActions';
+import { addCol, addRow, addTableCaption, mergeSelectedCells, removeCol, removeRow, removeTableCaption, setHeaderRow, setTableBorder, setTableFill, setTableStyle, targetCell, unmergeSelectedCell } from '../editor/tableActions';
 import { openLinkPopover } from '../editor/linkMark';
 
 /** The table seen through the text-format helpers (they read `style` and the active editor). */
@@ -38,8 +38,12 @@ export function TableProps({ el, editing }: { el: TableElement; editing: boolean
   useEditorTick();
   // Re-render when the cell being edited / last edited changes: the fill control follows it.
   useStore((s) => s.editCell); useStore((s) => s.activeCell);
+  const range = useStore((s) => (s.cellRange?.id === el.id ? s.cellRange : null));
   const cell = targetCell(el);
   const fillValue = cell ? el.rows[cell.row][cell.col].fill ?? null : uniformFill(el.rows);
+  const block = range ? expandRect(el.rows, range) : null;
+  const canMerge = !!block && (block.r2 > block.r1 || block.c2 > block.c1);
+  const canSplit = !range && !!cell && isMerged(el.rows, cell.row, cell.col);
   const t = tableAsText(el);
   const ed = editing ? getActiveEditor() : null;
   const size = el.textStyle.fontSize;
@@ -88,6 +92,10 @@ export function TableProps({ el, editing }: { el: TableElement; editing: boolean
       <Btn wide title="현재 행 삭제" disabled={el.rows.length <= 1} onClick={() => removeRow(el.id)}>− 행</Btn>
       <Btn wide title="오른쪽에 열 추가" onClick={() => addCol(el.id)}>+ 열</Btn>
       <Btn wide title="현재 열 삭제" disabled={el.cols.length <= 1} onClick={() => removeCol(el.id)}>− 열</Btn>
+      <Sep />
+      {canSplit
+        ? <Btn wide className="active" title="병합된 셀 나누기" onClick={() => unmergeSelectedCell(el.id)}>셀 나누기</Btn>
+        : <Btn wide title="셀 병합: 셀 안을 클릭한 뒤 Shift+클릭 또는 드래그로 셀을 여러 개 선택하세요" disabled={!canMerge} onClick={() => mergeSelectedCells(el.id)}>셀 병합</Btn>}
     </>
   );
 }

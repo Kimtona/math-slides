@@ -270,7 +270,7 @@ try {
   const othersBefore = JSON.stringify(await others());
 
   // ---- whole-table resize (edge handles, proportional columns) ----
-  assert.deepEqual(await evaluate("[...document.querySelectorAll('.overlay .handle')].map((h) => h.className.replace('handle ', '')).sort()"), ['h-e', 'h-w'], 'table has width handles only (no vertical resizing)');
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.overlay .handle')].map((h) => h.className.replace('handle ', '')).sort()"), ['h-e', 'h-ne', 'h-nw', 'h-se', 'h-sw', 'h-w'], 'table has edge and corner handles (it scales as a whole)');
   await clickOp('+ 열'); await evaluate(`store.getState().editTable('${t.id}', (d) => { d.cols = [150, 300, 100, 218]; d.w = 768; })`); await pause(300); // uneven columns, to see the ratios
   t = await T(); assert.equal(t.w, t.cols.reduce((a, b) => a + b, 0)); await evaluate(`store.getState().select(['${t.id}'])`); await pause(250);
   let k = await scaleOf(t);
@@ -281,6 +281,8 @@ try {
   assert.equal(t3.x, t.x, 'east handle keeps the left edge'); assert.equal(t3.y, t.y);
   assert.deepEqual(await problems(t3), [], 'widths still sum to the width');
   ratios(t.cols).forEach((r, i) => assert.ok(Math.abs(r - ratios(t3.cols)[i]) < 0.01, 'column ratio kept'));
+  assert.ok(Math.abs(t3.textStyle.fontSize / t.textStyle.fontSize - t3.w / t.w) < 0.01, `text scales with the table (${t.textStyle.fontSize} -> ${t3.textStyle.fontSize})`);
+  assert.ok(Math.abs((t3.padScale ?? 1) - t3.w / t.w) < 0.01, 'cell padding scales too');
   await domMatches(t3);
   assert.equal(await history(), h1 + 1, 'one undo step per resize gesture');
   assert.equal(JSON.stringify(await others()), othersBefore, 'other elements untouched');
@@ -296,12 +298,12 @@ try {
   await evaluate('store.getState().undo()'); await pause(250); t = await T(); assert.equal(JSON.stringify(t), widthSnap);
   // minimum width: every column keeps >= 40
   k = await scaleOf(t); await dragFrom(`.overlay .handle.h-e`, -3000 * k);
-  t3 = await T(); assert.equal(t3.w, t.cols.length * 40, 'minimum table width = columns x 40'); assert.ok(t3.cols.every((c) => c === 40)); assert.deepEqual(await problems(t3), []); await domMatches(t3);
+  t3 = await T(); assert.ok(t3.textStyle.fontSize >= 6 && t3.textStyle.fontSize < 6.2, `shrinking stops at the 6px minimum text size (${t3.textStyle.fontSize})`); assert.ok(t3.w >= t.cols.length * 40 && t3.cols.every((c) => c >= 40), 'and no column falls below 40'); assert.deepEqual(await problems(t3), []); await domMatches(t3);
   await evaluate('store.getState().undo()'); await pause(250);
-  // wrapping changes the height: narrow tables get taller (content-driven rows)
+  // wrapping changes the height: narrow COLUMNS (text size unchanged) make the table taller (content-driven rows)
   await evaluate(`store.getState().startCellEditing('${t.id}', 0, 0, 'end')`); await pause(250); await type(' a fairly long header that must wrap when narrow'); await esc();
-  t = await T(); const tallBefore = t.h; k = await scaleOf(t);
-  await dragFrom(`.overlay .handle.h-e`, -330 * k); t3 = await T();
+  t = await T(); const tallBefore = t.h;
+  await evaluate(`store.getState().editTable('${t.id}', (d) => { d.cols = d.cols.map((c) => Math.round(c / 3)); d.w = d.cols.reduce((a, b) => a + b, 0); })`); await pause(300); t3 = await T();
   assert.ok(t3.h > tallBefore, `height follows wrapping (${tallBefore} -> ${t3.h})`); await domMatches(t3);
   await evaluate('store.getState().undo()'); await pause(250);
   console.log('PASS whole-table resize: handles, proportional columns, minimum, wrapping height, one undo step');
@@ -869,6 +871,88 @@ try {
   const outside = xml.replace(tbl, '');
   assert.ok(!outside.includes('>Name<'), 'cell text is not duplicated as a free text box');
   console.log('PASS PPTX spike: native <a:tbl>, widths, row heights, minimal borders, bold header, not a text box');
+
+  // ---- merged cells, arrow-key navigation, whole-table scaling (a fresh table) ----
+  await evaluate('persist.newProject()'); await pause(600);
+  await evaluate('insert.insertTable()'); await pause(500);
+  let m1 = await T();
+  const arrow = async (name, modifiers = 0) => { const code = { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40 }[name]; await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: name, code: name, windowsVirtualKeyCode: code, modifiers }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: name, code: name, windowsVirtualKeyCode: code, modifiers }); await pause(300); };
+  const at = () => evaluate('JSON.stringify(store.getState().editCell)');
+  // fill A..I, then walk with the arrow keys
+  await evaluate(`store.getState().select(['${m1.id}'])`); await pause(250);
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) { await evaluate(`store.getState().startCellEditing('${m1.id}', ${r}, ${c}, 'end')`); await pause(200); await type('ABCDEFGHI'[r * 3 + c]); }
+  await evaluate(`store.getState().startCellEditing('${m1.id}', 1, 1, 'end')`); await pause(250);
+  await arrow('ArrowRight'); assert.equal(await at(), '{"row":1,"col":2}', 'right at the end of the text moves to the next cell');
+  await arrow('ArrowRight'); assert.equal(await at(), '{"row":1,"col":2}', 'no cell to the right: stays');
+  await arrow('ArrowDown'); assert.equal(await at(), '{"row":2,"col":2}', 'down');
+  await arrow('ArrowLeft'); assert.equal(await at(), '{"row":2,"col":2}', 'left inside the text only moves the caret');
+  await arrow('ArrowLeft'); assert.equal(await at(), '{"row":2,"col":1}', 'left at the start of the text moves to the previous cell');
+  await arrow('ArrowUp'); await arrow('ArrowUp'); assert.equal(await at(), '{"row":0,"col":1}', 'up, up');
+  await arrow('ArrowUp'); assert.equal(await at(), '{"row":0,"col":1}', 'no cell above: stays');
+  await arrow('ArrowRight', 8); assert.equal(await at(), '{"row":0,"col":1}', 'Shift+arrow keeps selecting text');
+  console.log('PASS arrow keys move between cells at the edge of the text');
+
+  // Shift+click extends a selection; Merge joins it
+  await evaluate(`store.getState().startCellEditing('${m1.id}', 0, 0, 'end')`); await pause(250);
+  const pB = await center(td(m1, 1, 1)); await mouse('mousePressed', pB, { modifiers: 8 }); await mouse('mouseReleased', pB, { modifiers: 8 }); await pause(300);
+  assert.deepEqual(await evaluate('(() => { const r = store.getState().cellRange; return r && [r.r1, r.c1, r.r2, r.c2]; })()'), [0, 0, 1, 1], 'Shift+click selects the block');
+  assert.equal(await evaluate("document.querySelectorAll('.ms-table td.ms-range').length"), 4, 'the block is highlighted');
+  const hM = await history();
+  await clickOp('셀 병합');
+  m1 = await T(); assert.deepEqual(await problems(m1), []);
+  assert.equal(m1.rows[0][0].rowSpan, 2); assert.equal(m1.rows[0][0].colSpan, 2); assert.ok(m1.rows[0][1].covered && m1.rows[1][0].covered && m1.rows[1][1].covered);
+  assert.equal(cellText(m1, 0, 0), 'A\nB\nD\nE', 'texts are kept');
+  assert.equal(await history(), hM + 1, 'merge is one undo step');
+  assert.equal(await evaluate("document.querySelectorAll('.slide.editable .ms-table td').length"), 6, 'covered cells are not rendered');
+  assert.deepEqual(await evaluate(`(() => { const e = document.querySelector('${td(m1, 0, 0)}'); return [e.rowSpan, e.colSpan]; })()`), [2, 2], 'rendered with rowspan / colspan');
+  await evaluate('store.getState().stopEditing()'); await pause(200);
+  // arrows treat the merged cell as one cell
+  await evaluate(`store.getState().startCellEditing('${m1.id}', 0, 0, 'end')`); await pause(250);
+  await evaluate("window.active().commands.focus('end')"); await arrow('ArrowRight'); assert.equal(await at(), '{"row":0,"col":2}', 'right from the merged cell skips its covered cells');
+  await arrow('ArrowDown'); await arrow('ArrowDown'); await arrow('ArrowLeft'); await arrow('ArrowLeft'); assert.equal(await at(), '{"row":2,"col":1}', 'sanity: moves on');
+  await arrow('ArrowUp'); assert.equal(await at(), '{"row":0,"col":0}', 'up into the merged cell lands on its anchor');
+  // Tab skips covered cells
+  await evaluate(`store.getState().startCellEditing('${m1.id}', 0, 2, 'end')`); await pause(200); await tab(); assert.equal(await at(), '{"row":1,"col":2}', 'Tab skips the covered cells under the merge');
+  await tab(true); assert.equal(await at(), '{"row":0,"col":2}');
+  // Unmerge
+  await evaluate(`store.getState().startCellEditing('${m1.id}', 0, 0, 'end')`); await pause(250);
+  await clickOp('셀 나누기'); m1 = await T();
+  assert.ok(m1.rows.flat().every((c) => !c.covered && !c.rowSpan && !c.colSpan), 'unmerge restores single cells');
+  console.log('PASS merge cells: Shift+click / Merge / Unmerge, rendering, navigation around merges, undo');
+
+  // Drag across cells selects a block too
+  await evaluate('store.getState().stopEditing()'); await evaluate(`store.getState().startCellEditing('${m1.id}', 1, 0, 'end')`); await pause(300);
+  const dFrom = await center(td(m1, 1, 0)), dTo = await center(td(m1, 2, 2));
+  await drag(dFrom, dTo.x - dFrom.x, dTo.y - dFrom.y);
+  assert.deepEqual(await evaluate('(() => { const r = store.getState().cellRange; return r && [r.r1, r.c1, r.r2, r.c2]; })()'), [1, 0, 2, 2], 'dragging across cells selects a block');
+  await clickOp('셀 병합'); m1 = await T(); assert.equal(m1.rows[1][0].colSpan, 3); assert.equal(m1.rows[1][0].rowSpan, 2);
+  console.log('PASS merge cells: drag selection');
+
+  // PPTX: merged cells become gridSpan / rowSpan / hMerge / vMerge
+  await evaluate('store.getState().stopEditing(); testFiles = {}'); await pause(200);
+  await evaluate("document.querySelector('.export-menu > button').click()"); await pause(200);
+  await evaluate("document.querySelector('.pop .menu-item:nth-child(2)').click()");
+  const pptx2 = await until(() => evaluate("Object.keys(testFiles).filter(k => k.endsWith('.pptx')).pop()"), 'PPTX export 2', 30000);
+  await until(() => evaluate(`testFiles[${JSON.stringify(pptx2)}]?.length > 1000`), 'PPTX bytes 2', 30000);
+  const zip2 = await JSZip.loadAsync(Buffer.from(await evaluate(`testFiles[${JSON.stringify(pptx2)}]`)));
+  const no2 = (await evaluate('store.getState().deck.slides')).findIndex((sl) => sl.elements.some((e) => e.type === 'table')) + 1;
+  const xml2 = await zip2.file(`ppt/slides/slide${no2}.xml`).async('string');
+  assert.match(xml2, /gridSpan="3"/, 'PPTX: gridSpan'); assert.match(xml2, /rowSpan="2"/, 'PPTX: rowSpan');
+  console.log('PASS merge cells: PPTX gridSpan / rowSpan');
+
+  // Whole-table scaling with a corner handle
+  await evaluate(`store.getState().select(['${m1.id}'])`); await pause(300);
+  m1 = await T(); await evaluate(`store.getState().updateElements(['${m1.id}'], (d) => { d.y = 60 }, true)`); await pause(250); m1 = await T();
+  const k2 = await scaleOf(m1); const hS = await history();
+  await dragFrom('.overlay .handle.h-se', 150 * k2, 10);
+  const m2 = await T();
+  assert.ok(m2.w > m1.w + 100, 'corner handle enlarges the table'); assert.equal(m2.x, m1.x); assert.equal(m2.y, m1.y);
+  assert.ok(Math.abs(m2.textStyle.fontSize / m1.textStyle.fontSize - m2.w / m1.w) < 0.01, `text scales with the table (font ${m1.textStyle.fontSize} -> ${m2.textStyle.fontSize}, width ${m1.w} -> ${m2.w})`);
+  assert.ok(m2.h > m1.h * 1.05, `height grows with the scale (${m1.h} -> ${m2.h})`);
+  assert.ok(Math.abs(m2.h / m1.h - m2.w / m1.w) < 0.12, 'and proportionally (no re-wrapping)');
+  assert.equal(await history(), hS + 1, 'one undo step'); assert.deepEqual(await problems(m2), []);
+  await evaluate('store.getState().undo()'); await pause(250); assert.equal((await T()).textStyle.fontSize, m1.textStyle.fontSize, 'undo restores the text size');
+  console.log('PASS whole-table scaling: corner handle scales columns, text and padding');
   console.log('OUTPUT', output);
 } catch (error) {
   console.error(error); console.log('OUTPUT', output);
