@@ -107,8 +107,12 @@ export function insertTable() {
   useStore.getState().addElements([newTable(SLIDE_W / 2 + (taken % 6) * 24, SLIDE_H / 2 + (taken % 6) * 24)]);
 }
 
-export function insertLine(arrow: boolean) {
-  useStore.getState().addElements([newLine(SLIDE_W / 2 - 120, SLIDE_H / 2, SLIDE_W / 2 + 120, SLIDE_H / 2, arrow)]);
+/** Lines and arrows run left → right; `down` makes a top → bottom arrow with the same line data. */
+export function insertLine(arrow: boolean, down = false) {
+  const el = down
+    ? newLine(SLIDE_W / 2, SLIDE_H / 2 - 120, SLIDE_W / 2, SLIDE_H / 2 + 120, arrow)
+    : newLine(SLIDE_W / 2 - 120, SLIDE_H / 2, SLIDE_W / 2 + 120, SLIDE_H / 2, arrow);
+  useStore.getState().addElements([el]);
 }
 
 export function insertPlainText(text: string) {

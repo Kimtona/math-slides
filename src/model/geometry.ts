@@ -28,7 +28,8 @@ export function translate(el: SlideElement, o: SlideElement, dx: number, dy: num
 
 // ---------- snapping ----------
 
-export interface Guide { axis: 'x' | 'y'; pos: number }
+/** `kind: 'axis'` marks the blue dashed horizontal/vertical hint of a line endpoint drag (the default is the pink alignment guide). */
+export interface Guide { axis: 'x' | 'y'; pos: number; kind?: 'axis' }
 
 export interface SnapTargets { xs: number[]; ys: number[] }
 
@@ -52,6 +53,17 @@ export function snap1(values: number[], targets: number[], threshold: number): {
     }
   }
   return best;
+}
+
+/**
+ * Axis hint for a line endpoint at (x, y) with the other endpoint fixed at (fx, fy): 'h' when it lies within `threshold` of the
+ * horizontal (0°/180°) through the fixed one, 'v' for the vertical (90°/270°), else null. Display only — never moves the endpoint.
+ */
+export function lineAxisHint(x: number, y: number, fx: number, fy: number, threshold: number): 'h' | 'v' | null {
+  const dy = Math.abs(y - fy), dx = Math.abs(x - fx);
+  if (dy <= threshold && dy <= dx) return 'h';
+  if (dx <= threshold) return 'v';
+  return null;
 }
 
 /** Snap a moving box; returns adjusted dx/dy and guide lines to draw. */

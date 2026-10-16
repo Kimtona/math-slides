@@ -1193,7 +1193,7 @@ try {
   const arrowSlideId = await evaluate('store.getState().currentSlideId');
   await click('.tb-center button[title="도형"]');
   const shapeMenu = await evaluate("[...document.querySelectorAll('.pop .menu-item')].map((e) => e.textContent)");
-  assert.equal(shapeMenu.length, 6, 'one new item'); assert.ok(shapeMenu[4].includes('화살표') && !shapeMenu[4].includes('두꺼운') && shapeMenu[5].includes('두꺼운 화살표'), 'directly below 화살표: ' + shapeMenu.join('|'));
+  assert.equal(shapeMenu.length, 7, 'two new items (down arrow, block arrow)'); assert.ok(shapeMenu[4].includes('화살표') && !shapeMenu[4].includes('두꺼운') && !shapeMenu[4].includes('아래쪽') && shapeMenu[5].includes('아래쪽 화살표') && shapeMenu[6].includes('두꺼운 화살표'), 'directly below 화살표: ' + shapeMenu.join('|'));
   assert.deepEqual(shapeMenu.slice(0, 4).map((t) => t.replace(/[^가-힣]/g, '')), ['사각형', '둥근사각형', '타원', '선'], 'existing items unchanged');
   await evaluate("[...document.querySelectorAll('.pop .menu-item')].find((e) => e.textContent.includes('두꺼운 화살표')).click()"); await pause(400);
   const arrowEls = () => evaluate("store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements.filter((e) => e.shape === 'blockArrow')");

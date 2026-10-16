@@ -319,6 +319,10 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .handle.zoom-handle { border-radius: 50%; background: var(--accent); border-color: #fff; }
 .handle.crop-handle { background: #fff; border-color: #1f2328; border-radius: 1px; }
 .guide { position: absolute; background: var(--guide); pointer-events: none; }
+/* Line endpoint horizontal/vertical hint: blue dashed, distinct from the pink alignment guides. */
+.guide.axis { background: none; border: 0 dashed #2F6FEB; }
+.guide.axis.v { border-left-width: 1px; }
+.guide.axis.h { border-top-width: 1px; }
 .marquee { position: absolute; border-style: solid; border-color: var(--accent); background: rgba(47,111,235,.08); pointer-events: none; }
 
 /* ---------- slash menu & math popover ---------- */

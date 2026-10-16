@@ -6,7 +6,7 @@ import { clampFrameToSource, coverFrame, cropFrom, cropOf, sourceRect } from '..
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { lineBox } from '../model/defaults';
 import { themedTextColor, todoAccent } from '../model/theme';
-import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
+import { boxOf, intersects, lineAxisHint, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
 import { currentSlide, useStore } from '../store/store';
 import { TableView } from '../render/TableView';
 import { captionStyle, CitationLabel, ElementBody, elementBoxStyle, footerParts, LineSvg, ShapeView, slideNumberText, staticCaption, ThemeDecor, useFooterStyles } from '../render/ElementView';
@@ -275,7 +275,7 @@ function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle, op
 
 /**
  * Line endpoint drag (the other endpoint stays fixed). Modifiers are read live, including key presses mid-drag:
- *   ordinary line → free; ⇧ snaps the angle to 45° steps.
+ *   ordinary line → free, with a blue dashed hint when nearly horizontal/vertical (never moves the point); ⇧ snaps the angle to 45° steps.
  *   Divider       → stays horizontal (Y = fixed endpoint's Y); ⌥ Option frees the angle (⇧ still snaps while free).
  */
 function startLineEndpointDrag(e: React.PointerEvent, o: LineElement, handle: 'p1' | 'p2', targets: ReturnType<typeof snapTargets>, thr: () => number) {
@@ -302,6 +302,11 @@ function startLineEndpointDrag(e: React.PointerEvent, o: LineElement, handle: 'p
       if (sy) { y += sy.delta; guides.push({ axis: 'y', pos: sy.pos }); }
     }
     x = Math.round(x); y = Math.round(y);
+    // Blue dashed hint through the fixed endpoint when the line is nearly horizontal/vertical; display only, coordinates stay as computed above.
+    if (!divider && !mods.altKey) {
+      const hint = lineAxisHint(x, y, fx, fy, thr());
+      if (hint) guides.push(hint === 'h' ? { axis: 'y', pos: fy, kind: 'axis' } : { axis: 'x', pos: fx, kind: 'axis' });
+    }
     s.updateElements([o.id], (d) => {
       const l = d as LineElement;
       if (handle === 'p1') { l.x1 = x; l.y1 = y; } else { l.x2 = x; l.y2 = y; }
@@ -794,8 +799,8 @@ function Guides({ scale, preview }: { scale: number; preview: boolean }) {
     <>
       {guides.map((g, i) =>
         g.axis === 'x'
-          ? <div key={i} className="guide" style={{ left: g.pos, top: 0, width: 1 / scale, height: SLIDE_H }} />
-          : <div key={i} className="guide" style={{ top: g.pos, left: 0, height: 1 / scale, width: SLIDE_W }} />,
+          ? <div key={i} className={g.kind ? 'guide axis v' : 'guide'} style={{ left: g.pos, top: 0, width: 1 / scale, height: SLIDE_H }} />
+          : <div key={i} className={g.kind ? 'guide axis h' : 'guide'} style={{ top: g.pos, left: 0, height: 1 / scale, width: SLIDE_W }} />,
       )}
     </>
   );
