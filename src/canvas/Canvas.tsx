@@ -17,6 +17,7 @@ import { TextEditor } from '../editor/TextEditor';
 import { insertImageFiles, insertTextAt } from './insert';
 import { scaleParagraphSizes } from '../editor/extensions';
 import { slideFontVars } from '../model/fonts';
+import { isQuickDrawBigEnough, newQuickDrawRect, quickDrawBox, QUICK_DRAW_COLOR, QUICK_DRAW_WIDTH } from '../model/quickDraw';
 import { blockArrowFromHeadDrag, blockArrowFromShaftDrag, blockArrowHandles } from '../model/blockArrow';
 
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'p1' | 'p2';
@@ -54,6 +55,53 @@ function track(e: React.PointerEvent | PointerEvent, onMove: (ev: PointerEvent, 
 
 function otherBoxes(exclude: Set<string>): Box[] {
   return currentSlide().elements.filter((e) => !exclude.has(e.id)).map(boxOf);
+}
+
+// ---------- Quick Draw (⌥⇧ + drag) ----------
+
+/** Quick Draw starts only when ⌥ and ⇧ are both down at pointer-down, and never while editing text, a cell or a crop. */
+function quickDrawStarts(e: React.PointerEvent): boolean {
+  if (e.button !== 0 || !e.altKey || !e.shiftKey || e.metaKey || e.ctrlKey) return false;
+  const st = useStore.getState();
+  if (st.editingId || st.editCell || st.cropEditId || st.presenting || st.exportMode) return false;
+  const t = e.target as Element;
+  if (t.closest('input, textarea, select, button, [contenteditable="true"], .footer-ref, .footer-citations')) return false;
+  const p = toSlide(e.clientX, e.clientY);
+  return p.x >= 0 && p.y >= 0 && p.x <= SLIDE_W && p.y <= SLIDE_H;
+}
+
+/** Drags out a preview box (local state only, nothing stored); release creates one ordinary Rectangle, Esc cancels. */
+function startQuickDraw(e: React.PointerEvent, setPreview: (b: Box | null) => void) {
+  e.preventDefault();
+  e.stopPropagation();
+  const start = toSlide(e.clientX, e.clientY);
+  let cur = start, done = false;
+  const finish = (create: boolean) => {
+    if (done) return;
+    done = true;
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up, true);
+    window.removeEventListener('pointercancel', cancel, true);
+    window.removeEventListener('keydown', key, true);
+    window.removeEventListener('blur', cancel);
+    setPreview(null);
+    if (!create) return;
+    const box = quickDrawBox(start, cur);
+    if (isQuickDrawBigEnough(box)) useStore.getState().addElements([newQuickDrawRect(box)]);
+  };
+  const move = (ev: PointerEvent) => { cur = toSlide(ev.clientX, ev.clientY); setPreview(quickDrawBox(start, cur)); };
+  const up = (ev: PointerEvent) => { cur = toSlide(ev.clientX, ev.clientY); finish(true); };
+  const cancel = () => finish(false);
+  const key = (ev: KeyboardEvent) => {
+    if (ev.key !== 'Escape') return;
+    ev.preventDefault(); ev.stopPropagation(); // not also "deselect"
+    finish(false);
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up, true);
+  window.addEventListener('pointercancel', cancel, true);
+  window.addEventListener('keydown', key, true);
+  window.addEventListener('blur', cancel);
 }
 
 // ---------- element drag ----------
@@ -830,6 +878,7 @@ export function Canvas() {
   const slideRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
   const [marquee, setMarquee] = useState<Box | null>(null);
+  const [quickBox, setQuickBox] = useState<Box | null>(null);
   const [dropping, setDropping] = useState(false);
   const slide = useStore((s) => s.deck.slides.find((x) => x.id === s.currentSlideId)!);
   const editingId = useStore((s) => s.editingId);
@@ -885,6 +934,7 @@ export function Canvas() {
 
   return (
     <div ref={vpRef} className={`canvas-viewport${dropping ? ' dropping' : ''}`} onPointerDown={onBgPointerDown}
+      onPointerDownCapture={(e) => { if (quickDrawStarts(e)) startQuickDraw(e, setQuickBox); }}
       onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setDropping(true); } }}
       onDragLeave={() => setDropping(false)} onDrop={onDrop}>
       <div className="slide-frame" style={{ width: SLIDE_W * scale, height: SLIDE_H * scale }}>
@@ -897,6 +947,7 @@ export function Canvas() {
           <div className="overlay">
             <SelectionOverlay scale={scale} />
             <Guides scale={scale} preview={shiftPreview} />
+            {quickBox && <div className="quick-draw-preview" style={{ left: quickBox.x, top: quickBox.y, width: quickBox.w, height: quickBox.h, boxShadow: `inset 0 0 0 ${QUICK_DRAW_WIDTH}px ${QUICK_DRAW_COLOR}` }} />}
             {marquee && <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h, borderWidth: 1 / scale }} />}
           </div>
         </div>

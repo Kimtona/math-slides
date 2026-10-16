@@ -132,6 +132,7 @@ Extra search words: `/equation` `/latex` `/tex` `/note` `/tip` `/warning` `/theo
 | Copy · paste · cut · duplicate | `⌘C` · `⌘V` · `⌘X` · `⌘D` |
 | Nudge (×10) | Arrow keys (`Shift + Arrow`) |
 | Bring forward · send backward (to front / back) | `⌘]` · `⌘[` (add `Shift` for front / back) |
+| Quick Draw: red highlight box (over anything; `Esc` cancels) | Hold `⌥ + Shift` and drag |
 | Disable snapping · preview guides | Hold `⌥` while dragging · hold `Shift` on empty canvas |
 | Present | `⌘↵` or `F5` |
 | Export PDF · PPTX | `⌘P` · `⌘E` |

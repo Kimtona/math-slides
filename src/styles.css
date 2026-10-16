@@ -392,3 +392,5 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
   .print-page:last-child { break-after: auto; page-break-after: auto; }
 }
 .presenter .footer-ref { pointer-events: auto; }
+
+.quick-draw-preview { position: absolute; pointer-events: none; box-sizing: border-box; }
