@@ -1,18 +1,18 @@
 import { memo, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { useStore } from '../store/store';
 import type { PMNode } from '../model/types';
-import { renderTex } from '../math/mathjax';
+import { renderTex, type MathColors } from '../math/mathjax';
 import { inlineCodeStyle } from '../editor/formattingMarks';
 import { blockTypeInfo } from '../model/academicBlocks';
 import { fontStack } from '../model/fonts';
 import { highlightCode, isSupportedLanguage } from '../editor/codeHighlight';
 
 /** Renders math exactly like the editor node views do (same classes & markup). */
-export const MathView = memo(function MathView({ latex, display }: { latex: string; display: boolean }) {
+export const MathView = memo(function MathView({ latex, display, colors }: { latex: string; display: boolean; colors?: MathColors | null }) {
   const Tag = display ? 'div' : 'span';
   const cls = display ? 'math-block' : 'math-inline';
   if (!latex.trim()) return <Tag className={`${cls} math-empty`} data-latex="">{display ? '새 수식 (New equation)' : '수식'}</Tag>;
-  const r = renderTex(latex, display);
+  const r = renderTex(latex, display, colors);
   if (r.error !== undefined) return <Tag className={`${cls} math-error`} title={r.error} data-latex={latex}>{latex}</Tag>;
   return <Tag className={cls} data-latex={latex} dangerouslySetInnerHTML={{ __html: r.svg }} />;
 });
@@ -134,10 +134,10 @@ function renderNode(n: PMNode, key: number, ctx: Ctx): ReactNode {
     case 'mathInline': {
       // Inline equations can carry marks (e.g. a color applied to a selection that contains them).
       const color = n.marks?.find((m) => m.type === 'textStyle')?.attrs?.color;
-      const math = <MathView latex={n.attrs?.latex ?? ''} display={false} />;
+      const math = <MathView latex={n.attrs?.latex ?? ''} display={false} colors={n.attrs?.colors} />;
       return color ? <span key={key} style={{ color }}>{math}</span> : <span key={key}>{math}</span>;
     }
-    case 'mathBlock': return <MathView key={key} latex={n.attrs?.latex ?? ''} display />;
+    case 'mathBlock': return <MathView key={key} latex={n.attrs?.latex ?? ''} display colors={n.attrs?.colors} />;
     default: return <>{kids()}</>;
   }
 }

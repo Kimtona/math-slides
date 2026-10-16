@@ -16,6 +16,9 @@ export interface MathEditState {
   pos: number; // ProseMirror position of the math node inside the editing text box
 }
 
+/** Picked equation symbols: `leaves` is the inclusive range anchor..focus (render-order indexes); Shift+←/→ moves the focus end. */
+export interface MathLeafSel { pos: number; leaves: number[]; anchor?: number; focus?: number }
+
 export interface AppState {
   deck: Deck;
   past: Deck[];
@@ -29,6 +32,8 @@ export interface AppState {
   editingIsNew: boolean;
   editCaret: { x: number; y: number } | 'end' | 'start' | 'all' | 'math' | null;
   mathEdit: MathEditState | null;
+  /** PoC: symbols (leaf indexes, see math/mathjax.ts) picked by dragging over a rendered equation; the Text Color palette then colors just those. */
+  mathLeafSel: MathLeafSel | null;
   /** While a table is being edited (editingId): the cell with the text caret. */
   editCell: { row: number; col: number } | null;
   /** The table cell last edited, kept after leaving edit mode so cell-level actions (fill) keep targeting it. Esc clears it; selecting anything else forgets it. */
@@ -64,6 +69,7 @@ export interface AppState {
   /** Structural table change (rows/columns) as its own undo step; while editing, stays in edit mode at `next`. */
   editTable: (id: ID, fn: (t: Draft<TableElement>) => void, next?: { row: number; col: number } | null) => void;
   setMathEdit: (m: MathEditState | null) => void;
+  setMathLeafSel: (m: MathLeafSel | null) => void;
   enterCrop: (id: ID) => void;
   exitCrop: () => void;
 
@@ -158,6 +164,7 @@ export const useStore = create<AppState>()((set, get) => {
     editingIsNew: false,
     editCaret: null,
     mathEdit: null,
+    mathLeafSel: null,
     editCell: null,
     activeCell: null,
     cellRange: null,
@@ -208,7 +215,7 @@ export const useStore = create<AppState>()((set, get) => {
     },
     loadDeck: (deck, assets) => {
       set({
-        deck, assets, past: [], future: [], gestureBase: null, selection: [], editingId: null, editCell: null, activeCell: null, cellRange: null, mathEdit: null, cropEditId: null,
+        deck, assets, past: [], future: [], gestureBase: null, selection: [], editingId: null, editCell: null, activeCell: null, cellRange: null, mathEdit: null, mathLeafSel: null, cropEditId: null,
         editingIsNew: false, editCaret: null, guides: [], focusArea: 'canvas', presenting: false,
         currentSlideId: deck.slides[0].id,
       });
@@ -235,7 +242,7 @@ export const useStore = create<AppState>()((set, get) => {
       const el = findSlide(get().deck, get().currentSlideId)?.elements.find((e) => e.id === id);
       if (el?.type === 'text' && caret !== 'math' && isTemplatePlaceholder(plainText(el.doc))) caret = 'all';
       get().beginGesture();
-      set({ editingId: id, editingIsNew: isNew, editCaret: caret, selection: [id], mathEdit: null, focusArea: 'canvas' });
+      set({ editingId: id, editingIsNew: isNew, editCaret: caret, selection: [id], mathEdit: null, mathLeafSel: null, focusArea: 'canvas' });
     },
     startCellEditing: (id, row, col, caret = 'end') => {
       if (get().cropEditId) get().exitCrop();
@@ -249,7 +256,7 @@ export const useStore = create<AppState>()((set, get) => {
       }
       if (st.editingId) st.stopEditing();
       // No gesture yet: CellEditor opens the undo step on the first real change, so that measuring alone never creates one.
-      set({ editingId: id, editingIsNew: false, editCaret: caret, editCell: { row, col }, activeCell: { id, row, col }, selection: [id], mathEdit: null, focusArea: 'canvas' });
+      set({ editingId: id, editingIsNew: false, editCaret: caret, editCell: { row, col }, activeCell: { id, row, col }, selection: [id], mathEdit: null, mathLeafSel: null, focusArea: 'canvas' });
     },
     setCellRange: (cellRange) => {
       if (!cellRange) { if (get().cellRange) set({ cellRange: null }); return; }
@@ -269,7 +276,7 @@ export const useStore = create<AppState>()((set, get) => {
       if (!editingId) return;
       const slide = findSlide(get().deck, currentSlideId);
       const el = slide?.elements.find((e) => e.id === editingId);
-      set({ editingId: null, editCell: null, mathEdit: null, editCaret: null, cellRange: null });
+      set({ editingId: null, editCell: null, mathEdit: null, mathLeafSel: null, editCaret: null, cellRange: null });
       if (el && el.type === 'text' && !isDocEmpty(el.doc)) {
         const trimmed = trimTrailingEmpty(el.doc);
         if (trimmed !== el.doc) get().updateElements([el.id], (e) => { (e as any).doc = trimmed; }, true);
@@ -292,7 +299,8 @@ export const useStore = create<AppState>()((set, get) => {
       }
       get().endGesture();
     },
-    setMathEdit: (m) => set({ mathEdit: m }),
+    setMathEdit: (m) => set({ mathEdit: m, mathLeafSel: null }),
+    setMathLeafSel: (m) => set({ mathLeafSel: m }),
     enterCrop: (id) => {
       const st = get();
       if (st.cropEditId === id) return;
@@ -317,7 +325,7 @@ export const useStore = create<AppState>()((set, get) => {
       });
       set({ selection: els.map((e) => e.id), focusArea: 'canvas' });
       if (opts.edit && els[0]?.type === 'text') {
-        set({ editingId: els[0].id, editingIsNew: true, editCaret: opts.caret ?? 'end', mathEdit: null });
+        set({ editingId: els[0].id, editingIsNew: true, editCaret: opts.caret ?? 'end', mathEdit: null, mathLeafSel: null });
       }
     },
     insertDividerFromEditor: (line, removeBoxId) => {
@@ -325,7 +333,7 @@ export const useStore = create<AppState>()((set, get) => {
       const push = (d: Deck) => { findSlide(d, currentSlideId)!.elements.push(line as any); };
       if (removeBoxId && editingId === removeBoxId) {
         // The box held nothing but the shortcut: it becomes the divider (no empty box left behind).
-        set({ editingId: null, editingIsNew: false, mathEdit: null, editCaret: null });
+        set({ editingId: null, editingIsNew: false, mathEdit: null, mathLeafSel: null, editCaret: null });
         if (editingIsNew && gestureBase) set({ deck: gestureBase, gestureBase: null }); // a box created just for this
         get().commit((d) => {
           const s = findSlide(d as Deck, currentSlideId)!;

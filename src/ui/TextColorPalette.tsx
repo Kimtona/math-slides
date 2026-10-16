@@ -1,6 +1,7 @@
 import { useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { parseHex, sameColor, STANDARD_COLORS, THEME_COLORS } from '../model/colors';
-import { captureTextSelection, setHighlight, setTextColor } from './textFormat';
+import { captureTextSelection, resetMathLeafColor, setHighlight, setTextColor } from './textFormat';
+import { useStore } from '../store/store';
 import { Icons, Popover } from './controls';
 import { getSavedColors, removeSavedColor, saveColor, subscribeUserPrefs } from '../store/userPrefs';
 
@@ -72,11 +73,14 @@ function ColorPalette({ value, apply, close, noneLabel, onNone, label = 'Text Co
 
 export function TextColorButton({ value }: { value: string | null }) {
   const restore = useRef<() => boolean>(() => true);
+  // Symbols picked inside a rendered equation: the palette also offers 기본 색상 (drop their partial color).
+  const pickedSymbols = useStore((s) => !!s.mathLeafSel);
   return <Popover title={`글자 색 (Text Color): ${value ?? 'Mixed'}`} onOpen={() => { restore.current = captureTextSelection(); }} button={
     <span className="color-btn"><span className="a-glyph">A</span>
       <span className={`swatch${value === null ? ' mixed' : ''}`} style={{ backgroundColor: value ?? undefined }} /></span>
   }>
-    {(close) => <ColorPalette value={value} close={close} apply={(c) => { if (restore.current()) setTextColor(c); }} />}
+    {(close) => <ColorPalette value={value} close={close} apply={(c) => { if (restore.current()) setTextColor(c); }}
+      onNone={pickedSymbols ? () => { if (restore.current()) resetMathLeafColor(); } : undefined} noneLabel="기본 색상 (수식 색 따르기)" />}
   </Popover>;
 }
 

@@ -282,6 +282,12 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .cite-chip:hover .cite-btn, .cite-btn:not(.remove) { display: inline-block; }
 .cite-btn:hover { color: var(--ink); background: #eef1f4; }
 .math-inline { white-space: nowrap; }
+.ProseMirror .math-inline, .ProseMirror .math-block { position: relative; }
+/* Pick zone: 8px of invisible hit area on both sides of an equation, so a press just outside the first / last symbol still starts a symbol drag (the nearest symbol is used). No layout change. */
+.slide.editable .math-inline { position: relative; }
+.slide.editable .math-inline::after, .ProseMirror .math-inline::after { content: ''; position: absolute; left: -8px; right: -8px; top: 0; bottom: 0; }
+.math-leaf-hl { position: absolute; background: rgba(47,111,235,.3); outline: 1px solid rgba(47,111,235,.65); border-radius: 2px; pointer-events: none; }
+.ProseMirror .math-inline.leaf-selecting, .ProseMirror .math-block.leaf-selecting { background: transparent !important; }
 .math-inline svg, .math-block svg { overflow: visible; }
 .math-block { display: block; text-align: center; padding: 0.15em 0; }
 .ProseMirror .math-inline, .ProseMirror .math-block { cursor: pointer; border-radius: 4px; }

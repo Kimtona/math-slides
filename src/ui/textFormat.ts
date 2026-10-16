@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/core';
 import type { TextElement, TextStyle } from '../model/types';
 import { currentSlide, useStore } from '../store/store';
 import { getActiveEditor } from '../editor/active';
+import { applyMathLeafColor } from '../editor/mathNodes';
 import { docAllMarked, transformDoc } from '../editor/extensions';
 import type { Mark } from '@tiptap/pm/model';
 import { normalizeTextColor } from '../model/colors';
@@ -77,9 +78,17 @@ function styleOf(d: any): TextStyle {
   return d.style;
 }
 
+/** 기본 색상 for the picked equation symbols: drop their partial color so they follow the equation's color again. */
+export function resetMathLeafColor() {
+  const ed = getActiveEditor();
+  if (ed && useStore.getState().editingId) applyMathLeafColor(ed, null);
+}
+
 export function setTextColor(color: string) {
   const ed = getActiveEditor();
   const st = useStore.getState();
+  // Symbols picked by dragging over a rendered equation: color just those (equation metadata, never the LaTeX).
+  if (ed && st.editingId && st.mathLeafSel && applyMathLeafColor(ed, color)) return;
   if (ed && st.editingId && !ed.state.selection.empty) {
     ed.chain().focus().setColor(color).run();
     return;
