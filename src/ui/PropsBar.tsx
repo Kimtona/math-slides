@@ -13,6 +13,7 @@ import { SLIDE_FONTS, deckFont, type SlideFont } from '../model/fonts';
 import { HighlightButton, PaletteColorButton, ShapeFillButton, TextColorButton, ThemeColorButton } from './TextColorPalette';
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
+import { CaptionButton } from './CaptionButton';
 import { TableProps } from './TableProps';
 import { openLinkPopover } from '../editor/linkMark';
 import { charSizeAt, inLineSelection, inSizedBlock, selectionLineSize, setSelectionCharSize, setSelectionLineSize } from '../editor/extensions';
@@ -225,9 +226,7 @@ function ImageProps({ el }: { el: ImageElement }) {
         if (!asset) return;
         st.updateElements([el.id], (d) => { d.h = Math.round(d.w * (c.h * asset.height) / (c.w * asset.width)); });
       }}>원본 비율</Btn>
-      {el.caption === undefined
-        ? <Btn wide title="이미지 캡션 추가" onClick={() => st.updateElements([el.id], (d) => { (d as ImageElement).caption = ''; })}>Caption</Btn>
-        : <Btn wide className="active" title="이미지 캡션 삭제" onClick={() => st.updateElements([el.id], (d) => { delete (d as ImageElement).caption; })}>Remove Caption</Btn>}
+      <CaptionButton el={el} />
       <BorderButton el={el} />
       <RadiusControl el={el} />
       <span className="hint">드래그 = 비율 유지 · ⌥ Option = 자유 변형 · ⇧ Shift = 크롭 · 더블클릭 = 크롭 편집</span>
@@ -294,6 +293,7 @@ export function PropsBar() {
       {one?.type === 'table' && <TableProps el={one} editing={editingId === one.id} />}
       {one?.type === 'line' && <LineProps el={one} />}
       {one?.type === 'image' && <ImageProps el={one} />}
+      {one && one.type !== 'image' && one.type !== 'table' && <CaptionButton el={one} />}
       {els.length > 1 && els.every((e) => e.type === 'text') && (
         <>
           <Btn title="굵게" onClick={() => toggleMark('bold')}><b>B</b></Btn>

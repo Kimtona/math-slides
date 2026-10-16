@@ -587,16 +587,17 @@ const CanvasElement = memo(function CanvasElement({ el, editing }: { el: SlideEl
     <div ref={ref} className={`el el-${el.type}${editing ? ' editing' : ''}`} style={elementBoxStyle(el, fg)} data-el-id={el.id}
       onPointerDown={onPointerDown} onDoubleClick={onDoubleClick}>
       {editing && el.type === 'text' ? <TextEditor el={el} />
-        : el.type === 'table' ? <><TableView el={el} edit={editing ? editCell : null} active={activeCell} />{selected && el.caption !== undefined ? <CaptionInput el={el} /> : staticCaption(el)}</>
+        : el.type === 'table' ? <TableView el={el} edit={editing ? editCell : null} active={activeCell} />
         : editing && el.type === 'shape' ? <ShapeView el={el} editor={<TextEditor el={el} />} />
         : el.type === 'line' ? <LineSvg el={el} hit />
-        : <ElementBody el={el} assets={assets} caption={el.type === 'image' && selected && el.caption !== undefined ? <CaptionInput el={el} /> : undefined} />}
+        : <ElementBody el={el} assets={assets} />}
+      {selected && el.caption !== undefined ? <CaptionInput el={el} /> : staticCaption(el)}
     </div>
   );
 });
 
-/** Editor-only caption field (plain text) under a selected image or table. One undo step per editing session. */
-function CaptionInput({ el }: { el: ImageElement | TableElement }) {
+/** Editor-only caption field (plain text) under the selected element. One undo step per editing session. */
+function CaptionInput({ el }: { el: SlideElement }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const active = useRef(false);
   const last = useRef(el.caption ?? '');
@@ -609,15 +610,15 @@ function CaptionInput({ el }: { el: ImageElement | TableElement }) {
     active.current = false;
     const st = useStore.getState();
     // Emptied caption → back to the no-caption state (same gesture, so it is part of the editing step).
-    if (!last.current.trim()) st.updateElements([el.id], (d) => { delete (d as ImageElement | TableElement).caption; }, true);
+    if (!last.current.trim()) st.updateElements([el.id], (d) => { delete d.caption; }, true);
     st.endGesture();
   }, [el.id]);
   useEffect(() => { if (!el.caption) ref.current?.focus(); return finish; }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <textarea ref={ref} className="img-caption-input" style={captionStyle} value={value} rows={1} placeholder="Add a caption..." spellCheck={false}
+    <textarea ref={ref} className="img-caption-input" style={captionStyle(el)} value={value} rows={1} placeholder="Add a caption..." spellCheck={false}
       onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}
       onFocus={() => { const st = useStore.getState(); if (st.editingId === el.id) st.stopEditing(); }} // a table's cell edit ends here, so the two undo steps never merge
-      onChange={(e) => { if (!active.current) { active.current = true; useStore.getState().beginGesture(); } useStore.getState().updateElements([el.id], (d) => { (d as ImageElement | TableElement).caption = e.target.value; }, true); }}
+      onChange={(e) => { if (!active.current) { active.current = true; useStore.getState().beginGesture(); } useStore.getState().updateElements([el.id], (d) => { d.caption = e.target.value; }, true); }}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') ref.current?.blur(); }}
       onBlur={finish} />
   );

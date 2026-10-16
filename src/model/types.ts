@@ -30,6 +30,11 @@ interface ElementBase {
   y: number;
   w: number;
   h: number; // for text: measured from content (auto height)
+  /**
+   * Optional plain-text caption drawn left-aligned below the element (below a line's bounding box) at the element's width.
+   * Absent / empty = no caption (older files have none); '' only exists while it is being edited. Never auto-numbered.
+   */
+  caption?: string;
 }
 
 /**
@@ -66,11 +71,6 @@ export interface ImageElement extends ElementBase {
   assetId: ID;
   /** Absent (older files, uncropped images) = the whole image. */
   crop?: ImageCrop;
-  /**
-   * Optional plain-text caption, drawn left-aligned below the image at the image's width.
-   * Absent / empty = no caption (older files have none); '' only exists while it is being edited.
-   */
-  caption?: string;
   /** Instance border color (#rrggbb), drawn on the image bounds. Absent = no border. */
   borderColor?: string;
   /** Corner radius in slide px (absent / 0 = square, as in older files). Rendered clamped to half the shorter side. */
@@ -152,8 +152,6 @@ export interface TableElement extends ElementBase {
   padScale?: number;
   /** Custom line color (#rrggbb) for every table line (width stays fixed). Absent = the style's default grays. */
   borderColor?: string;
-  /** Optional plain-text caption below the table — same behavior as an image caption (absent / empty = none; '' only while being edited). Never auto-numbered. */
-  caption?: string;
 }
 
 export type SlideElement = TextElement | ImageElement | ShapeElement | LineElement | EmojiElement | TableElement;

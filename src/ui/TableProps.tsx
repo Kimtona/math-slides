@@ -2,13 +2,14 @@ import { useEffect, useReducer } from 'react';
 import type { TableElement, TextElement } from '../model/types';
 import { getActiveEditor, onActiveEditorChange } from '../editor/active';
 import { Btn, Icons, MenuItem, NumberField, Popover, Sep } from './controls';
+import { CaptionButton } from './CaptionButton';
 import { HighlightButton, PaletteColorButton, TextColorButton } from './TextColorPalette';
 import { useStore } from '../store/store';
 import { expandRect, isMerged, uniformFill } from '../model/table';
 import type { TableStyle } from '../model/types';
 import { activeTextColor, markActive, setTextStyle, toggleMark } from './textFormat';
 import { emptyDoc } from '../model/defaults';
-import { addCol, addRow, addTableCaption, mergeSelectedCells, removeCol, removeRow, removeTableCaption, setHeaderRow, setTableBorder, setTableFill, setTableStyle, targetCell, unmergeSelectedCell } from '../editor/tableActions';
+import { addCol, addRow, mergeSelectedCells, removeCol, removeRow, setHeaderRow, setTableBorder, setTableFill, setTableStyle, targetCell, unmergeSelectedCell } from '../editor/tableActions';
 import { openLinkPopover } from '../editor/linkMark';
 
 /** The table seen through the text-format helpers (they read `style` and the active editor). */
@@ -83,9 +84,7 @@ export function TableProps({ el, editing }: { el: TableElement; editing: boolean
         onChange={(c) => setTableFill(el.id, c)} onNone={() => setTableFill(el.id, null)} noneLabel="기본" />
       <PaletteColorButton title="표 선 색" label={<span className="small-label">표 선</span>} value={el.borderColor ?? null}
         onChange={(c) => setTableBorder(el.id, c)} onNone={() => setTableBorder(el.id, null)} noneLabel="기본" />
-      {el.caption === undefined
-        ? <Btn wide title="표 캡션 추가" onClick={() => addTableCaption(el.id)}>Caption</Btn>
-        : <Btn wide className="active" title="표 캡션 삭제" onClick={() => removeTableCaption(el.id)}>Remove Caption</Btn>}
+      <CaptionButton el={el} />
       <Sep />
       <span className="small-label">표</span>
       <Btn wide title="아래에 행 추가 (끝 셀에서 Tab)" onClick={() => addRow(el.id)}>+ 행</Btn>

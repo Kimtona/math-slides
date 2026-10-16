@@ -11,6 +11,7 @@ import { fontStack, slideFontVars } from '../model/fonts';
 import { imageRadius } from '../model/imageCrop';
 import { blockArrowOutline } from '../model/blockArrow';
 import { displayCitation } from '../citations/format';
+import { captionBox } from '../model/caption';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 
 export function textBoxStyle(el: TextElement): CSSProperties {
@@ -93,33 +94,29 @@ export function LineSvg({ el, hit }: { el: LineElement; hit?: boolean }) {
 
 /** The visual content of an element, without positioning. */
 /** Shared by the static caption and the editor's caption input so both lay out identically. */
-export const captionStyle: CSSProperties = { marginTop: CAPTION_GAP, fontSize: TYPOGRAPHY.caption, color: CAPTION_COLOR };
+export const captionStyle = (el: SlideElement): CSSProperties => ({ marginTop: CAPTION_GAP, fontSize: TYPOGRAPHY.caption, color: CAPTION_COLOR, ...captionBox(el) });
 
-/** The static caption of an image or table: hangs below the element box (its geometry stays the element's); empty = none. */
-export const staticCaption = (el: { caption?: string }) => (el.caption?.trim() ? <div className="img-caption" style={captionStyle}>{el.caption}</div> : null);
+/** The static caption of any element: hangs below the element box (its geometry stays the element's); empty = none. */
+export const staticCaption = (el: SlideElement) => (el.caption?.trim() ? <div className="img-caption" style={captionStyle(el)}>{el.caption}</div> : null);
 
-export function ElementBody({ el, assets, caption }: { el: SlideElement; assets: Record<string, Asset>; caption?: ReactNode }) {
+export function ElementBody({ el, assets }: { el: SlideElement; assets: Record<string, Asset> }) {
   switch (el.type) {
     case 'text': return <StaticText doc={el.doc} />;
     case 'image': {
       const a = assets[el.assetId];
       if (!a) return <div className="el-img missing">image</div>;
-      const cap = caption ?? staticCaption(el);
       const br = imageRadius(el) || undefined;
-      if (!el.crop) return <><img className="el-img" src={a.dataUrl} draggable={false} alt="" style={br ? { borderRadius: br } : undefined} />{cap}</>;
+      if (!el.crop) return <img className="el-img" src={a.dataUrl} draggable={false} alt="" style={br ? { borderRadius: br } : undefined} />;
       // Cropped: the full image is drawn larger and offset; the element box clips it.
       const c = el.crop;
       return (
-        <>
-          <div className="el-img-crop" style={br ? { borderRadius: br } : undefined}>
-            <img className="el-img-src" src={a.dataUrl} draggable={false} alt=""
-              style={{ left: `${(-c.x / c.w) * 100}%`, top: `${(-c.y / c.h) * 100}%`, width: `${100 / c.w}%`, height: `${100 / c.h}%` }} />
-          </div>
-          {cap}
-        </>
+        <div className="el-img-crop" style={br ? { borderRadius: br } : undefined}>
+          <img className="el-img-src" src={a.dataUrl} draggable={false} alt=""
+            style={{ left: `${(-c.x / c.w) * 100}%`, top: `${(-c.y / c.h) * 100}%`, width: `${100 / c.w}%`, height: `${100 / c.h}%` }} />
+        </div>
       );
     }
-    case 'table': return <><TableView el={el} />{caption ?? staticCaption(el)}</>;
+    case 'table': return <TableView el={el} />;
     case 'shape': return <ShapeView el={el} />;
     case 'line': return <LineSvg el={el} />;
     // Real text at the element's size (re-rasterized by the font renderer at every size, never a scaled bitmap).
@@ -213,6 +210,7 @@ function StaticElement({ slide, el, assets }: { slide: Slide; el: SlideElement; 
   return (
     <div className={`el el-${el.type}`} style={elementBoxStyle(el, fg)} data-el-id={el.id}>
       <ElementBody el={el} assets={assets} />
+      {staticCaption(el)}
     </div>
   );
 }

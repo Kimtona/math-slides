@@ -1,8 +1,9 @@
 import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
-import type { Asset, Deck, EmojiElement, ImageElement, LineElement, ShapeElement, TableElement, TextElement } from '../model/types';
+import type { Asset, Deck, EmojiElement, ImageElement, LineElement, ShapeElement, SlideElement, TableElement, TextElement } from '../model/types';
 import { cellBorders, cellFill, cellPlainText, estimateTableHeight, repairTable, tablePad, type Edge } from '../model/table';
 import { imageRadius, roundRectAdj, sourceRect } from '../model/imageCrop';
+import { captionBox } from '../model/caption';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 import { themeLayout } from '../model/theme';
 import { EMOJI_GLYPH_SCALE, shapeTextInset, shapeTextStyle } from '../model/defaults';
@@ -452,7 +453,6 @@ function addTable(s: Slide, el: TableElement, dom: Element | null, origin: DOMRe
     rowH: t.rows.map((_, r) => IN(trs[r] ? relRect(trs[r], origin).h : natural)),
     objectName: 'Table',
   });
-  addCaption(s, el, slideDom, origin);
 }
 
 // ---------- shapes, lines, images ----------
@@ -536,16 +536,17 @@ async function imageData(a: Asset): Promise<string> {
 }
 
 /** Image / table caption → native editable text derived from the element's geometry (below it, same left edge and width). */
-function addCaption(s: Slide, el: ImageElement | TableElement, slideDom: Element, origin: DOMRect) {
+function addCaption(s: Slide, el: SlideElement, slideDom: Element, origin: DOMRect) {
   if (!el.caption?.trim()) return;
   const dom = slideDom.querySelector(`[data-el-id="${el.id}"] .img-caption`);
-  const r = dom ? relRect(dom, origin) : { x: el.x, y: el.y + el.h + CAPTION_GAP, w: el.w, h: TYPOGRAPHY.caption * 1.5 };
+  const fb = captionBox(el) as { left?: number; width?: number; marginTop?: number };
+  const r = dom ? relRect(dom, origin) : { x: el.x + (fb.left ?? 0), y: el.y + el.h + (fb.marginTop ?? CAPTION_GAP), w: fb.width ?? el.w, h: TYPOGRAPHY.caption * 1.5 };
   const lh = dom ? parseFloat(getComputedStyle(dom).lineHeight) || TYPOGRAPHY.caption * 1.35 : TYPOGRAPHY.caption * 1.35;
   const lines = el.caption.replace(/\s+$/, '').split('\n');
   const runs: TextProps[] = lines.map((text, i) => ({ text, options: { fontFace: PPT_FONT, fontSize: PT(TYPOGRAPHY.caption), color: hex(CAPTION_COLOR), bold: false, ...(i < lines.length - 1 ? { breakLine: true } : {}) } }));
   s.addText(runs, {
-    x: IN(el.x), y: IN(r.y), w: IN(el.w), h: IN(Math.max(r.h, lh)), margin: 0, valign: 'top', wrap: true, fit: 'none', align: 'left',
-    fontFace: PPT_FONT, fontSize: PT(TYPOGRAPHY.caption), color: hex(CAPTION_COLOR), lineSpacing: PT(lh), paraSpaceBefore: 0, paraSpaceAfter: 0, objectName: el.type === 'table' ? 'Table Caption' : 'Image Caption',
+    x: IN(r.x), y: IN(r.y), w: IN(r.w), h: IN(Math.max(r.h, lh)), margin: 0, valign: 'top', wrap: true, fit: 'none', align: 'left',
+    fontFace: PPT_FONT, fontSize: PT(TYPOGRAPHY.caption), color: hex(CAPTION_COLOR), lineSpacing: PT(lh), paraSpaceBefore: 0, paraSpaceAfter: 0, objectName: el.type === 'table' ? 'Table Caption' : el.type === 'image' ? 'Image Caption' : 'Caption',
   });
 }
 
@@ -586,7 +587,6 @@ async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset
   const a = assets[el.assetId];
   if (!a) return;
   const data = await imageData(a);
-  addCaption(s, el, slideDom, origin);
   // Instance border: a native outline-only rectangle over the picture's frame.
   const radius = imageRadius(el);
   const border = () => el.borderColor && s.addShape(radius ? 'roundRect' : 'rect', {
@@ -706,6 +706,7 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
         const dom = slideDom.querySelector(`[data-el-id="${el.id}"]`);
         if (dom) addTextElement(s, el, dom, origin);
       }
+      addCaption(s, el, slideDom, origin);
     }
     addFooter(s, slideDom, origin);
     if (slide.notes.trim()) s.addNotes(slide.notes);
