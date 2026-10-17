@@ -552,6 +552,37 @@ try {
   assert.equal(await leafSel(), null, 'mouse trailing text -> into the equation: unchanged (ProseMirror text selection over the whole equation)');
   assert.ok(await evaluate('!active().state.selection.empty'));
   console.log('PASS caret + Shift+←/→ enters the equation (last / first symbol), then extends; text selection and editing unaffected');
+  // ===== 9. the hand-over from a selected (not editing) box on a slow machine =====
+  // While the editor mounts, the pointer keeps moving and the button may come up; CI runners are slow enough to hit every ordering.
+  // Reproduces the flaky "one-step flick" failure: every attempt must pick, no retries.
+  await evaluate('persist.newProject()'); await pause(600);
+  await typeEquation('E = mc^2');
+  await evaluate(`mathNodes.commitMath(active(), store.getState().mathEdit.pos)`); await pause(250);
+  await evaluate(`active().chain().focus('start').insertContent('hi ').run()`); await pause(250);
+  const id9 = await evaluate('store.getState().editingId');
+  const NS9 = `.slide.editable .el[data-el-id="${id9}"] .math-inline`;
+  const toStatic = async () => { await evaluate('store.getState().stopEditing()'); await pause(400); assert.equal(await evaluate('store.getState().editingId'), null); };
+  const picked = async (want, why) => { await until(() => leafSel(), why, 10000); assert.deepEqual((await leafSel()).leaves, want, why); };
+  await send('Emulation.setCPUThrottlingRate', { rate: 6 });
+  try {
+    for (const steps of [1, 1, 1, 2, 3, 8]) {
+      await toStatic();
+      const g = await leafInfo(NS9, 2);
+      await drag({ x: g.cx - 3, y: g.cy }, { x: g.cx + 3, y: g.cy }, steps);
+      await picked([2], `slow machine: a ${steps}-step flick on m picks it`);
+      assert.equal(await evaluate('!!store.getState().mathEdit'), false, 'a flick is not a click');
+    }
+    await toStatic();
+    const a = await leafInfo(NS9, 2), b = await leafInfo(NS9, 3);
+    await drag({ x: a.l + 1, y: a.cy }, { x: b.cx, y: b.cy }, 2);
+    await picked([2, 3], 'slow machine: a quick m..c drag picks both');
+    await toStatic();
+    const c = await leafInfo(NS9, 2);
+    await click(c.cx, c.cy);                                                  // no movement at all: still a click
+    await until(() => evaluate('!!store.getState().mathEdit'), 'slow machine: a plain click opens the LaTeX popover', 10000);
+    assert.equal(await leafSel(), null);
+  } finally { await send('Emulation.setCPUThrottlingRate', { rate: 1 }); }
+  console.log('PASS hand-over from a selected box stays reliable on a slow machine (1-8 step flicks, quick multi-symbol drag, click)');
   console.log('ALL PASS');
 } finally {
   await quit().catch(() => {});
