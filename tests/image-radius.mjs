@@ -1,8 +1,7 @@
 /** Image corner radius checks in a real Electron window with a disposable profile (never the user's data).
  * Run: node tests/image-radius.mjs. Needs a graphical session (windows are hidden unless MATHSLIDES_TEST_VISIBLE=1). */
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -11,12 +10,13 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import JSZip from 'jszip';
 import { testElectronEnv } from './electron-env.mjs';
+import { makeTempDir, printOutput } from './tmp-utils.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const output = process.env.MATHSLIDES_TEST_OUTPUT || await mkdtemp(path.join(tmpdir(), 'mathslides-radius-'));
+const output = process.env.MATHSLIDES_TEST_OUTPUT || makeTempDir('mathslides-radius-');
 await mkdir(output, { recursive: true });
-const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-radius-profile-'));
+const profile = makeTempDir('mathslides-radius-profile-');
 const portProbe = netServer();
 await new Promise(r => portProbe.listen(0, '127.0.0.1', r));
 const debugPort = portProbe.address().port;
@@ -305,9 +305,9 @@ try {
   const rr = borders.find((s) => s.includes('roundRect'));
   assert.match(rr, /<a:gd name="adj" fmla="val \d+"\/>/, 'border carries the adj');
   console.log('PASS PPTX instance border follows the corners');
-  console.log('OUTPUT', output);
+  printOutput(output);
 } catch (error) {
-  console.error(error); console.log('OUTPUT', output);
+  console.error(error); printOutput(output);
   process.exitCode = 1;
 } finally {
   socket?.close();

@@ -1,8 +1,7 @@
 /** Hyperlink checks in a real Electron window with a disposable profile (never the user's data).
  * Run: node tests/hyperlinks.mjs. Needs a graphical session (windows are hidden unless MATHSLIDES_TEST_VISIBLE=1). */
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -11,12 +10,13 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import JSZip from 'jszip';
 import { testElectronEnv } from './electron-env.mjs';
+import { makeTempDir, printOutput } from './tmp-utils.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const output = process.env.MATHSLIDES_TEST_OUTPUT || await mkdtemp(path.join(tmpdir(), 'mathslides-links-'));
+const output = process.env.MATHSLIDES_TEST_OUTPUT || makeTempDir('mathslides-links-');
 await mkdir(output, { recursive: true });
-const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-links-profile-'));
+const profile = makeTempDir('mathslides-links-profile-');
 const portProbe = netServer();
 await new Promise(r => portProbe.listen(0, '127.0.0.1', r));
 const debugPort = portProbe.address().port;
@@ -308,9 +308,9 @@ try {
   assert.match(rels, new RegExp(`Id="${rid}"[^>]*Target="https://github.com/Kimtona"[^>]*TargetMode="External"|Target="https://github.com/Kimtona"[^>]*Id="${rid}"[^>]*TargetMode="External"|Id="${rid}"[^>]*TargetMode="External"[^>]*Target="https://github.com/Kimtona"`), 'external relationship targets the URL');
   assert.ok(!/<a:r>(?:(?!<\/a:r>)[\s\S])*<a:t>앞 <\/a:t>(?:(?!<\/a:r>)[\s\S])*<\/a:r>/.exec(xml)?.[0].includes('hlinkClick'), 'text outside the link has no hyperlink');
   console.log('PASS PPTX export keeps a functional hyperlink');
-  console.log('OUTPUT', output);
+  printOutput(output);
 } catch (error) {
-  console.error(error); console.log('OUTPUT', output);
+  console.error(error); printOutput(output);
   if (socket?.readyState === WebSocket.OPEN) console.log(await evaluate('document.body.innerText.slice(-800)').catch(() => ''));
   process.exitCode = 1;
 } finally {

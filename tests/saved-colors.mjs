@@ -2,8 +2,7 @@
  * Real Electron windows on a disposable profile. Run: node tests/emoji-tool.mjs (needs a graphical session).
  */
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -11,10 +10,11 @@ import { createServer as netServer } from 'node:net';
 import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import { testElectronEnv } from './electron-env.mjs';
+import { makeTempDir } from './tmp-utils.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-colors-profile-'));
+const profile = makeTempDir('mathslides-colors-profile-');
 const probe = netServer();
 await new Promise((r) => probe.listen(0, '127.0.0.1', r));
 const debugPort = probe.address().port;

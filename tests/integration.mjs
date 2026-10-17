@@ -3,8 +3,7 @@
  * Run: node tests/integration.mjs (needs a graphical session).
  */
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -13,10 +12,11 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import { testElectronEnv } from './electron-env.mjs';
 import JSZip from 'jszip';
+import { makeTempDir } from './tmp-utils.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-integration-profile-'));
+const profile = makeTempDir('mathslides-integration-profile-');
 const probe = netServer();
 await new Promise((r) => probe.listen(0, '127.0.0.1', r));
 const debugPort = probe.address().port;

@@ -34,6 +34,20 @@ npm run dev         # browser only, http://localhost:5173 (use Chrome)
 
 You can also double-click `MathSlides.command` in Finder to run the app from source.
 
+### Temporary files of the tests
+
+Tests create their temporary folders (Electron profile, Vite cache, screenshots/PDF/PPTX) only through `makeTempDir()` in [`tests/tmp-utils.mjs`](../tests/tmp-utils.mjs), as `mathslides-*` folders in the system temp dir. Each test process tracks what it created and removes exactly those folders when it ends, after everything it printed; no `mathslides-*` pattern is ever deleted in bulk, so tests running at the same time (or in other worktrees) never touch each other's folders.
+
+| Situation | Result |
+|---|---|
+| Test passes, fails an assertion, or throws | Its folders are removed on exit. A failure prints the error first, then a note on how to keep the folders. |
+| `MATHSLIDES_KEEP_TMP=1 node tests/<test>.mjs` | Nothing is removed and the kept paths are printed, for debugging a failure. |
+| `MATHSLIDES_TEST_OUTPUT=<dir>` | That folder is yours: it is never tracked or removed. |
+| Ctrl-C (SIGINT) / SIGTERM | The test's own child processes (the Electron app) are stopped, then its folders are removed. |
+| `kill -9`, a crash of the machine, an out-of-memory kill | **Not cleaned up.** No code can run after SIGKILL, so those folders stay behind (and a stray Electron may keep running). |
+
+Before every delete the path is re-checked: a real directory (not a symlink) owned by you, directly inside the temp dir, named `mathslides-*`. `tests/tmp-cleanup.mjs` (part of `npm test`) checks this policy in sandboxed child processes. Leftovers from an interrupted run can be listed with `ls -d "$TMPDIR"mathslides-*`; make sure no test or app is running, then remove the ones you recognise individually.
+
 **Stack:** React 18 + TypeScript + Vite · TipTap (ProseMirror) for rich text · MathJax 3 (SVG) for equations · zustand + immer for state and undo · IndexedDB autosave · pptxgenjs for PPTX · Electron for the desktop shell and `printToPDF`.
 
 ## Export details and known limitations

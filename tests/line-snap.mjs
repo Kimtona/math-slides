@@ -1,13 +1,12 @@
 /** Line/arrow endpoint horizontal/vertical hint (display only, never moves the point) and the down-arrow line data. Headless via Vite SSR. Run: node tests/line-snap.mjs */
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
+import { makeTempDir } from './tmp-utils.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const server = await createServer({ root, configLoader: 'runner', cacheDir: await mkdtemp(path.join(tmpdir(), 'mathslides-vite-')), server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
+const server = await createServer({ root, configLoader: 'runner', cacheDir: makeTempDir('mathslides-vite-'), server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 try {
   const { lineAxisHint } = await server.ssrLoadModule('/src/model/geometry.ts');
   const { newLine, lineBox } = await server.ssrLoadModule('/src/model/defaults.ts');

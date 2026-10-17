@@ -1,13 +1,12 @@
 /** Pure image corner-radius helpers (headless). Run: node tests/image-radius-model.mjs */
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
+import { makeTempDir } from './tmp-utils.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const server = await createServer({ root, configLoader: 'runner', cacheDir: await mkdtemp(path.join(tmpdir(), 'mathslides-vite-')), server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
+const server = await createServer({ root, configLoader: 'runner', cacheDir: makeTempDir('mathslides-vite-'), server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 try {
   const m = await server.ssrLoadModule('/src/model/imageCrop.ts');
   assert.equal(m.imageRadius({ w: 400, h: 200 }), 0, 'absent radius = square');

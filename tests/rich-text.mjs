@@ -3,8 +3,7 @@
  * Set MATHSLIDES_TEST_OUTPUT to retain screenshots, PDF, PPTX and .mslides fixtures.
  */
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -13,12 +12,13 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import JSZip from 'jszip';
 import { testElectronEnv } from './electron-env.mjs';
+import { makeTempDir, printOutput } from './tmp-utils.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const output = process.env.MATHSLIDES_TEST_OUTPUT || await mkdtemp(path.join(tmpdir(), 'mathslides-rich-text-'));
+const output = process.env.MATHSLIDES_TEST_OUTPUT || makeTempDir('mathslides-rich-text-');
 await mkdir(output, { recursive: true });
-const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-profile-'));
+const profile = makeTempDir('mathslides-profile-');
 // Choose a fresh debugging port; never connect to an existing user browser/session.
 const portProbe = netServer();
 await new Promise(r => portProbe.listen(0, '127.0.0.1', r));
@@ -2056,10 +2056,10 @@ try {
   assert.notEqual(await deckId(), 'NATIVE-F');
   console.log('PASS .mslides opened by the OS (cold launch, queued early request, running app, invalid files, write-back, association, New without toast)');
   console.log('PASS presentation lifecycle (restore, New, Open, Save, Save As, file association, pristine detection, recovery slot)');
-  console.log('OUTPUT', output);
+  printOutput(output);
   }
 } catch (error) {
-  console.error(error); console.log('OUTPUT', output);
+  console.error(error); printOutput(output);
   if (socket?.readyState === WebSocket.OPEN) {
     console.log(await evaluate('JSON.stringify({deck:store.getState().deck,body:document.body.innerText.slice(-1500)})').catch(()=>''));
     await screenshot('failure').catch(()=>{});

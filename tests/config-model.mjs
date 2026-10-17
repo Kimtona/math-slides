@@ -1,14 +1,13 @@
 /** Pure logic of config.txt: parser, validation, template, and creation defaults (headless, no Electron). Run: node tests/config-model.mjs */
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { createServer } from 'vite';
+import { makeTempDir } from './tmp-utils.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const server = await createServer({ root, configLoader: 'runner', cacheDir: await mkdtemp(path.join(tmpdir(), 'mathslides-vite-')), server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' });
+const server = await createServer({ root, configLoader: 'runner', cacheDir: makeTempDir('mathslides-vite-'), server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' });
 try {
   const c = await server.ssrLoadModule('/src/model/config.ts');
   const d = await server.ssrLoadModule('/src/model/defaults.ts');
