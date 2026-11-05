@@ -1,9 +1,11 @@
-// Sketch-to-Slides: Electron main-process side (API key storage, model calls over IPC, optional run logging).
+// Sketch-to-Slides: Electron main-process side (provider settings, API key storage, model calls over IPC, run logging).
+// Providers: 'ollama' (default; local server, no key, no cost) and 'anthropic' (Claude API, optional).
 // The renderer never sees the API key: it only learns whether one is configured and where it comes from.
 const { app, ipcMain, safeStorage, BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { recognize, review, DEFAULT_MODEL } = require('./sketch-ai.cjs');
+const { ollamaStatus, LOCAL_IMAGE_PIXELS, DEFAULT_OLLAMA_HOST, DEFAULT_OLLAMA_MODEL } = require('./sketch-ollama.cjs');
 
 // Automated tests only: MATHSLIDES_SKETCH_FAKE=<IR json> answers recognition with that file (no network, no key)
 // and the review with "no problems". The dialog shows the model as "fake" so it can never be mistaken for a real run.
@@ -25,7 +27,34 @@ function readKey() {
     return null;
   }
 }
-const model = () => (FAKE ? 'fake (test fixture)' : process.env.MATHSLIDES_SKETCH_MODEL || DEFAULT_MODEL);
+// ---------- provider settings: userData/ai-settings.json, overridden by environment variables ----------
+const settingsFile = () => path.join(app.getPath('userData'), 'ai-settings.json');
+function savedSettings() {
+  try { return JSON.parse(fs.readFileSync(settingsFile(), 'utf8')); } catch { return {}; }
+}
+function settings() {
+  const s = savedSettings();
+  const provider = process.env.MATHSLIDES_SKETCH_PROVIDER || (s.provider === 'anthropic' ? 'anthropic' : 'ollama');
+  return {
+    provider,
+    ollamaHost: process.env.OLLAMA_HOST ? (/^https?:/.test(process.env.OLLAMA_HOST) ? process.env.OLLAMA_HOST : `http://${process.env.OLLAMA_HOST}`) : s.ollamaHost || DEFAULT_OLLAMA_HOST,
+    ollamaModel: process.env.MATHSLIDES_OLLAMA_MODEL || s.ollamaModel || DEFAULT_OLLAMA_MODEL,
+    anthropicModel: process.env.MATHSLIDES_SKETCH_MODEL || DEFAULT_MODEL,
+  };
+}
+function model() {
+  if (FAKE) return 'fake (test fixture)';
+  const s = settings();
+  return s.provider === 'ollama' ? `ollama/${s.ollamaModel}` : s.anthropicModel;
+}
+/** Arguments for sketch-ai.cjs for the current provider (or an error result). */
+function providerArgs() {
+  const s = settings();
+  if (s.provider === 'ollama') return { provider: 'ollama', host: s.ollamaHost, model: s.ollamaModel };
+  const apiKey = readKey();
+  if (!apiKey) return { error: { ok: false, error: 'No API key configured.', code: 'no-key' } };
+  return { provider: 'anthropic', apiKey, model: s.anthropicModel };
+}
 
 // ---------- optional run log (MATHSLIDES_SKETCH_LOG=<dir>): every request/response/report of a conversion ----------
 const logRoot = process.env.MATHSLIDES_SKETCH_LOG ? path.resolve(process.env.MATHSLIDES_SKETCH_LOG) : null;
@@ -53,12 +82,36 @@ function errorResult(e) {
 }
 
 function registerSketchIPC() {
-  ipcMain.handle('sketch:status', () => ({
-    keySource: keySource(),
-    canStore: safeStorage.isEncryptionAvailable(),
-    model: model(),
-    logging: !!logRoot,
-  }));
+  ipcMain.handle('sketch:status', async () => {
+    const s = settings();
+    const ollama = FAKE ? { running: true, models: [] } : s.provider === 'ollama' ? await ollamaStatus(s.ollamaHost) : null;
+    return {
+      provider: FAKE ? 'fake' : s.provider,
+      ready: FAKE || (s.provider === 'ollama' ? !!ollama?.running && ollama.models.includes(s.ollamaModel) : !!keySource()),
+      keySource: keySource(),
+      canStore: safeStorage.isEncryptionAvailable(),
+      model: model(),
+      ollama: { host: s.ollamaHost, model: s.ollamaModel, running: !!ollama?.running, models: ollama?.models ?? [] },
+      // Image size the provider works best with (renderer resizes before sending).
+      image: s.provider === 'ollama' && !FAKE ? { pixels: LOCAL_IMAGE_PIXELS } : { maxEdge: 1600 },
+      envLocked: { provider: !!process.env.MATHSLIDES_SKETCH_PROVIDER, ollamaModel: !!process.env.MATHSLIDES_OLLAMA_MODEL, ollamaHost: !!process.env.OLLAMA_HOST },
+      logging: !!logRoot,
+    };
+  });
+
+  ipcMain.handle('sketch:set-settings', (_e, next) => {
+    try {
+      const cur = savedSettings();
+      const out = { ...cur };
+      if (next?.provider === 'ollama' || next?.provider === 'anthropic') out.provider = next.provider;
+      if (typeof next?.ollamaModel === 'string' && /^[\w.:/-]{1,100}$/.test(next.ollamaModel.trim())) out.ollamaModel = next.ollamaModel.trim();
+      if (typeof next?.ollamaHost === 'string' && /^https?:\/\/[\w.:-]+\/?$/.test(next.ollamaHost.trim())) out.ollamaHost = next.ollamaHost.trim().replace(/\/$/, '');
+      fs.writeFileSync(settingsFile(), JSON.stringify(out, null, 2));
+      return { ok: true };
+    } catch (e) {
+      return errorResult(e);
+    }
+  });
 
   ipcMain.handle('sketch:set-key', (_e, key) => {
     try {
@@ -83,14 +136,14 @@ function registerSketchIPC() {
       log(runId, '01-recognize.json', { model: model(), output: { elements, notes } });
       return { ok: true, data: { elements, notes }, model: model(), ms: 0 };
     }
-    const apiKey = readKey();
-    if (!apiKey) return { ok: false, error: 'No API key configured.', code: 'no-key' };
+    const args = providerArgs();
+    if (args.error) return args.error;
     try {
-      const r = await recognize({ apiKey, model: model(), image, schema });
-      log(runId, '01-recognize.json', { model: r.model, ms: r.ms, usage: r.usage, stopReason: r.stopReason, image: { width: image.width, height: image.height }, output: r.data });
+      const r = await recognize({ ...args, image, schema });
+      log(runId, '01-recognize.json', { provider: args.provider, model: r.model, ms: r.ms, usage: r.usage, stopReason: r.stopReason, image: { width: image.width, height: image.height }, ...(r.raw !== undefined ? { rawText: r.raw } : {}), ...(r.local ? { localOutput: r.local } : {}), output: r.data });
       return { ok: true, data: r.data, model: r.model, ms: r.ms, usage: r.usage };
     } catch (e) {
-      log(runId, '01-recognize-error.json', errorResult(e));
+      log(runId, '01-recognize-error.json', { ...errorResult(e), rawText: e?.raw, usage: e?.usage });
       return errorResult(e);
     }
   });
@@ -100,16 +153,16 @@ function registerSketchIPC() {
       if (validImage(rendering)) log(runId, `1${round}-rendering.png`, png(rendering.base64));
       return { ok: true, data: { ok: true, summary: 'fake review (test fixture)', patches: [] }, model: model(), ms: 0 };
     }
-    const apiKey = readKey();
-    if (!apiKey) return { ok: false, error: 'No API key configured.', code: 'no-key' };
+    const args = providerArgs();
+    if (args.error) return args.error;
     if (!validImage(original) || !validImage(rendering)) return { ok: false, error: 'Invalid image.', code: 'image' };
     log(runId, `1${round}-rendering.png`, png(rendering.base64));
     try {
-      const r = await review({ apiKey, model: model(), original, rendering, ir, issues, schema });
-      log(runId, `1${round}-review.json`, { model: r.model, ms: r.ms, usage: r.usage, ir, issues, output: r.data });
+      const r = await review({ ...args, original, rendering, ir, issues, schema });
+      log(runId, `1${round}-review.json`, { provider: args.provider, model: r.model, ms: r.ms, usage: r.usage, ir, issues, ...(r.raw !== undefined ? { rawText: r.raw } : {}), output: r.data });
       return { ok: true, data: r.data, model: r.model, ms: r.ms, usage: r.usage };
     } catch (e) {
-      log(runId, `1${round}-review-error.json`, errorResult(e));
+      log(runId, `1${round}-review-error.json`, { ...errorResult(e), rawText: e?.raw, usage: e?.usage });
       return errorResult(e);
     }
   });

@@ -7,7 +7,7 @@ import type { Slide } from '../model/types';
 import { SLIDE_W } from '../model/types';
 import { useStore } from '../store/store';
 import { SlideView } from '../render/ElementView';
-import { applySketch, closeSketch, editElement, MAX_REVIEW_ROUNDS, runSketch, saveKey, useSketch } from '../sketch/session';
+import { applySketch, closeSketch, editElement, MAX_REVIEW_ROUNDS, refreshStatus, runSketch, saveKey, saveSettings, useSketch } from '../sketch/session';
 import { sketchNative } from '../sketch/bridge';
 import type { IRElement, IRIssue } from '../sketch/ir';
 
@@ -15,34 +15,67 @@ const PREVIEW_W = 720;
 const PREVIEW_SCALE = PREVIEW_W / SLIDE_W;
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
-function KeyForm() {
+function SettingsForm() {
   const status = useSketch((s) => s.status);
   const error = useSketch((s) => s.error);
+  const [provider, setProvider] = useState<'ollama' | 'anthropic'>(status?.provider === 'anthropic' ? 'anthropic' : 'ollama');
+  const [ollamaModel, setOllamaModel] = useState(status?.ollama.model ?? 'qwen2.5vl:7b');
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
+  const stop = (e: React.KeyboardEvent) => e.stopPropagation();
   const save = async () => {
     setBusy(true);
-    const ok = await saveKey(key.trim());
+    if (provider === 'anthropic' && key.trim() && !(await saveKey(key.trim()))) { setBusy(false); return; }
+    const st = await saveSettings({ provider, ollamaModel });
     setBusy(false);
-    if (ok) { setKey(''); runSketch(); }
+    if (st?.ready) { setKey(''); runSketch(); }
   };
+  const o = status?.ollama;
   return (
     <div className="sk-key">
-      <p>Sketch-to-Slides sends the selected image to Claude (Anthropic API) to recognize it. Enter your Anthropic API key.</p>
-      <input type="password" autoFocus placeholder="sk-ant-..." value={key} onChange={(e) => setKey(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && key.trim()) save(); e.stopPropagation(); }} />
+      <label className="sk-check"><input type="radio" name="sk-prov" checked={provider === 'ollama'} disabled={status?.envLocked.provider} onChange={() => setProvider('ollama')} />
+        <b>Local model (Ollama)</b> — free, runs on this computer; the image never leaves it.</label>
+      {provider === 'ollama' && (
+        <div className="sk-indent">
+          <div className="sk-row">
+            <span>Model</span>
+            <input value={ollamaModel} disabled={status?.envLocked.ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} onKeyDown={stop} />
+          </div>
+          <p className="sk-muted">
+            {o?.running ? `Ollama is running at ${o.host}. Installed: ${o.models.join(', ') || 'none'}.` : `Ollama is not reachable at ${o?.host}. Install it from ollama.com and start it.`}
+            {o?.running && !o.models.includes(ollamaModel) && <> The model is not installed: run <code>ollama pull {ollamaModel}</code>.</>}
+          </p>
+        </div>
+      )}
+      <label className="sk-check"><input type="radio" name="sk-prov" checked={provider === 'anthropic'} disabled={status?.envLocked.provider} onChange={() => setProvider('anthropic')} />
+        <b>Claude (Anthropic API)</b> — more accurate, paid; needs an API key.</label>
+      {provider === 'anthropic' && (
+        <div className="sk-indent">
+          <input type="password" placeholder={status?.keySource ? `Key configured (${status.keySource}); enter a new one to replace it` : 'sk-ant-...'} value={key}
+            onChange={(e) => setKey(e.target.value)} onKeyDown={stop} />
+          <p className="sk-muted">
+            Stored encrypted on this computer (OS keychain via Electron safeStorage) and used only by the app's main process.
+            <code>ANTHROPIC_API_KEY</code> in the environment takes precedence.
+            {!status?.canStore && ' Secure storage is not available here, so use the environment variable.'}
+          </p>
+          {status?.keySource === 'stored' && <button className="sk-btn" onClick={() => saveKey(null)}>Remove saved key</button>}
+        </div>
+      )}
       <div className="sk-row">
-        <button className="sk-btn primary" disabled={!key.trim() || busy || !status?.canStore} onClick={save}>Save key and convert</button>
-        {status?.keySource === 'stored' && <button className="sk-btn" onClick={() => saveKey(null)}>Remove saved key</button>}
+        <button className="sk-btn primary" disabled={busy || (provider === 'anthropic' && !key.trim() && !status?.keySource)} onClick={save}>Save and convert</button>
+        <button className="sk-btn" disabled={busy} onClick={() => refreshStatus()}>Check again</button>
       </div>
-      <p className="sk-muted">
-        The key is stored encrypted on this computer (OS keychain via Electron safeStorage) and is only used by the app's main process.
-        Alternatively launch MathSlides with the <code>ANTHROPIC_API_KEY</code> environment variable set (it takes precedence).
-        {!status?.canStore && ' Secure storage is not available here, so use the environment variable.'}
-      </p>
       {error && <p className="sk-error">{error}</p>}
     </div>
   );
+}
+
+/** Seconds since the run started (local models take a minute or two). */
+function Elapsed() {
+  const startedAt = useSketch((s) => s.startedAt);
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, []);
+  return <>{Math.round((performance.now() - startedAt) / 1000)} s</>;
 }
 
 const sevClass = (s: IRIssue['severity']) => `sk-issue ${s}`;
@@ -123,11 +156,11 @@ export function SketchDialog() {
           <b>Convert to Editable Slide</b>
           <span className="sk-muted">{s.model || s.status?.model}{s.status?.logging ? ' · run log on' : ''}</span>
           <span className="sk-spacer" />
-          {phase !== 'key' && <button className="sk-link" onClick={() => useSketch.setState({ phase: 'key' })}>AI key…</button>}
+          {phase !== 'settings' && <button className="sk-link" disabled={phase === 'recognizing' || phase === 'reviewing'} onClick={() => useSketch.setState({ phase: 'settings' })}>AI settings…</button>}
           <button className="sk-close" title="Cancel (Esc)" onClick={closeSketch}>×</button>
         </header>
 
-        {phase === 'key' ? <KeyForm /> : (
+        {phase === 'settings' ? <SettingsForm /> : (
           <div className="sk-body">
             <div className="sk-panes">
               <figure className="sk-pane">
@@ -140,7 +173,7 @@ export function SketchDialog() {
                 </div>
               </figure>
               <figure className="sk-pane">
-                <figcaption>Editable result {busy && <span className="sk-muted">· {phase === 'recognizing' ? 'recognizing…' : `AI review (≤${MAX_REVIEW_ROUNDS} rounds)…`}</span>}</figcaption>
+                <figcaption>Editable result {busy && <span className="sk-muted">· {phase === 'recognizing' ? 'recognizing' : `AI review (≤${MAX_REVIEW_ROUNDS} rounds)`}… <Elapsed /></span>}</figcaption>
                 <div className="sk-preview" style={{ width: PREVIEW_W, height: PREVIEW_W * 9 / 16 }}>
                   <div ref={previewRef} className="sk-preview-inner" style={{ width: PREVIEW_W, height: PREVIEW_W * 9 / 16 }}>
                     {previewSlide
@@ -163,7 +196,7 @@ export function SketchDialog() {
                 <section><h4>AI review</h4>
                   {s.rounds.map((r) => (
                     <div key={r.round} className="sk-round">
-                      Round {r.round}: {r.error ? <span className="sk-error">{r.error}</span> : r.ok ? 'no problems found' : `${r.patches.length} fix(es) applied`}
+                      Round {r.round}: {r.error ? <span className="sk-error">{r.error}</span> : r.skipped ? 'not needed' : r.ok ? 'no problems found' : `${r.patches.length} fix(es) applied`}
                       {r.summary && <div className="sk-muted">{r.summary}</div>}
                       {r.patches.map((p, i) => <div key={i} className="sk-muted">· {p.op} {p.id}: {p.reason}</div>)}
                     </div>
@@ -179,7 +212,7 @@ export function SketchDialog() {
           </div>
         )}
 
-        {phase !== 'key' && (
+        {phase !== 'settings' && (
           <footer className="sk-footer">
             <label className="sk-check"><input type="checkbox" checked={s.aiReview} disabled={busy} onChange={(e) => useSketch.setState({ aiReview: e.target.checked })} /> AI review</label>
             <button className="sk-btn" disabled={busy} onClick={runSketch}>{phase === 'error' ? 'Try again' : 'Run again'}</button>

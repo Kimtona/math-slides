@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('native', {
   sketch: {
     status: () => ipcRenderer.invoke('sketch:status'),
     setKey: (key) => ipcRenderer.invoke('sketch:set-key', key),
+    setSettings: (s) => ipcRenderer.invoke('sketch:set-settings', s),
     recognize: (req) => ipcRenderer.invoke('sketch:recognize', req),
     review: (req) => ipcRenderer.invoke('sketch:review', req),
     capture: (rect) => ipcRenderer.invoke('sketch:capture', rect),

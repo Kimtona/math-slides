@@ -432,3 +432,6 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .sk-key { padding: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 560px; }
 .sk-key input { font: 13px ui-monospace, Menlo, monospace; padding: 6px 8px; border: 1px solid #d0d7de; border-radius: 6px; }
 .sk-row { display: flex; gap: 8px; }
+.sk-indent { margin-left: 24px; display: flex; flex-direction: column; gap: 6px; }
+.sk-indent input:not([type=radio]) { font: 13px ui-monospace, Menlo, monospace; padding: 5px 8px; border: 1px solid #d0d7de; border-radius: 6px; }
+.sk-row span { align-self: center; }

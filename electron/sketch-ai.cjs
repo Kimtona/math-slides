@@ -1,8 +1,10 @@
-// Sketch-to-Slides model calls (Claude vision). Plain Node module: used by the Electron main process
+// Sketch-to-Slides model calls. Providers: 'ollama' (default, local, sketch-ollama.cjs) and 'anthropic' (Claude, optional). Plain Node module: used by the Electron main process
 // (electron/sketch-main.cjs) and by the command-line tool (scripts/sketch2slides.mjs). No Electron imports here.
 // The API key is passed in by the caller; it never reaches the renderer and is never logged.
 const Anthropic = require('@anthropic-ai/sdk');
-const { RECOGNIZE_SYSTEM, RECOGNIZE_USER, REVIEW_SYSTEM } = require('./sketch-prompts.cjs');
+const { RECOGNIZE_SYSTEM, RECOGNIZE_USER, REVIEW_SYSTEM, LOCAL_RECOGNIZE_SYSTEM, localRecognizeUser } = require('./sketch-prompts.cjs');
+const { LOCAL_SCHEMA, localToModelIR } = require('./sketch-local.cjs');
+const ollama = require('./sketch-ollama.cjs');
 
 const DEFAULT_MODEL = 'claude-opus-5-5';
 
@@ -56,7 +58,15 @@ async function callJSON({ apiKey, model, system, content, schema, effort }) {
 }
 
 /** image: { base64, mime, width, height }. Returns the raw model IR ({ elements, notes }). */
-async function recognize({ apiKey, model, image, schema }) {
+async function recognize({ provider = 'ollama', apiKey, model, host, image, schema, onProgress }) {
+  if (provider === 'ollama') {
+    // Local models get their own short prompt and flat pixel format, converted here to the shared IR.
+    const r = await ollama.chatJSON({
+      host, model, schema: LOCAL_SCHEMA, system: LOCAL_RECOGNIZE_SYSTEM, images: [image.base64], onProgress,
+      text: localRecognizeUser(image.width, image.height),
+    });
+    return { ...r, local: r.data, data: localToModelIR(r.data, image.width, image.height) };
+  }
   return callJSON({
     apiKey, model, schema, effort: 'high',
     system: RECOGNIZE_SYSTEM,
@@ -65,10 +75,16 @@ async function recognize({ apiKey, model, image, schema }) {
 }
 
 /** original/rendering: images; ir: the IR the rendering was built from. Returns { ok, summary, patches }. */
-async function review({ apiKey, model, original, rendering, ir, issues, schema }) {
+async function review({ provider = 'ollama', apiKey, model, host, original, rendering, ir, issues, schema }) {
   const checks = Array.isArray(issues) && issues.length
     ? `\n\nAutomatic checks reported these problems (fix them if they are real conversion errors):\n- ${issues.join('\n- ')}`
     : '';
+  if (provider === 'ollama') {
+    return ollama.chatJSON({
+      host, model, schema, system: REVIEW_SYSTEM, images: [original.base64, rendering.base64],
+      text: `The first image is the ORIGINAL hand-drawn image, the second is the RENDERING of the converted slide.\nIntermediate description (JSON):\n${JSON.stringify({ elements: ir.elements })}${checks}`,
+    });
+  }
   return callJSON({
     apiKey, model, schema, effort: 'high',
     system: REVIEW_SYSTEM,
@@ -82,4 +98,4 @@ async function review({ apiKey, model, original, rendering, ir, issues, schema }
   });
 }
 
-module.exports = { recognize, review, SketchAIError, DEFAULT_MODEL };
+module.exports = { recognize, review, SketchAIError, DEFAULT_MODEL, ollama };

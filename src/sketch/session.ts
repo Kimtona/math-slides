@@ -8,7 +8,7 @@ import { findSlide, useStore } from '../store/store';
 import { applyPatches, MODEL_IR_SCHEMA, parseIR, REVIEW_SCHEMA, type IRElement, type IRIssue, type ReviewResult, type SketchIR } from './ir';
 import { irToElements, type ConversionResult } from './convert';
 import { validateSketch, type ValidationReport } from './validate';
-import { imageForModel, newRunId, sketchNative, type SketchImage, type SketchStatus } from './bridge';
+import { imageForModel, newRunId, sketchNative, type SketchImage, type SketchSettings, type SketchStatus } from './bridge';
 
 export const MAX_REVIEW_ROUNDS = 2;
 
@@ -22,12 +22,16 @@ export interface ReviewRound {
   after?: ValidationReport['counts'];
   ms: number;
   error?: string;
+  /** Not run (local model and nothing for it to fix). */
+  skipped?: boolean;
 }
 
-export type Phase = 'idle' | 'key' | 'recognizing' | 'reviewing' | 'preview' | 'error';
+export type Phase = 'idle' | 'settings' | 'recognizing' | 'reviewing' | 'preview' | 'error';
 
 interface SketchState {
   phase: Phase;
+  /** performance.now() when the current run started (for the elapsed-time display). */
+  startedAt: number;
   status: SketchStatus | null;
   sourceId: string | null;
   runId: string;
@@ -46,7 +50,7 @@ interface SketchState {
 }
 
 export const useSketch = create<SketchState>()(() => ({
-  phase: 'idle', status: null, sourceId: null, runId: '', image: null, ir: null, parseIssues: [], conv: null, report: null,
+  phase: 'idle', startedAt: 0, status: null, sourceId: null, runId: '', image: null, ir: null, parseIssues: [], conv: null, report: null,
   rounds: [], timings: {}, model: '', error: null, aiReview: true, measure: null,
 }));
 const set = useSketch.setState;
@@ -72,8 +76,24 @@ export async function openSketch(el: ImageElement) {
   const native = sketchNative();
   if (!native) return;
   const status = await native.status();
-  set({ phase: status.keySource ? 'idle' : 'key', status, sourceId: el.id, error: null, rounds: [], ir: null, conv: null, report: null, image: null, timings: {}, parseIssues: [] });
-  if (status.keySource) await runSketch();
+  // AI review default: on for Claude; off for the local model (it did not find real errors and cost ~2-3 min in the
+  // GUI test, docs/SKETCH_DEVLOG.md). The checkbox still turns it on.
+  set({ aiReview: status.provider !== 'ollama' });
+  set({ phase: status.ready ? 'idle' : 'settings', status, sourceId: el.id, error: null, rounds: [], ir: null, conv: null, report: null, image: null, timings: {}, parseIssues: [] });
+  if (status.ready) await runSketch();
+}
+
+export async function refreshStatus() {
+  const status = await sketchNative()!.status();
+  set({ status });
+  return status;
+}
+
+export async function saveSettings(next: SketchSettings) {
+  const r = await sketchNative()!.setSettings(next);
+  if (!r.ok) { set({ error: r.error ?? 'Could not save the settings.' }); return null; }
+  set({ error: null });
+  return refreshStatus();
 }
 
 export function closeSketch() {
@@ -104,9 +124,11 @@ export async function runSketch() {
   const runId = newRunId();
   const t0 = performance.now();
   const timings: Record<string, number> = {};
-  set({ phase: 'recognizing', runId, error: null, rounds: [], ir: null, conv: null, report: null, timings });
+  set({ phase: 'recognizing', startedAt: performance.now(), runId, error: null, rounds: [], ir: null, conv: null, report: null, timings });
   try {
-    const image = await imageForModel(src.el, src.asset);
+    const status = get().status ?? await refreshStatus();
+    const local = status.provider === 'ollama';
+    const image = await imageForModel(src.el, src.asset, status.image);
     set({ image });
     const { dataUrl: _d, ...img } = image;
     const res = await native.recognize({ runId, image: img, schema: MODEL_IR_SCHEMA });
@@ -115,14 +137,20 @@ export async function runSketch() {
     set({ model: res.model ?? '' });
     const { ir, issues } = parseIR(res.data, { width: image.width, height: image.height });
     if (!ir.elements.length) throw new Error('Nothing was recognized in this image.');
-    set({ parseIssues: issues, phase: get().aiReview ? 'reviewing' : 'preview' });
+    set({ parseIssues: [...issues, ...((ir.notes ?? []).map((n) => ({ severity: 'info' as const, code: 'model-note', message: n })))], phase: get().aiReview ? 'reviewing' : 'preview' });
     let cur = await rebuild(ir);
     native.log(runId, '02-ir.json', { ir, parseIssues: issues, validation: cur.report });
 
     // AI review: compare original vs rendering; apply its patches; at most MAX_REVIEW_ROUNDS rounds.
+    // A local model call takes ~1-2 minutes, so with Ollama the review only runs when the deterministic checks
+    // found a problem (errors or warnings); a clean result goes straight to the user's review list.
     for (let round = 1; get().aiReview && round <= MAX_REVIEW_ROUNDS; round++) {
       if (get().sourceId === null) return; // dialog closed
       if (!cur.shot) break;
+      if (local && cur.report.counts.error + cur.report.counts.warning === 0) {
+        set({ rounds: [...get().rounds, { round, ok: true, summary: 'Skipped: the automatic checks found no problems (saves a local model call).', patches: [], before: cur.report.counts, ms: 0, skipped: true }] });
+        break;
+      }
       const rr = await native.review({
         runId, round, original: img, rendering: cur.shot, ir: get().ir!, issues: issueLines(cur.report), schema: REVIEW_SCHEMA,
       });

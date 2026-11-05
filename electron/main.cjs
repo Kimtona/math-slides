@@ -126,6 +126,12 @@ ipcMain.handle('print-to-pdf', async (event, suggestedName) => {
     preferCSSPageSize: true, // @page { size: 1280px 720px } = 13.333 × 7.5 in
     margins: { marginType: 'none' },
   });
+  // Automated tests only: write into this folder instead of asking (unset in normal use).
+  if (process.env.MATHSLIDES_TEST_PDF_DIR) {
+    const target = path.join(process.env.MATHSLIDES_TEST_PDF_DIR, path.basename(suggestedName || 'slides.pdf'));
+    fs.writeFileSync(target, data);
+    return target;
+  }
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
     defaultPath: path.join(app.getPath('documents'), suggestedName || 'slides.pdf'),
     filters: [{ name: 'PDF', extensions: ['pdf'] }],

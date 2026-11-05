@@ -53,3 +53,39 @@ Fix each real error with a patch on the JSON: "update" (id + only the fields to 
 Set ok = true and patches = [] when the conversion is faithful.`;
 
 module.exports = { RECOGNIZE_SYSTEM, RECOGNIZE_USER, REVIEW_SYSTEM };
+
+// ---------- local model (Ollama, Qwen2.5-VL class) ----------
+// Small local VLMs regurgitated the long prompt above and ignored normalized coordinates (Qwen2.5-VL is trained on
+// absolute pixel boxes, `bbox_2d: [x1, y1, x2, y2]`). They get a shorter prompt and a flat format in pixels;
+// electron/sketch-local.cjs converts it to the shared IR deterministically.
+
+const LOCAL_RECOGNIZE_SYSTEM = `You read hand-drawn presentation slides and list what is drawn, as JSON. You copy; you never invent.`;
+
+function localRecognizeUser(width, height) {
+  return `This image is ${width}×${height} pixels. List every separate thing drawn on it.
+
+For each element give:
+- "id": short unique id (e1, e2, ...)
+- "type": one of
+  "title" = the heading of the slide;
+  "text" = a handwritten note or word that is not inside a shape;
+  "math" = a formula; "content" is its LaTeX. Use LaTeX commands, not Unicode: Greek letters as \\theta \\pi \\tau, \\nabla, \\log, \\cdot, and double-struck letters as \\mathbb{E}. Keep each symbol as written (lowercase stays lowercase).
+  "circle" or "rectangle" = a drawn shape; "content" is the text written inside it, or "";
+  "arrow" = a stroke with an arrowhead; "line" = a stroke without arrowhead (for example a tick from a note to a term).
+- "bbox_2d": [x1, y1, x2, y2] in pixels of this image, tightly around the ink.
+- "content": the exact text or LaTeX (arrows and lines: "").
+- "color": ink color: "black", "blue", "red" or "green".
+- arrows and lines: "points": [tail_x, tail_y, tip_x, tip_y] in pixels, and "connects": [id at the tail, id at the tip] ("" if none).
+- notes: "explains": the id of the formula, shape or arrow the note belongs to ("" if none).
+- "unsure": "" if you can read it clearly, otherwise say what is unclear.
+
+Rules:
+- One element per drawn thing. Notes written in different places are different elements. Lines of one note belong together, separated by "\\n".
+- Copy text exactly as written, in its own language (Korean stays Korean). Do not translate, fix spelling, complete or add anything.
+- Only list things that are really drawn. Ignore grid lines, ruled lines, paper texture and shadows.
+- In JSON strings write every LaTeX backslash as \\\\ (for example "\\\\nabla").
+- Answer with compact JSON on a single line, without indentation.`;
+}
+
+module.exports.LOCAL_RECOGNIZE_SYSTEM = LOCAL_RECOGNIZE_SYSTEM;
+module.exports.localRecognizeUser = localRecognizeUser;

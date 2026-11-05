@@ -113,6 +113,46 @@ try {
     const p = boundaryPoint({ shape: 'ellipse', x: 0, y: 0, w: 200, h: 100 }, { x: 500, y: 50 });
     assert.ok(Math.abs(p.x - 204) < 0.01 && Math.abs(p.y - 50) < 0.01, 'ellipse boundary point');
   }
+  // ---- Local-model (Ollama) output format → IR (electron/sketch-local.cjs) ----
+  {
+    const { createRequire } = await import('node:module');
+    const { localToModelIR, repairLatex, wrapInlineCommands } = createRequire(import.meta.url)(path.join(root, 'electron/sketch-local.cjs'));
+    // Unescaped backslashes: JSON.parse made control characters; a leading real newline stays whitespace.
+    assert.equal(repairLatex(JSON.parse('{"c":"\\nabla_\\theta \\frac{a}{b}"}').c.replace(/\\\\/g, '\\')), '\\nabla_\\theta \\frac{a}{b}');
+    assert.equal(repairLatex('\nabla_\theta \frac{a}{b} \beta'.replace(/\\n/, '\n').replace(/\\t/, '\t').replace(/\\f/, '\f').replace(/\\b/, '\b')), '\\nabla_\\theta \\frac{a}{b} \\beta');
+    assert.equal(repairLatex('\n\\nabla_{\\theta}J'), '\\nabla_{\\theta}J', 'real leading newline is whitespace');
+    assert.equal(wrapInlineCommands('\\rightarrow 행동'), '$\\rightarrow$ 행동');
+    const local = { elements: [
+      { id: 'c1', type: 'circle', bbox_2d: [100, 100, 300, 300], content: 'A' },
+      { id: 'a1', type: 'arrow', bbox_2d: [300, 190, 500, 210], content: '', points: [300, 200, 500, 200], connects: ['c1', 'c2'] },
+      { id: 'c2', type: 'circle', bbox_2d: [500, 100, 700, 300], content: 'B' },
+      { id: 'w1', type: 'text', bbox_2d: [100, 400, 140, 440], content: '이', color: 'red' },
+      { id: 'w2', type: 'text', bbox_2d: [150, 402, 300, 442], content: 'action의', color: 'red' },
+      { id: 'l2', type: 'text', bbox_2d: [100, 450, 400, 490], content: '확률을 어떻게 바꿀까', color: 'red', explains: 'm1' },
+      { id: 'm1', type: 'math', bbox_2d: [100, 320, 700, 380], content: 'x^2' },
+      { id: 'bad', type: 'table', bbox_2d: [0, 0, 1, 1], content: '' },
+      { id: 'empty', type: 'text', bbox_2d: [0, 0, 10, 10], content: '' },
+    ] };
+    const r = localToModelIR(local, 800, 600);
+    const byId = Object.fromEntries(r.elements.map((e) => [e.id, e]));
+    assert.equal(byId.c1.kind, 'shape'); assert.equal(byId.c1.shape, 'ellipse'); assert.equal(byId.c1.text, 'A');
+    assert.equal(byId.a1.fromId, 'c1'); assert.equal(byId.a1.toId, 'c2');
+    assert.equal(byId.w1.text, '이 action의\n확률을 어떻게 바꿀까', 'same-line words joined, then stacked line merged');
+    assert.ok(!byId.w2 && !byId.l2, 'merged elements removed');
+    assert.ok(byId.w1.review?.needed, 'Korean text from a local model is offered for review');
+    assert.ok(byId.m1.review?.needed, 'equations from a local model are offered for review');
+    assert.ok(!byId.bad && !byId.empty && r.notes.length >= 2, 'invalid/empty elements dropped with a note, not invented');
+    assert.ok(Math.abs(byId.c1.bbox.x - 125) < 1e-9 && Math.abs(byId.c1.bbox.w - 250) < 1e-9, 'pixels → 0..1000');
+    // Regression (GUI run on a wide 1437×559 image): two notes on one line, far apart, must NOT be joined.
+    const wide = localToModelIR({ elements: [
+      { id: 'n1', type: 'text', bbox_2d: [465, 325, 778, 383], content: '그 action의', color: 'red' },
+      { id: 'n2', type: 'text', bbox_2d: [935, 293, 1130, 390], content: '이 action의', color: 'red' },
+    ] }, 1437, 559);
+    assert.deepEqual(wide.elements.map((e) => e.text), ['그 action의', '이 action의'], 'separate notes on one line stay separate');
+    const { ir, issues } = parseIR(r, { width: 800, height: 600 });
+    assert.deepEqual(issues, [], 'local output converts to a valid IR');
+    assert.equal(validateSketch(ir, irToElements(ir)).counts.error, 0);
+  }
   console.log('sketch-convert: all checks passed');
 } finally {
   await server.close();

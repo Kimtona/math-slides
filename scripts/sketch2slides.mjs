@@ -3,10 +3,11 @@
  * Sketch-to-Slides from the command line (no GUI): image → Claude recognition → IR → MathSlides elements →
  * deterministic validation → a .mslides file you can open in MathSlides.
  *
- *   node scripts/sketch2slides.mjs <image.png|jpg> [--out <dir>] [--model <id>]
+ *   node scripts/sketch2slides.mjs <image.png|jpg> [--out <dir>] [--provider ollama|anthropic] [--model <id>] [--host <url>]
  *   node scripts/sketch2slides.mjs <image> --ir <saved.ir.json>   # re-run conversion offline from a saved model output
  *
- * Needs ANTHROPIC_API_KEY (or an `ant auth login` profile) unless --ir is given.
+ * Default provider: a local Ollama server (http://localhost:11434, model qwen2.5vl:7b) — no key, no cost.
+ * --provider anthropic needs ANTHROPIC_API_KEY (or an `ant auth login` profile).
  * The AI review loop needs a rendering of the slide and therefore runs in the desktop app only.
  * Outputs (in --out, default ./sketch-out): <name>.ir.json, <name>.mslides, <name>.report.json
  */
@@ -51,34 +52,74 @@ export function imageInfo(buf) {
   throw new Error('Unsupported image (use PNG, JPEG, GIF or WebP).');
 }
 
+/** Rescales by k with macOS `sips` (PNG, metadata such as EXIF/GPS dropped); other systems send the original. */
+async function resize(buf, info, k) {
+  if (Math.abs(k - 1) < 0.02 || process.platform !== 'darwin') return { buf, info };
+  const { execFileSync } = await import('node:child_process');
+  const tmp = await mkdtemp(path.join(tmpdir(), 'sketch2slides-'));
+  const src = path.join(tmp, 'in'), dst = path.join(tmp, 'sent.png');
+  await writeFile(src, buf);
+  const w = Math.max(1, Math.round(info.width * k)), h = Math.max(1, Math.round(info.height * k));
+  execFileSync('sips', ['-s', 'format', 'png', '-z', String(h), String(w), src, '--out', dst], { stdio: 'ignore' });
+  const out = await readFile(dst);
+  return { buf: out, info: imageInfo(out) };
+}
+
 const MAX_BYTES = 5 * 1024 * 1024; // API per-image limit; resize larger photos first
 
 async function main() {
   const a = args(process.argv.slice(2));
   const input = a._[0];
   if (!input) {
-    console.error('usage: node scripts/sketch2slides.mjs <image> [--out <dir>] [--model <id>] [--ir <saved.ir.json>]');
+    console.error('usage: node scripts/sketch2slides.mjs <image> [--out <dir>] [--provider ollama|anthropic] [--model <id>] [--host <url>] [--ir <saved.ir.json>]');
     process.exit(2);
   }
   const outDir = path.resolve(a.out ?? 'sketch-out');
   const name = path.basename(input).replace(/\.[^.]+$/, '');
-  const buf = await readFile(input);
-  const info = imageInfo(buf);
+  let buf = await readFile(input);
+  let info = imageInfo(buf);
   const t0 = Date.now();
 
   let raw, meta = {};
   if (a.ir) {
     const saved = JSON.parse(await readFile(a.ir, 'utf8'));
-    raw = saved.output ?? saved; // accepts a *.ir.json written by this tool, or a bare { elements }
-    meta = { source: 'saved IR', file: path.resolve(a.ir), model: saved.model ?? null };
+    saved.sentImage ??= saved.image; // the app's run log (01-recognize.json) calls it "image"
+    if (saved.localOutput && saved.sentImage) {
+      // Local-model run: redo the deterministic local-format → IR step too (picks up converter fixes).
+      const { localToModelIR } = require(path.join(root, 'electron/sketch-local.cjs'));
+      info = { ...info, width: saved.sentImage.width, height: saved.sentImage.height };
+      raw = localToModelIR(saved.localOutput, info.width, info.height);
+    } else {
+      raw = saved.output ?? saved; // a *.ir.json written by this tool, or a bare { elements }
+    }
+    meta = { source: 'saved IR', file: path.relative(process.cwd(), path.resolve(a.ir)), model: saved.model ?? null, ...(saved.localOutput ? { localOutput: saved.localOutput, sentImage: saved.sentImage } : {}) };
   } else {
     if (buf.length > MAX_BYTES) throw new Error(`Image is ${(buf.length / 1048576).toFixed(1)} MB; resize it below 5 MB first.`);
     const { recognize } = require(path.join(root, 'electron/sketch-ai.cjs'));
     const { MODEL_IR_SCHEMA } = await loadTs('/src/sketch/ir.ts');
-    process.stderr.write(`Recognizing ${path.basename(input)} (${info.width}×${info.height}) …\n`);
-    const r = await recognize({ apiKey: process.env.ANTHROPIC_API_KEY || undefined, model: a.model, schema: MODEL_IR_SCHEMA, image: { base64: buf.toString('base64'), mime: info.mime, width: info.width, height: info.height } });
+    const provider = a.provider ?? 'ollama';
+    // Same sizing as the app (local model: the area Ollama maps to 1024 visual tokens; Claude: ≤1600 px long edge),
+    // when macOS `sips` is available.
+    const { LOCAL_IMAGE_PIXELS } = require(path.join(root, 'electron/sketch-ollama.cjs'));
+    const k = provider === 'ollama' ? Math.sqrt(LOCAL_IMAGE_PIXELS / (info.width * info.height)) : Math.min(1, 1600 / Math.max(info.width, info.height));
+    ({ buf, info } = await resize(buf, info, k));
+    process.stderr.write(`Recognizing ${path.basename(input)} (${info.width}×${info.height}) with ${provider}${a.model ? ' ' + a.model : ''} …\n`);
+    let lastLog = 0;
+    const onProgress = (n) => { if (n - lastLog >= 100) { lastLog = n; process.stderr.write(`  … ${n} tokens\n`); } };
+    let r;
+    try {
+      r = await recognize({ onProgress,
+        provider, model: a.model, host: a.host, apiKey: process.env.ANTHROPIC_API_KEY || undefined, schema: MODEL_IR_SCHEMA,
+        image: { base64: buf.toString('base64'), mime: info.mime, width: info.width, height: info.height },
+      });
+    } catch (e) {
+      // Failed runs are evidence too: keep whatever the model produced.
+      await mkdir(outDir, { recursive: true });
+      await writeFile(path.join(outDir, `${name}.failed.json`), JSON.stringify({ provider, error: e.message, code: e.code, ms: Date.now() - t0, sentImage: { width: info.width, height: info.height }, usage: e.usage, rawText: e.raw }, null, 2));
+      throw e;
+    }
     raw = r.data;
-    meta = { source: 'model', model: r.model, ms: r.ms, usage: r.usage };
+    meta = { source: 'model', provider, model: r.model, ms: r.ms, usage: r.usage, sentImage: { width: info.width, height: info.height }, ...(r.raw !== undefined ? { rawText: r.raw } : {}), ...(r.local ? { localOutput: r.local } : {}) };
   }
 
   const { parseIR } = await loadTs('/src/sketch/ir.ts');
