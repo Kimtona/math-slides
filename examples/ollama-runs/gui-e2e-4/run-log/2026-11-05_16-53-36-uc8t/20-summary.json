@@ -1,0 +1,53 @@
+{
+  "model": "ollama/qwen2.5vl:7b",
+  "timings": {
+    "recognize": 96485,
+    "total": 96694
+  },
+  "rounds": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "fit",
+        "id": "t5",
+        "message": "Font reduced from 48 to 38 px to keep the text in place inside the image area."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t2",
+        "message": "Equation read by a local model: check the LaTeX against the sketch."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t3",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t5",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 4
+    },
+    "review": [
+      "t2",
+      "t3",
+      "t5"
+    ]
+  },
+  "parseIssues": [
+    {
+      "severity": "info",
+      "code": "model-note",
+      "message": "Merged 3 stacked line(s) into multi-line notes."
+    }
+  ]
+}

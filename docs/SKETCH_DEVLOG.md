@@ -172,3 +172,34 @@ errors (`R`, `그 action의`, `일관나중있다`, missing red tick lines) are 
 | positions/relations | layout preserved ✓; arrow attachments ✓; note→term relations not produced |
 | editable result | ✓ ordinary elements, LaTeX editable, Undo/Redo, save, PDF, PPTX |
 | time | 75–104 s per image (generation ~6.5 tok/s is ~80 % of it) |
+
+## 2026-11-06 — Stage 5: rebuild inside the image's frame (UX change)
+
+**Problem (observed in GUI run 2).** Converted elements were fitted into the whole content area of the slide, so on a
+slide with other content (the template's title/body placeholders) they covered it.
+
+**Change.** The IR's 0..1000 coordinates (of the visible, cropped image) now map linearly onto the image element's
+frame on the slide (`irToElements(ir, frame)`; x and y separately, so a stretched picture maps like the picture).
+Elements are kept inside that frame; nothing else on the slide is modified; Apply inserts the elements at the image's
+layer (stacking order of the other elements unchanged). The preview shows the result in place on the slide with the
+image area dashed. New checks: `frame` (an element leaves the image area) and `overlap-existing` (it covers an existing
+element). The command-line tool, which has no slide, keeps the content-area fit.
+
+**Tests.** `tests/sketch-convert.mjs`: full-image box = frame, IR center = frame center, stretched frame, the A→B→C
+fixture inside a lower-right frame with drawn positions and arrow attachments kept, overlap/frame checks.
+`tests/sketch-dialog.mjs` (fixture model): frame used, elements inside it, template title/body deep-equal before/after,
+inserted at the image layer, cropped image (only the visible half is sent; mapping onto the cropped frame).
+
+**GUI run 3 (`gui-e2e-3/`, real model, image placed below the template's title/body).** test1 105.0 s, test2 99.2 s.
+Both: every converted element inside the frame, nothing covers the title/body, other elements unchanged, Undo/Redo ✓,
+save/PDF/PPTX ✓. **New problem found:** in test2 the right-hand note was wider than the space left in the frame and
+was moved 107 px left, over the left-hand note (overlap warning 26 %). In the old full-slide placement there had been
+room to the right.
+
+**Fix.** A text box that does not fit between its written position and the frame edge now gets a smaller font
+(down to 16 px) instead of being moved; a `fit` note says so. Regression test with the real model's boxes from that run.
+
+**GUI run 4 (`gui-e2e-4/`).** test1 79.2 s, test2 96.7 s. 0 errors, 0 warnings for both; test2 note font 48 → 38 px,
+notes side by side as drawn; inside the frame, title/body not covered and unchanged, Undo/Redo ✓, `.mslides` (3 slides,
+17 elements), PDF (3 pages), PPTX (3 slides) ✓. (Recognition errors of the 7B model — `R`, `\text{E}_{\tau}`, π→τ,
+Korean — are unchanged by this work and still flagged for review.)

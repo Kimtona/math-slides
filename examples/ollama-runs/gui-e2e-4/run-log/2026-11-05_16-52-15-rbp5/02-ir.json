@@ -1,0 +1,155 @@
+{
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1309,
+      "height": 613
+    },
+    "elements": [
+      {
+        "id": "e1",
+        "kind": "shape",
+        "bbox": {
+          "x": 100.84033613445378,
+          "y": 163.1321370309951,
+          "w": 167.30328495034377,
+          "h": 321.37030995106034
+        },
+        "text": "A",
+        "shape": "ellipse",
+        "color": "black"
+      },
+      {
+        "id": "e2",
+        "kind": "arrow",
+        "bbox": {
+          "x": 286.4782276546983,
+          "y": 241.43556280587276,
+          "w": 100.84033613445376,
+          "h": 101.14192495921694
+        },
+        "color": "black",
+        "from": {
+          "x": 286.4782276546983,
+          "y": 339.31484502446983
+        },
+        "to": {
+          "x": 387.31856378915205,
+          "y": 339.31484502446983
+        },
+        "fromId": "e1",
+        "toId": "e3"
+      },
+      {
+        "id": "e3",
+        "kind": "shape",
+        "bbox": {
+          "x": 431.62719633307864,
+          "y": 176.1827079934747,
+          "w": 169.59511077158146,
+          "h": 303.4257748776509
+        },
+        "text": "B",
+        "shape": "ellipse",
+        "color": "black"
+      },
+      {
+        "id": "e4",
+        "kind": "arrow",
+        "bbox": {
+          "x": 611.9174942704354,
+          "y": 290.3752039151713,
+          "w": 93.20091673032846,
+          "h": 99.51060358890697
+        },
+        "color": "black",
+        "from": {
+          "x": 611.9174942704354,
+          "y": 386.6231647634584
+        },
+        "to": {
+          "x": 705.1184110007639,
+          "y": 386.6231647634584
+        },
+        "fromId": "e3",
+        "toId": "e5"
+      },
+      {
+        "id": "e5",
+        "kind": "shape",
+        "bbox": {
+          "x": 754.7746371275783,
+          "y": 215.33442088091354,
+          "w": 138.27349121466773,
+          "h": 269.1680261011419
+        },
+        "text": "C",
+        "shape": "ellipse",
+        "color": "black"
+      },
+      {
+        "id": "e6",
+        "kind": "line",
+        "bbox": {
+          "x": 645.5309396485867,
+          "y": 432.300163132137,
+          "w": 15.278838808250612,
+          "h": 244.69820554649272
+        },
+        "color": "black",
+        "from": {
+          "x": 653.170359052712,
+          "y": 432.300163132137
+        },
+        "to": {
+          "x": 653.170359052712,
+          "y": 676.9983686786297
+        }
+      },
+      {
+        "id": "e7",
+        "kind": "text",
+        "bbox": {
+          "x": 556.1497326203208,
+          "y": 714.5187601957585,
+          "w": 133.68983957219257,
+          "h": 153.34420880913547
+        },
+        "text": "'중요'",
+        "role": "body",
+        "color": "black",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "'중요'"
+        }
+      }
+    ]
+  },
+  "parseIssues": [
+    {
+      "severity": "warning",
+      "code": "geometry",
+      "id": "e6",
+      "message": "Arrow/line endpoints missing; derived from its bounding box."
+    }
+  ],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e7",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "review": [
+      "e7"
+    ]
+  }
+}

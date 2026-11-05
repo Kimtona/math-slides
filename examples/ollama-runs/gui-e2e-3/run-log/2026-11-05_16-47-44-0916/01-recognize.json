@@ -1,0 +1,241 @@
+{
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 104901,
+  "usage": {
+    "input_tokens": 1542,
+    "output_tokens": 507,
+    "load_ms": 8695,
+    "prompt_ms": 15523,
+    "eval_ms": 80531
+  },
+  "stopReason": "stop",
+  "image": {
+    "width": 1309,
+    "height": 613
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"e1\",\n      \"type\": \"circle\",\n      \"bbox_2d\": [132, 100, 351, 297],\n      \"content\": \"A\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e2\",\n      \"type\": \"arrow\",\n      \"bbox_2d\": [375, 148, 507, 210],\n      \"content\": \"\\\\rightarrow\",\n      \"color\": \"black\",\n      \"points\": [375, 200, 507, 200],\n      \"connects\": [\"e1\", \"e3\"]\n    },\n    {\n      \"id\": \"e3\",\n      \"type\": \"circle\",\n      \"bbox_2d\": [565, 108, 787, 294],\n      \"content\": \"B\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e4\",\n      \"type\": \"arrow\",\n      \"bbox_2d\": [801, 178, 923, 239],\n      \"content\": \"\\\\rightarrow\",\n      \"color\": \"black\",\n      \"points\": [801, 210, 923, 210],\n      \"connects\": [\"e3\", \"e5\"]\n    },\n    {\n      \"id\": \"e5\",\n      \"type\": \"circle\",\n      \"bbox_2d\": [988, 132, 1169, 297],\n      \"content\": \"C\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e6\",\n      \"type\": \"line\",\n      \"bbox_2d\": [845, 265, 865, 415],\n      \"content\": \"|\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e7\",\n      \"type\": \"text\",\n      \"bbox_2d\": [728, 438, 903, 532],\n      \"content\": \"'중요'\",\n      \"color\": \"black\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "e1",
+        "type": "circle",
+        "bbox_2d": [
+          132,
+          100,
+          351,
+          297
+        ],
+        "content": "A",
+        "color": "black"
+      },
+      {
+        "id": "e2",
+        "type": "arrow",
+        "bbox_2d": [
+          375,
+          148,
+          507,
+          210
+        ],
+        "content": "\\rightarrow",
+        "color": "black",
+        "points": [
+          375,
+          200,
+          507,
+          200
+        ],
+        "connects": [
+          "e1",
+          "e3"
+        ]
+      },
+      {
+        "id": "e3",
+        "type": "circle",
+        "bbox_2d": [
+          565,
+          108,
+          787,
+          294
+        ],
+        "content": "B",
+        "color": "black"
+      },
+      {
+        "id": "e4",
+        "type": "arrow",
+        "bbox_2d": [
+          801,
+          178,
+          923,
+          239
+        ],
+        "content": "\\rightarrow",
+        "color": "black",
+        "points": [
+          801,
+          210,
+          923,
+          210
+        ],
+        "connects": [
+          "e3",
+          "e5"
+        ]
+      },
+      {
+        "id": "e5",
+        "type": "circle",
+        "bbox_2d": [
+          988,
+          132,
+          1169,
+          297
+        ],
+        "content": "C",
+        "color": "black"
+      },
+      {
+        "id": "e6",
+        "type": "line",
+        "bbox_2d": [
+          845,
+          265,
+          865,
+          415
+        ],
+        "content": "|",
+        "color": "black"
+      },
+      {
+        "id": "e7",
+        "type": "text",
+        "bbox_2d": [
+          728,
+          438,
+          903,
+          532
+        ],
+        "content": "'중요'",
+        "color": "black"
+      }
+    ]
+  },
+  "output": {
+    "elements": [
+      {
+        "id": "e1",
+        "bbox": {
+          "x": 100.84033613445378,
+          "y": 163.1321370309951,
+          "w": 167.30328495034377,
+          "h": 321.37030995106034
+        },
+        "color": "black",
+        "kind": "shape",
+        "shape": "ellipse",
+        "text": "A"
+      },
+      {
+        "id": "e2",
+        "bbox": {
+          "x": 286.4782276546983,
+          "y": 241.43556280587276,
+          "w": 100.84033613445376,
+          "h": 101.14192495921694
+        },
+        "color": "black",
+        "kind": "arrow",
+        "from": {
+          "x": 286.4782276546983,
+          "y": 326.2642740619902
+        },
+        "to": {
+          "x": 387.31856378915205,
+          "y": 326.2642740619902
+        },
+        "fromId": "e1",
+        "toId": "e3"
+      },
+      {
+        "id": "e3",
+        "bbox": {
+          "x": 431.62719633307864,
+          "y": 176.1827079934747,
+          "w": 169.59511077158146,
+          "h": 303.4257748776509
+        },
+        "color": "black",
+        "kind": "shape",
+        "shape": "ellipse",
+        "text": "B"
+      },
+      {
+        "id": "e4",
+        "bbox": {
+          "x": 611.9174942704354,
+          "y": 290.3752039151713,
+          "w": 93.20091673032846,
+          "h": 99.51060358890697
+        },
+        "color": "black",
+        "kind": "arrow",
+        "from": {
+          "x": 611.9174942704354,
+          "y": 342.5774877650897
+        },
+        "to": {
+          "x": 705.1184110007639,
+          "y": 342.5774877650897
+        },
+        "fromId": "e3",
+        "toId": "e5"
+      },
+      {
+        "id": "e5",
+        "bbox": {
+          "x": 754.7746371275783,
+          "y": 215.33442088091354,
+          "w": 138.27349121466773,
+          "h": 269.1680261011419
+        },
+        "color": "black",
+        "kind": "shape",
+        "shape": "ellipse",
+        "text": "C"
+      },
+      {
+        "id": "e6",
+        "bbox": {
+          "x": 645.5309396485867,
+          "y": 432.300163132137,
+          "w": 15.278838808250612,
+          "h": 244.69820554649272
+        },
+        "color": "black",
+        "kind": "line"
+      },
+      {
+        "id": "e7",
+        "bbox": {
+          "x": 556.1497326203208,
+          "y": 714.5187601957585,
+          "w": 133.68983957219257,
+          "h": 153.34420880913547
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "'중요'",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "'중요'"
+        }
+      }
+    ],
+    "notes": []
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "replace": true,
+  "elements": [
+    {
+      "id": "D5-Pw2uTGD",
+      "type": "text",
+      "x": 121,
+      "y": 239,
+      "w": 511,
+      "h": 76,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "[policy gradient]"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 56,
+        "color": "#1F77B4",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "828i0JMwtb",
+      "type": "text",
+      "x": 163,
+      "y": 342,
+      "w": 879,
+      "h": 78,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "mathBlock",
+            "attrs": {
+              "latex": "\\nabla_{\\theta}J(\\theta) = \\text{E}_{\\tau}[\\text{R}(\\tau) \\text{.} \\nabla_{\\theta} \\text{log} \\tau_{\\theta}(a|s)]"
+            }
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 55,
+        "color": "#000000",
+        "align": "center",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "VzMtQjACHp",
+      "type": "text",
+      "x": 449,
+      "y": 439,
+      "w": 262,
+      "h": 108,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "그 action의"
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "일관나중있다"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 40,
+        "color": "#D62728",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "aw24tZcocv",
+      "type": "text",
+      "x": 644,
+      "y": 423,
+      "w": 536,
+      "h": 194,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "이 action의"
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "확률은 어떻게 바꿀까"
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "→ 행동확률의 gradient"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 48,
+        "color": "#D62728",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    }
+  ],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "t5",
+        "message": "Moved inside the image area (by -107, 0 px)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "t3",
+        "message": "Overlaps \"t5\" (26% of the smaller box)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t2",
+        "message": "Equation read by a local model: check the LaTeX against the sketch."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t3",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t5",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 1,
+      "info": 4
+    },
+    "review": [
+      "t2",
+      "t3",
+      "t5"
+    ]
+  }
+}

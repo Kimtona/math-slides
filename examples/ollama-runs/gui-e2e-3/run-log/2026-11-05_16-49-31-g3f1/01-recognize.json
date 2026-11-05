@@ -1,0 +1,180 @@
+{
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 98722,
+  "usage": {
+    "input_tokens": 1548,
+    "output_tokens": 514,
+    "load_ms": 16,
+    "prompt_ms": 14749,
+    "eval_ms": 83844
+  },
+  "stopReason": "stop",
+  "image": {
+    "width": 1437,
+    "height": 559
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"t1\",\n      \"type\": \"title\",\n      \"bbox_2d\": [28, 55, 470, 150],\n      \"content\": \"[policy gradient]\",\n      \"color\": \"blue\"\n    },\n    {\n      \"id\": \"t2\",\n      \"type\": \"math\",\n      \"bbox_2d\": [102, 189, 1238, 293],\n      \"content\": \"\\nabla_{\\theta}J(\\theta) = \\text{E}_{\\tau}[\\text{R}(\\tau) \\text{.} \\nabla_{\\theta} \\text{log} \\tau_{\\theta}(a|s)]\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t3\",\n      \"type\": \"text\",\n      \"bbox_2d\": [465, 325, 778, 383],\n      \"content\": \"그 action의\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"t4\",\n      \"type\": \"text\",\n      \"bbox_2d\": [465, 395, 778, 455],\n      \"content\": \"일관나중있다\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"t5\",\n      \"type\": \"text\",\n      \"bbox_2d\": [935, 293, 1130, 390],\n      \"content\": \"이 action의\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"t6\",\n      \"type\": \"text\",\n      \"bbox_2d\": [935, 395, 1373, 455],\n      \"content\": \"확률은 어떻게 바꿀까\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"t7\",\n      \"type\": \"text\",\n      \"bbox_2d\": [868, 490, 1426, 560],\n      \"content\": \"\\u2192 행동확률의 gradient\",\n      \"color\": \"red\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "t1",
+        "type": "title",
+        "bbox_2d": [
+          28,
+          55,
+          470,
+          150
+        ],
+        "content": "[policy gradient]",
+        "color": "blue"
+      },
+      {
+        "id": "t2",
+        "type": "math",
+        "bbox_2d": [
+          102,
+          189,
+          1238,
+          293
+        ],
+        "content": "\nabla_{\theta}J(\theta) = \text{E}_{\tau}[\text{R}(\tau) \text{.} \nabla_{\theta} \text{log} \tau_{\theta}(a|s)]",
+        "color": "black"
+      },
+      {
+        "id": "t3",
+        "type": "text",
+        "bbox_2d": [
+          465,
+          325,
+          778,
+          383
+        ],
+        "content": "그 action의",
+        "color": "red"
+      },
+      {
+        "id": "t4",
+        "type": "text",
+        "bbox_2d": [
+          465,
+          395,
+          778,
+          455
+        ],
+        "content": "일관나중있다",
+        "color": "red"
+      },
+      {
+        "id": "t5",
+        "type": "text",
+        "bbox_2d": [
+          935,
+          293,
+          1130,
+          390
+        ],
+        "content": "이 action의",
+        "color": "red"
+      },
+      {
+        "id": "t6",
+        "type": "text",
+        "bbox_2d": [
+          935,
+          395,
+          1373,
+          455
+        ],
+        "content": "확률은 어떻게 바꿀까",
+        "color": "red"
+      },
+      {
+        "id": "t7",
+        "type": "text",
+        "bbox_2d": [
+          868,
+          490,
+          1426,
+          560
+        ],
+        "content": "→ 행동확률의 gradient",
+        "color": "red"
+      }
+    ]
+  },
+  "output": {
+    "elements": [
+      {
+        "id": "t1",
+        "bbox": {
+          "x": 19.45024356297843,
+          "y": 98.21428571428572,
+          "w": 307.0359876727309,
+          "h": 169.6428571428571
+        },
+        "color": "blue",
+        "kind": "text",
+        "text": "[policy gradient]",
+        "role": "title"
+      },
+      {
+        "id": "t2",
+        "bbox": {
+          "x": 70.85445869370713,
+          "y": 337.5,
+          "w": 789.1241674122678,
+          "h": 185.7142857142859
+        },
+        "color": "black",
+        "kind": "math",
+        "latex": "\\nabla_{\\theta}J(\\theta) = \\text{E}_{\\tau}[\\text{R}(\\tau) \\text{.} \\nabla_{\\theta} \\text{log} \\tau_{\\theta}(a|s)]",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+          "transcribed": "\\nabla_{\\theta}J(\\theta) = \\text{E}_{\\tau}[\\text{R}(\\tau) \\text{.} \\nabla_{\\theta} \\text{log} \\tau_{\\theta}(a|s)]"
+        }
+      },
+      {
+        "id": "t3",
+        "bbox": {
+          "x": 323.01297345660606,
+          "y": 580.3571428571429,
+          "w": 217.42593697186595,
+          "h": 232.14285714285722
+        },
+        "color": "red",
+        "kind": "text",
+        "text": "그 action의\n일관나중있다",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "그 action의\n일관나중있다"
+        }
+      },
+      {
+        "id": "t5",
+        "bbox": {
+          "x": 602.9575504523312,
+          "y": 523.2142857142859,
+          "w": 387.61556814792743,
+          "h": 476.7857142857141
+        },
+        "color": "red",
+        "kind": "text",
+        "text": "이 action의\n확률은 어떻게 바꿀까\n→ 행동확률의 gradient",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "이 action의\n확률은 어떻게 바꿀까\n→ 행동확률의 gradient"
+        }
+      }
+    ],
+    "notes": [
+      "Merged 3 stacked line(s) into multi-line notes."
+    ]
+  }
+}

@@ -140,6 +140,12 @@ errors in testing and costs 1–2 minutes); the checkbox turns it on.
 3. Look at **Check these**: equations, and anything the model could not read with certainty. For an ambiguous symbol you get *As written* (what is literally on the page, used by default) and *Inferred* (the model's reading from context, e.g. a probable typo). You can edit any text or LaTeX right there.
 4. **Apply** replaces the image with the elements (one `⌘Z` brings the image back); **Apply, keep image** keeps it; **Cancel** changes nothing.
 
+The elements are rebuilt **where the image is**: inside its frame on the slide, in the same relative positions (a cropped
+image uses its visible part; a stretched one maps like the picture). Nothing else on the slide is moved or changed, so
+place or resize the sketch where you want the result before converting. The preview shows the slide with the image area
+dashed; *Checks* warns if something would leave that area or cover existing content. Text that needs more room than the
+handwriting gets a slightly smaller font rather than being moved onto its neighbours.
+
 ### How it works
 
 ```text
@@ -149,8 +155,8 @@ image ─► vision model (Ollama or Claude, JSON) ─► IR ─► converter �
 ```
 
 - **IR** (`src/sketch/ir.ts`): elements with kind (`text`/`math`/`shape`/`arrow`/`line`), coordinates normalized 0..1000, text or LaTeX, arrow endpoints and the ids they attach to, relations (`inside`, `annotates`), role (title/label/annotation/body), ink color, and a review flag. The flag is *not* a probability; it only marks what a human should check. The model never writes `.mslides` JSON.
-- **Converter** (`src/sketch/convert.ts`): one uniform scale fits the sketch's content into the slide (layout and aspect ratio kept, nothing leaves the slide); equation size from MathJax's real typeset size; text inside a shape becomes the shape's text; arrows attached to shapes start and end on their outlines. No auto-beautify (alignment, spacing) yet.
-- **Checks** (`src/sketch/validate.ts`): structure, slide bounds, LaTeX that does not render, unsupported elements, unintended overlaps (labels in shapes, notes on what they annotate and connectors are allowed to touch).
+- **Converter** (`src/sketch/convert.ts`): IR coordinates map onto the image's frame on the slide (the command-line tool, which has no slide, fits the content into the slide instead); equation size from MathJax's real typeset size; text inside a shape becomes the shape's text; arrows attached to shapes start and end on their outlines. No auto-beautify (alignment, spacing) yet.
+- **Checks** (`src/sketch/validate.ts`): structure, slide bounds, leaving the image area, covering existing slide content, LaTeX that does not render, unsupported elements, unintended overlaps (labels in shapes, notes on what they annotate and connectors are allowed to touch).
 - **AI review**: a second request compares the original with a screenshot of the converted slide (+ the IR and the check results) and returns patches for real conversion errors only, never "improvements" to the writer's content.
 - Prompts: `electron/sketch-prompts.cjs` (Claude prompt + a shorter local-model prompt). Model calls: `electron/sketch-ai.cjs` (Claude) and `electron/sketch-ollama.cjs` (Ollama); the local model's flat pixel format is converted to the IR by `electron/sketch-local.cjs`. Settings, key storage and IPC: `electron/sketch-main.cjs`.
 
