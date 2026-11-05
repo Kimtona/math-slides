@@ -203,3 +203,54 @@ room to the right.
 notes side by side as drawn; inside the frame, title/body not covered and unchanged, Undo/Redo ✓, `.mslides` (3 slides,
 17 elements), PDF (3 pages), PPTX (3 slides) ✓. (Recognition errors of the 7B model — `R`, `\text{E}_{\tau}`, π→τ,
 Korean — are unchanged by this work and still flagged for review.)
+
+## 2026-11-06 — Stage 6: LaTeX rendering of a paper capture (PPO / GRPO)
+
+**Report.** Converting a screenshot of the GRPO paper (§4.1.1, `examples/sketches/ppo-grpo.png`) showed inline math as
+`¥(π_{θ}¥)` / `₩(π_{θ}₩)`, and the PPO objective started with a stray "(".
+
+**Reproduced before changing code** (same model, current code): `examples/latex-fix/before/` — CLI run 36.7 s
+(`ppo-grpo.ir.json` keeps the model text), `ppo-grpo-cli.png` render, and a real-model GUI run (`before/gui/`, 51.7 s)
+whose applied slide shows the same `₩(π_{θ}₩)` and two text boxes extending beyond the image area (x 8–1272).
+
+**Tracing the string through the pipeline** (repr of the actual strings):
+
+| stage | `π_θ` in the sentence | display equation start |
+|---|---|---|
+| model output (JSON) | `\(\pi_{\theta}\)` — correct LaTeX, `\(...\)` delimiters | `\\(J_{PPO}(\theta) = …` (an extra, mis-escaped delimiter) |
+| local → IR (`wrapInlineCommands`) | **`\($\pi$_{$\theta$}\)`** — commands inside the existing delimiters were wrapped again | unchanged |
+| text → nodes (`inlineNodes`) | only `$...$` was recognized → `\(`, `_{`, `}\)` stayed **plain text** | — |
+| rendering | plain-text backslash drawn as **₩** by NanumSquare (Korean fonts draw U+005C as ₩, Japanese ones as ¥): the data was intact, the glyph is the font's | MathJax: `\\` = line break, then "(" → stray "(" |
+
+So the model returned correct LaTeX; three MathSlides-side problems broke it:
+1. `inlineNodes` (`src/sketch/convert.ts`) knew only `$...$`. Now `$...$`, `$$...$$`, `\(...\)`, `\[...\]` become
+   `mathInline` nodes (the editor's existing MathJax inline math), content byte for byte; unbalanced delimiters stay text.
+2. `wrapInlineCommands` (`electron/sketch-local.cjs`, added in experiment 4) wrapped commands inside existing math.
+   Now it only touches text outside math spans.
+3. Display math kept its delimiters. `stripMathDelimiters` (`src/sketch/ir.ts`, all providers) removes `$`, `$$`,
+   `\(`, `\[`, the mis-escaped `\\(` and their closing forms — never content (a plain "(" stays).
+   Also: a literal `\n` in local-model text is a line break only when no letter follows (`\nabla`, `\neq` stay).
+
+**Sizes.** The paragraph came back as ONE line with a one-line box; the converter widened it to the whole slide.
+Now text that would need > 30 % font reduction keeps its font and **wraps within the image area** (`wrap` note);
+moderate overflow still shrinks (`fit`). Display equations are scaled by their real MathJax width to the available
+width (frame, never beyond the slide; down to 10 px, else reported as `frame`). MathJax 3's SVG output has no automatic
+line breaking, so long equations are scaled, not broken; the LaTeX is never changed.
+
+**Tests.** `tests/sketch-convert.mjs`: MathJax renders `\nabla_\theta`, `\mathbb{E}`, `\pi_{\theta}`, `\epsilon`, `A_t`,
+`\frac{a}{b}`, `\left[…\right]` and a combination (inline and display); every delimiter form → mathInline; inline math
+in a sentence leaves no delimiter in the text; wrapping only outside math; delimiter stripping keeps content; JSON round
+trip keeps every string; the **real PPO model output** (fixture `ppo-grpo.local.json`) in a frame: 6 inline equations
+(`\pi_{\theta}`, `\pi_{\theta_{old}}`, `q, o`, `\pi_{\theta_{old}}`, `\varepsilon`, `A_t`), the display LaTeX equal to the model's minus the
+stray delimiter, nothing outside the frame; long-equation scaling. `tests/sketch-latex.mjs` (Electron, replaying the
+real output): 6 inline + 1 display SVG, 0 MathJax errors, no raw LaTeX/delimiter text; measured DOM boxes inside the
+image area and the slide; title/body untouched; save → reopen identical LaTeX; PDF; PPTX alt text holds all 7 LaTeX
+strings. With the three source files reverted, this test fails at "six inline equations rendered as SVG"; with the fix
+it passes.
+
+**After.** Re-conversion of the same saved model output: `examples/latex-fix/after/ppo-grpo-cli.png`; GUI (replay):
+`after/gui/ppo-dialog-after.png`, `after/gui/ppo-applied-after.png`; **real model GUI run** (`after/gui-real/`): 73.9 s,
+0 errors, 0 warnings, nothing outside the image area, title/body not covered, all inline math rendered.
+
+**Recognition errors that remain (model, not rendering; prompts unchanged as requested):** `\mathcal{J}_{PPO}` read
+as `J_{PPO}`; the section number "4.1.1." dropped from the heading; paragraph boxes reported as one line high.

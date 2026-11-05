@@ -1,0 +1,194 @@
+{
+  "source": "model",
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 36348,
+  "usage": {
+    "input_tokens": 1548,
+    "output_tokens": 631,
+    "load_ms": 9,
+    "prompt_ms": 5807,
+    "eval_ms": 30461
+  },
+  "sentImage": {
+    "width": 1461,
+    "height": 550
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"t1\",\n      \"type\": \"title\",\n      \"bbox_2d\": [38, 40, 450, 70],\n      \"content\": \"From PPO to GRPO\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t2\",\n      \"type\": \"text\",\n      \"bbox_2d\": [38, 112, 1420, 150],\n      \"content\": \"Proximal Policy Optimization (PPO) (Schulman et al., 2017) is an actor-critic RL algorithm that is widely used in the RL fine-tuning stage of LLMs (Ouyang et al., 2022). In particular, it optimizes LLMs by maximizing the following surrogate objective:\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t3\",\n      \"type\": \"math\",\n      \"bbox_2d\": [105, 245, 1403, 315],\n      \"content\": \"\\\\\\\\(J_{PPO}(\\\\theta) = \\\\mathbb{E}[q \\\\sim P(Q), o \\\\sim \\\\pi_{\\\\theta_{old}}(O|q)] \\\\frac{1}{|o|} \\\\sum_{t=1}^{|o|} \\\\min \\\\left[ \\\\frac{\\\\pi_{\\\\theta}(o_t|q, o_{<t})}{\\\\pi_{\\\\theta_{old}}(o_t|q, o_{<t})} A_t, \\\\text{clip} \\\\left( \\\\frac{\\\\pi_{\\\\theta}(o_t|q, o_{<t})}{\\\\pi_{\\\\theta_{old}}(o_t|q, o_{<t})}, 1-\\\\varepsilon, 1+\\\\varepsilon \\\\right) A_t \\\\right],\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t4\",\n      \"type\": \"text\",\n      \"bbox_2d\": [105, 360, 1420, 390],\n      \"content\": \"where \\\\(\\\\pi_{\\\\theta}\\\\) and \\\\(\\\\pi_{\\\\theta_{old}}\\\\) are the current and old policy models, and \\\\(q, o\\\\) are questions and outputs sampled from the question dataset and the old policy \\\\(\\\\pi_{\\\\theta_{old}}\\\\), respectively. \\\\(\\\\varepsilon\\\\) is a clipping-related hyper-parameter introduced in PPO for stabilizing training. \\\\(A_t\\\\) is the advantage, which is computed by applying Generalized Advantage Estimation (GAE) (Schulman et al., 2015), based\",\n      \"color\": \"black\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "t1",
+        "type": "title",
+        "bbox_2d": [
+          38,
+          40,
+          450,
+          70
+        ],
+        "content": "From PPO to GRPO",
+        "color": "black"
+      },
+      {
+        "id": "t2",
+        "type": "text",
+        "bbox_2d": [
+          38,
+          112,
+          1420,
+          150
+        ],
+        "content": "Proximal Policy Optimization (PPO) (Schulman et al., 2017) is an actor-critic RL algorithm that is widely used in the RL fine-tuning stage of LLMs (Ouyang et al., 2022). In particular, it optimizes LLMs by maximizing the following surrogate objective:",
+        "color": "black"
+      },
+      {
+        "id": "t3",
+        "type": "math",
+        "bbox_2d": [
+          105,
+          245,
+          1403,
+          315
+        ],
+        "content": "\\\\(J_{PPO}(\\theta) = \\mathbb{E}[q \\sim P(Q), o \\sim \\pi_{\\theta_{old}}(O|q)] \\frac{1}{|o|} \\sum_{t=1}^{|o|} \\min \\left[ \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})} A_t, \\text{clip} \\left( \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})}, 1-\\varepsilon, 1+\\varepsilon \\right) A_t \\right],",
+        "color": "black"
+      },
+      {
+        "id": "t4",
+        "type": "text",
+        "bbox_2d": [
+          105,
+          360,
+          1420,
+          390
+        ],
+        "content": "where \\(\\pi_{\\theta}\\) and \\(\\pi_{\\theta_{old}}\\) are the current and old policy models, and \\(q, o\\) are questions and outputs sampled from the question dataset and the old policy \\(\\pi_{\\theta_{old}}\\), respectively. \\(\\varepsilon\\) is a clipping-related hyper-parameter introduced in PPO for stabilizing training. \\(A_t\\) is the advantage, which is computed by applying Generalized Advantage Estimation (GAE) (Schulman et al., 2015), based",
+        "color": "black"
+      }
+    ]
+  },
+  "totalMs": 36718,
+  "parseIssues": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "fit",
+        "id": "t2",
+        "message": "Font reduced from 24 to 16 px to keep the text in place inside the image area."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "t2",
+        "message": "Moved inside the slide (by -76, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "fit",
+        "id": "t4",
+        "message": "Font reduced from 20 to 16 px to keep the text in place inside the image area."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "t4",
+        "message": "Moved inside the slide (by -129, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t3",
+        "message": "Equation read by a local model: check the LaTeX against the sketch."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 5
+    },
+    "review": [
+      "t3"
+    ]
+  },
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1461,
+      "height": 550
+    },
+    "elements": [
+      {
+        "id": "t1",
+        "kind": "text",
+        "bbox": {
+          "x": 26.009582477754964,
+          "y": 72.72727272727272,
+          "w": 281.9986310746064,
+          "h": 54.54545454545455
+        },
+        "text": "From PPO to GRPO",
+        "role": "title",
+        "color": "black"
+      },
+      {
+        "id": "t2",
+        "kind": "text",
+        "bbox": {
+          "x": 26.009582477754964,
+          "y": 203.63636363636365,
+          "w": 945.927446954141,
+          "h": 69.09090909090904
+        },
+        "text": "Proximal Policy Optimization (PPO) (Schulman et al., 2017) is an actor-critic RL algorithm that is widely used in the RL fine-tuning stage of LLMs (Ouyang et al., 2022). In particular, it optimizes LLMs by maximizing the following surrogate objective:",
+        "role": "body",
+        "color": "black"
+      },
+      {
+        "id": "t3",
+        "kind": "math",
+        "bbox": {
+          "x": 71.86858316221766,
+          "y": 445.45454545454544,
+          "w": 888.432580424367,
+          "h": 127.27272727272731
+        },
+        "latex": "\\\\(J_{PPO}(\\theta) = \\mathbb{E}[q \\sim P(Q), o \\sim \\pi_{\\theta_{old}}(O|q)] \\frac{1}{|o|} \\sum_{t=1}^{|o|} \\min \\left[ \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})} A_t, \\text{clip} \\left( \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})}, 1-\\varepsilon, 1+\\varepsilon \\right) A_t \\right],",
+        "role": "body",
+        "color": "black",
+        "review": {
+          "needed": true,
+          "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+          "transcribed": "\\\\(J_{PPO}(\\theta) = \\mathbb{E}[q \\sim P(Q), o \\sim \\pi_{\\theta_{old}}(O|q)] \\frac{1}{|o|} \\sum_{t=1}^{|o|} \\min \\left[ \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})} A_t, \\text{clip} \\left( \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})}, 1-\\varepsilon, 1+\\varepsilon \\right) A_t \\right],"
+        }
+      },
+      {
+        "id": "t4",
+        "kind": "text",
+        "bbox": {
+          "x": 71.86858316221766,
+          "y": 654.5454545454545,
+          "w": 900.0684462696784,
+          "h": 54.54545454545462
+        },
+        "text": "where \\($\\pi$_{$\\theta$}\\) and \\($\\pi$_{$\\theta$_{old}}\\) are the current and old policy models, and \\(q, o\\) are questions and outputs sampled from the question dataset and the old policy \\($\\pi$_{$\\theta$_{old}}\\), respectively. \\($\\varepsilon$\\) is a clipping-related hyper-parameter introduced in PPO for stabilizing training. \\(A_t\\) is the advantage, which is computed by applying Generalized Advantage Estimation (GAE) (Schulman et al., 2015), based",
+        "role": "body",
+        "color": "black"
+      }
+    ]
+  },
+  "map": {
+    "t1": [
+      "jHPgzQlO5s"
+    ],
+    "t2": [
+      "b6RiaMAMSZ"
+    ],
+    "t3": [
+      "KHGgr1N4JD"
+    ],
+    "t4": [
+      "GXRk18_GSX"
+    ]
+  }
+}

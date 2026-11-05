@@ -166,6 +166,22 @@ export const REVIEW_SCHEMA = {
 
 // ---------- validation ----------
 
+/**
+ * A display equation's LaTeX without surrounding math delimiters: `$...$`, `$$...$$`, `\(...\)`, `\[...\]`, and the
+ * mis-escaped `\\(` a model produced for the PPO capture (in TeX `\\` is a line break, so it rendered as a stray "(").
+ * Only delimiters are removed (also an unpaired opening or closing one); the formula itself is never changed, and a
+ * plain "(" without backslash is content.
+ */
+export function stripMathDelimiters(latex: string): string {
+  let s = latex.trim();
+  for (let i = 0; i < 3; i++) {
+    const before = s;
+    s = s.replace(/^(?:\\\\\(|\\\\\[|\\\(|\\\[|\$\$|\$)\s*/, '').replace(/\s*(?:\\\\\)|\\\\\]|\\\)|\\\]|\$\$|\$)$/, '').trim();
+    if (s === before) break;
+  }
+  return s;
+}
+
 export interface IRIssue {
   severity: 'error' | 'warning' | 'info';
   code: string;
@@ -206,7 +222,7 @@ export function parseIR(raw: unknown, image: { width: number; height: number }):
     if (!bbox) { drop('schema', 'Missing or invalid bounding box.'); continue; }
     const el: IRElement = { id, kind: e.kind, bbox };
     if (typeof e.text === 'string') el.text = e.text;
-    if (typeof e.latex === 'string') el.latex = e.latex.trim();
+    if (typeof e.latex === 'string') el.latex = stripMathDelimiters(e.latex);
     if (IR_SHAPES.includes(e.shape)) el.shape = e.shape;
     if (IR_ROLES.includes(e.role)) el.role = e.role;
     if (IR_COLORS.includes(e.color)) el.color = e.color;

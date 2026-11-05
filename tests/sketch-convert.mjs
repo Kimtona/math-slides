@@ -217,6 +217,75 @@ try {
     assert.deepEqual(issues, [], 'local output converts to a valid IR');
     assert.equal(validateSketch(ir, irToElements(ir)).counts.error, 0);
   }
+  // ---- LaTeX: delimiters, inline math in sentences, long equations, and verbatim preservation ----
+  {
+    const { inlineNodes, textToSketchDoc } = await server.ssrLoadModule('/src/sketch/convert.ts');
+    const { stripMathDelimiters } = await server.ssrLoadModule('/src/sketch/ir.ts');
+    const { renderTex } = await server.ssrLoadModule('/src/math/mathjax.ts');
+    const { createRequire } = await import('node:module');
+    const { wrapInlineCommands, localToModelIR } = createRequire(import.meta.url)(path.join(root, 'electron/sketch-local.cjs'));
+    const CASES = ['\\nabla_\\theta', '\\mathbb{E}', '\\pi_{\\theta}', '\\epsilon', 'A_t', '\\frac{a}{b}', '\\left[ x \\right]',
+      '\\nabla_\\theta J(\\theta) = \\mathbb{E}_{\\pi_\\theta}\\left[ \\frac{a}{b} A_t \\right]'];
+    for (const tex of CASES) assert.ok(!renderTex(tex, false).error && !renderTex(tex, true).error, 'MathJax renders ' + tex);
+
+    // Every inline delimiter becomes a mathInline node with the LaTeX byte for byte; text around it stays text.
+    const kinds = (nodes) => nodes.map((n) => n.type === 'text' ? 'T' : 'M:' + n.attrs.latex);
+    assert.deepEqual(kinds(inlineNodes('where \\(\\pi_{\\theta}\\) and $A_t$ and $$\\epsilon$$ and \\[\\frac{a}{b}\\] end')),
+      ['T', 'M:\\pi_{\\theta}', 'T', 'M:A_t', 'T', 'M:\\epsilon', 'T', 'M:\\frac{a}{b}', 'T']);
+    assert.deepEqual(kinds(inlineNodes('price is 5\\$ and \\(unclosed')), ['T'], 'unbalanced delimiters stay literal');
+    // Inline math inside a sentence: the note keeps its words and gets real equations, no stray backslashes.
+    const sentence = textToSketchDoc('The gradient \\(\\nabla_\\theta J(\\theta)\\) uses \\(\\mathbb{E}\\left[ A_t \\right]\\) with \\(\\epsilon\\).');
+    const flat = JSON.stringify(sentence);
+    assert.ok(!/"text":"[^"]*\\\\[(\\[]/.test(flat), 'no delimiter left in text: ' + flat);
+    assert.equal(sentence.content[0].content.filter((n) => n.type === 'mathInline').length, 3);
+
+    // Commands are wrapped only OUTSIDE existing math (regression: \(\pi_{\theta}\) became \($\pi$_{$\theta$}\)).
+    assert.equal(wrapInlineCommands('where \\(\\pi_{\\theta}\\) and \\rightarrow x'), 'where \\(\\pi_{\\theta}\\) and $\\rightarrow$ x');
+    assert.equal(wrapInlineCommands('$\\epsilon$ ok'), '$\\epsilon$ ok');
+    // Display-math delimiters are removed, content (incl. a plain leading parenthesis) is not.
+    assert.equal(stripMathDelimiters('\\\\(J_{PPO}(\\theta) = 1,'), 'J_{PPO}(\\theta) = 1,', 'mis-escaped \\\\( from the PPO run');
+    assert.equal(stripMathDelimiters('\\[ \\frac{a}{b} \\]'), '\\frac{a}{b}');
+    assert.equal(stripMathDelimiters('$$x^2$$'), 'x^2');
+    assert.equal(stripMathDelimiters('(a+b)^2'), '(a+b)^2', 'a real parenthesis is content');
+
+    // JSON round trip (save/load): every string survives exactly.
+    const ir0 = parseIR({ elements: CASES.map((tex, i) => ({ id: 'm' + i, kind: 'math', latex: tex, bbox: { x: 0, y: i * 110, w: 900, h: 100 } })) }, { width: 1000, height: 1000 }).ir;
+    const conv0 = irToElements(ir0);
+    const back = JSON.parse(JSON.stringify(conv0.elements));
+    assert.deepEqual(back.map((e) => e.doc.content[0].attrs.latex), CASES, 'LaTeX unchanged through conversion and JSON');
+
+    // The real PPO model output (fixture) in an image frame on the slide.
+    const fx = await fixture('ppo-grpo.local.json');
+    const local = localToModelIR(fx.localOutput, fx.sentImage.width, fx.sentImage.height);
+    const pIR = parseIR(local, fx.sentImage).ir;
+    const frame = { x: 100, y: 200, w: 1080, h: 406 };
+    const pc = irToElements(pIR, frame);
+    const tol = 2;
+    for (const el of pc.elements) assert.ok(el.x >= frame.x - tol && el.x + el.w <= frame.x + frame.w + tol, 'inside the image width: ' + JSON.stringify([el.x, el.w]));
+    const docs = JSON.stringify(pc.elements.map((e) => e.doc));
+    assert.ok(!docs.includes('\\\\(') && !docs.includes('$\\\\pi$'), 'no delimiter or double-wrapped math left in the text');
+    const inl = pc.elements.flatMap((e) => (e.doc?.content ?? []).flatMap((p) => p.content ?? [])).filter((n) => n.type === 'mathInline').map((n) => n.attrs.latex);
+    assert.deepEqual(inl, ['\\pi_{\\theta}', '\\pi_{\\theta_{old}}', 'q, o', '\\pi_{\\theta_{old}}', '\\varepsilon', 'A_t'], 'the paper sentence’s inline math');
+    const block = pc.elements.find((e) => e.doc?.content?.[0]?.type === 'mathBlock').doc.content[0].attrs.latex;
+    assert.ok(block.startsWith('J_{PPO}(\\theta) = \\mathbb{E}[q') && block.endsWith('A_t \\right],'), 'display LaTeX = model output minus the stray \\\\( delimiter');
+    const rep = validateSketch(pIR, pc, undefined, { frame });
+    assert.equal(rep.counts.error + rep.counts.warning, 0, 'no errors/warnings: ' + JSON.stringify(rep.issues.filter((i) => i.severity !== 'info')));
+
+    // A long display equation in a small frame is scaled to the frame width, LaTeX unchanged.
+    const eqOf = (n) => Array.from({ length: n }, (_, i) => `\\frac{\\pi_{\\theta}(o_${i})}{\\pi_{old}(o_${i})}`).join(' + ');
+    const placeEq = (tex, lf) => irToElements(parseIR({ elements: [{ id: 'L', kind: 'math', latex: tex, bbox: { x: 0, y: 0, w: 1000, h: 1000 } }] }, { width: lf.w, height: lf.h }).ir, lf);
+    const lf = { x: 700, y: 100, w: 400, h: 100 };
+    const longTex = eqOf(5);
+    const lc = placeEq(longTex, lf), lel = lc.elements[0];
+    assert.ok(lel.x >= lf.x - 1 && lel.x + lel.w <= lf.x + lf.w + 1, 'long equation fits the frame: ' + JSON.stringify([lel.x, lel.w, lel.style.fontSize]));
+    assert.ok(lc.issues.some((i) => i.code === 'fit'), 'scaling is reported');
+    assert.equal(lel.doc.content[0].attrs.latex, longTex, 'and its LaTeX is unchanged');
+    // Too long even at the smallest size: it may use more than the frame but never leaves the slide, and it is reported.
+    const xc = placeEq(eqOf(12), lf), xel = xc.elements[0];
+    assert.ok(xel.x >= 0 && xel.x + xel.w <= SLIDE_W, 'never beyond the slide: ' + JSON.stringify([xel.x, xel.w]));
+    const xIR = parseIR({ elements: [{ id: 'L', kind: 'math', latex: eqOf(12), bbox: { x: 0, y: 0, w: 1000, h: 1000 } }] }, { width: lf.w, height: lf.h }).ir;
+    assert.ok(validateSketch(xIR, xc, undefined, { frame: lf }).issues.some((i) => i.code === 'frame'), 'leaving the image area is reported');
+  }
   console.log('sketch-convert: all checks passed');
 } finally {
   await server.close();

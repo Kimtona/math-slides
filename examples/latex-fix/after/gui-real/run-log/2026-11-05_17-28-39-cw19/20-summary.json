@@ -1,0 +1,45 @@
+{
+  "model": "ollama/qwen2.5vl:7b",
+  "timings": {
+    "recognize": 73678,
+    "total": 73830
+  },
+  "rounds": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "wrap",
+        "id": "t2",
+        "message": "Text wraps within the image area (1050 px wide)."
+      },
+      {
+        "severity": "info",
+        "code": "wrap",
+        "id": "t3",
+        "message": "Text wraps within the image area (1050 px wide)."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "t3",
+        "message": "Moved inside the image area (by 0, -10 px)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "math1",
+        "message": "Equation read by a local model: check the LaTeX against the sketch."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 4
+    },
+    "review": [
+      "math1"
+    ]
+  },
+  "parseIssues": []
+}

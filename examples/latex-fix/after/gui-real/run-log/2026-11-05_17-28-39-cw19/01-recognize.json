@@ -1,0 +1,132 @@
+{
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 73678,
+  "usage": {
+    "input_tokens": 1548,
+    "output_tokens": 631,
+    "load_ms": 14,
+    "prompt_ms": 129,
+    "eval_ms": 73350
+  },
+  "stopReason": "stop",
+  "image": {
+    "width": 1461,
+    "height": 550
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"t1\",\n      \"type\": \"title\",\n      \"bbox_2d\": [40, 39, 1392, 75],\n      \"content\": \"From PPO to GRPO\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t2\",\n      \"type\": \"text\",\n      \"bbox_2d\": [40, 112, 1392, 148],\n      \"content\": \"Proximal Policy Optimization (PPO) (Schulman et al., 2017) is an actor-critic RL algorithm that is widely used in the RL fine-tuning stage of LLMs (Ouyang et al., 2022). In particular, it optimizes LLMs by maximizing the following surrogate objective:\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"math1\",\n      \"type\": \"math\",\n      \"bbox_2d\": [105, 245, 1378, 315],\n      \"content\": \"\\\\\\\\(J_{PPO}(\\\\theta) = \\\\mathbb{E}[q \\\\sim P(Q), o \\\\sim \\\\pi_{\\\\theta_{old}}(O|q)] \\\\frac{1}{|o|} \\\\sum_{t=1}^{|o|} \\\\min \\\\left[ \\\\frac{\\\\pi_{\\\\theta}(o_t|q, o_{<t})}{\\\\pi_{\\\\theta_{old}}(o_t|q, o_{<t})} A_t, \\\\text{clip} \\\\left( \\\\frac{\\\\pi_{\\\\theta}(o_t|q, o_{<t})}{\\\\pi_{\\\\theta_{old}}(o_t|q, o_{<t})}, 1-\\\\varepsilon, 1+\\\\varepsilon \\\\right) A_t \\\\right],\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t3\",\n      \"type\": \"text\",\n      \"bbox_2d\": [40, 362, 1392, 398],\n      \"content\": \"where \\\\(\\\\pi_{\\\\theta}\\\\) and \\\\(\\\\pi_{\\\\theta_{old}}\\\\) are the current and old policy models, and \\\\(q, o\\\\) are questions and outputs sampled from the question dataset and the old policy \\\\(\\\\pi_{\\\\theta_{old}}\\\\), respectively. \\\\(\\\\varepsilon\\\\) is a clipping-related hyper-parameter introduced in PPO for stabilizing training. \\\\(A_t\\\\) is the advantage, which is computed by applying Generalized Advantage Estimation (GAE) (Schulman et al., 2015), based\",\n      \"color\": \"black\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "t1",
+        "type": "title",
+        "bbox_2d": [
+          40,
+          39,
+          1392,
+          75
+        ],
+        "content": "From PPO to GRPO",
+        "color": "black"
+      },
+      {
+        "id": "t2",
+        "type": "text",
+        "bbox_2d": [
+          40,
+          112,
+          1392,
+          148
+        ],
+        "content": "Proximal Policy Optimization (PPO) (Schulman et al., 2017) is an actor-critic RL algorithm that is widely used in the RL fine-tuning stage of LLMs (Ouyang et al., 2022). In particular, it optimizes LLMs by maximizing the following surrogate objective:",
+        "color": "black"
+      },
+      {
+        "id": "math1",
+        "type": "math",
+        "bbox_2d": [
+          105,
+          245,
+          1378,
+          315
+        ],
+        "content": "\\\\(J_{PPO}(\\theta) = \\mathbb{E}[q \\sim P(Q), o \\sim \\pi_{\\theta_{old}}(O|q)] \\frac{1}{|o|} \\sum_{t=1}^{|o|} \\min \\left[ \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})} A_t, \\text{clip} \\left( \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})}, 1-\\varepsilon, 1+\\varepsilon \\right) A_t \\right],",
+        "color": "black"
+      },
+      {
+        "id": "t3",
+        "type": "text",
+        "bbox_2d": [
+          40,
+          362,
+          1392,
+          398
+        ],
+        "content": "where \\(\\pi_{\\theta}\\) and \\(\\pi_{\\theta_{old}}\\) are the current and old policy models, and \\(q, o\\) are questions and outputs sampled from the question dataset and the old policy \\(\\pi_{\\theta_{old}}\\), respectively. \\(\\varepsilon\\) is a clipping-related hyper-parameter introduced in PPO for stabilizing training. \\(A_t\\) is the advantage, which is computed by applying Generalized Advantage Estimation (GAE) (Schulman et al., 2015), based",
+        "color": "black"
+      }
+    ]
+  },
+  "output": {
+    "elements": [
+      {
+        "id": "t1",
+        "bbox": {
+          "x": 27.378507871321013,
+          "y": 70.9090909090909,
+          "w": 925.3935660506502,
+          "h": 65.45454545454544
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "From PPO to GRPO",
+        "role": "title"
+      },
+      {
+        "id": "t2",
+        "bbox": {
+          "x": 27.378507871321013,
+          "y": 203.63636363636365,
+          "w": 925.3935660506502,
+          "h": 65.45454545454547
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "Proximal Policy Optimization (PPO) (Schulman et al., 2017) is an actor-critic RL algorithm that is widely used in the RL fine-tuning stage of LLMs (Ouyang et al., 2022). In particular, it optimizes LLMs by maximizing the following surrogate objective:",
+        "role": "body"
+      },
+      {
+        "id": "math1",
+        "bbox": {
+          "x": 71.86858316221766,
+          "y": 445.45454545454544,
+          "w": 871.3210130047913,
+          "h": 127.27272727272731
+        },
+        "color": "black",
+        "kind": "math",
+        "latex": "\\\\(J_{PPO}(\\theta) = \\mathbb{E}[q \\sim P(Q), o \\sim \\pi_{\\theta_{old}}(O|q)] \\frac{1}{|o|} \\sum_{t=1}^{|o|} \\min \\left[ \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})} A_t, \\text{clip} \\left( \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})}, 1-\\varepsilon, 1+\\varepsilon \\right) A_t \\right],",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+          "transcribed": "\\\\(J_{PPO}(\\theta) = \\mathbb{E}[q \\sim P(Q), o \\sim \\pi_{\\theta_{old}}(O|q)] \\frac{1}{|o|} \\sum_{t=1}^{|o|} \\min \\left[ \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})} A_t, \\text{clip} \\left( \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})}, 1-\\varepsilon, 1+\\varepsilon \\right) A_t \\right],"
+        }
+      },
+      {
+        "id": "t3",
+        "bbox": {
+          "x": 27.378507871321013,
+          "y": 658.1818181818182,
+          "w": 925.3935660506502,
+          "h": 65.45454545454538
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "where \\(\\pi_{\\theta}\\) and \\(\\pi_{\\theta_{old}}\\) are the current and old policy models, and \\(q, o\\) are questions and outputs sampled from the question dataset and the old policy \\(\\pi_{\\theta_{old}}\\), respectively. \\(\\varepsilon\\) is a clipping-related hyper-parameter introduced in PPO for stabilizing training. \\(A_t\\) is the advantage, which is computed by applying Generalized Advantage Estimation (GAE) (Schulman et al., 2015), based",
+        "role": "body"
+      }
+    ],
+    "notes": []
+  }
+}

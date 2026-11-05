@@ -21,6 +21,8 @@ const LINE_HEIGHT = 1.35;
 const MIN_FONT = 16;
 const MAX_FONT = 72;
 const MIN_MATH_FONT = 20;
+/** Smallest font a long equation may be scaled to so that it fits its area (below this it is reported). */
+const MIN_FIT_MATH_FONT = 10;
 /** Gap between an arrow tip and the shape boundary it points at (px). */
 const CONNECT_GAP = 4;
 
@@ -110,15 +112,23 @@ export function textWidthEm(s: string): number {
   return w;
 }
 
-/** Splits `a $x^2$ b` into text and inline-math nodes. Unbalanced `$` stays literal text. */
+/**
+ * Inline-math delimiters accepted in text: `$...$`, `$$...$$`, `\(...\)` and `\[...\]` (models and papers use all of them;
+ * the editor's own syntax is `$...$`). The content between delimiters is kept byte for byte.
+ */
+const INLINE_MATH = /\$\$([^$]+?)\$\$|\$([^$]+?)\$|\\\(([\s\S]+?)\\\)|\\\[([\s\S]+?)\\\]/g;
+
+/** Splits `a $x^2$ b \(y\)` into text and inline-math (`mathInline`) nodes. Unbalanced delimiters stay literal text. */
 export function inlineNodes(line: string): PMNode[] {
   const nodes: PMNode[] = [];
-  const re = /\$([^$]+)\$/g;
+  const re = new RegExp(INLINE_MATH.source, 'g');
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(line))) {
+    const latex = (m[1] ?? m[2] ?? m[3] ?? m[4]).trim();
+    if (!latex) continue;
     if (m.index > last) nodes.push({ type: 'text', text: line.slice(last, m.index) });
-    nodes.push({ type: 'mathInline', attrs: { latex: m[1].trim() } });
+    nodes.push({ type: 'mathInline', attrs: { latex } });
     last = m.index + m[0].length;
   }
   if (last < line.length) nodes.push({ type: 'text', text: line.slice(last) });
@@ -184,20 +194,36 @@ function textElement(e: IRElement, pl: Placement, issues: IRIssue[]): TextElemen
   // (real GUI run: a right-hand note moved 107 px left over the left-hand note).
   const a = pl.area, cx = b.x + b.w / 2;
   const room = align === 'center' ? 2 * Math.min(cx - a.x, a.x + a.w - cx) : a.x + a.w - b.x;
+  let wrapTo = 0;
   if (widthEm * fontSize * 1.06 + 8 > room && room > 8) {
-    const fitted = Math.max(MIN_FONT, Math.floor((room - 8) / (widthEm * 1.06)));
-    if (fitted < fontSize) {
+    const fitted = Math.floor((room - 8) / (widthEm * 1.06));
+    if (fitted >= MIN_FONT && fitted >= fontSize * 0.7) {
       issues.push({ severity: 'info', code: 'fit', id: e.id, message: `Font reduced from ${fontSize} to ${fitted} px to keep the text in place inside the image area.` });
       fontSize = fitted;
+    } else {
+      // A paragraph (e.g. a paper's body text the model returned as one line): keep the font and wrap it
+      // within the area instead of shrinking it to nothing or widening it past the image (PPO capture).
+      wrapTo = room;
+      issues.push({ severity: 'info', code: 'wrap', id: e.id, message: `Text wraps within the image area (${Math.round(room)} px wide).` });
     }
   }
   const contentW = widthEm * fontSize;
-  // The written box, widened to what the typeset text needs (never narrowed: wrapping changes the layout).
-  const w = Math.max(b.w, contentW * 1.06 + 8);
-  const h = lines.length * fontSize * LINE_HEIGHT;
-  // Centered text keeps its written center; left-aligned text keeps its written left edge.
-  const x = align === 'center' ? b.x + b.w / 2 - w / 2 : b.x;
-  const y = b.y + b.h / 2 - h / 2;
+  let w: number, h: number, x: number, y: number;
+  if (wrapTo) {
+    w = wrapTo;
+    const usable = Math.max(1, w - 8);
+    const rows = lines.reduce((n, l) => n + Math.max(1, Math.ceil((lineWidthEm(l) * fontSize * 1.06) / usable)), 0);
+    h = rows * fontSize * LINE_HEIGHT;
+    x = align === 'center' ? cx - w / 2 : b.x;
+    y = b.y; // grows downward from where the text starts
+  } else {
+    // The written box, widened to what the typeset text needs (never narrowed: wrapping changes the layout).
+    w = Math.max(b.w, contentW * 1.06 + 8);
+    h = lines.length * fontSize * LINE_HEIGHT;
+    // Centered text keeps its written center; left-aligned text keeps its written left edge.
+    x = align === 'center' ? b.x + b.w / 2 - w / 2 : b.x;
+    y = b.y + b.h / 2 - h / 2;
+  }
   const box = keepInside({ x, y, w, h }, issues, e.id, pl.area);
   const el = newText(round(box.x), round(box.y), {
     w: round(box.w),
@@ -223,6 +249,14 @@ function mathElement(e: IRElement, pl: Placement, issues: IRIssue[]): TextElemen
     // (handwriting is usually taller than typeset math, so height gets some slack).
     const byW = b.w / m.widthEm, byH = (b.h * 1.15) / m.heightEm;
     fontSize = round(clamp(Math.min(byW, byH), MIN_MATH_FONT, MAX_FONT));
+    // Never wider than the placement area: a long display equation (e.g. the PPO objective) is scaled down by its
+    // real typeset width (MathJax) instead of running off the slide. The LaTeX itself is never changed.
+    const maxW = Math.min(pl.area.w, SLIDE_W - 16) - 24;
+    if (m.widthEm * fontSize > maxW) {
+      const fitted = Math.max(MIN_FIT_MATH_FONT, Math.floor(maxW / m.widthEm));
+      issues.push({ severity: 'info', code: 'fit', id: e.id, message: `Equation scaled from ${fontSize} to ${fitted} px to fit the available width.` });
+      fontSize = fitted;
+    }
     w = m.widthEm * fontSize + 24;
     h = (m.heightEm + 0.3) * fontSize;
   }

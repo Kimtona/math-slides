@@ -1,0 +1,69 @@
+{
+  "model": "ollama/qwen2.5vl:7b",
+  "timings": {
+    "recognize": 51606,
+    "total": 52047
+  },
+  "rounds": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "fit",
+        "id": "t2",
+        "message": "Font reduced from 22 to 16 px to keep the text in place inside the image area."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "t2",
+        "message": "Moved inside the image area (by -122, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "math1",
+        "message": "Moved inside the image area (by -5, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "fit",
+        "id": "t3",
+        "message": "Font reduced from 22 to 16 px to keep the text in place inside the image area."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "t3",
+        "message": "Moved inside the image area (by -122, 0 px)."
+      },
+      {
+        "severity": "warning",
+        "code": "frame",
+        "id": "t2",
+        "message": "Extends beyond the image area (may cover other content)."
+      },
+      {
+        "severity": "warning",
+        "code": "frame",
+        "id": "t3",
+        "message": "Extends beyond the image area (may cover other content)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "math1",
+        "message": "Equation read by a local model: check the LaTeX against the sketch."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 2,
+      "info": 6
+    },
+    "review": [
+      "math1"
+    ]
+  },
+  "parseIssues": []
+}

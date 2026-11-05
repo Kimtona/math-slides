@@ -1,0 +1,60 @@
+{
+ "_note": "REAL model output (ollama/qwen2.5vl:7b, 2026-11-06) for examples/sketches/ppo-grpo.png, kept verbatim as a regression fixture for LaTeX rendering. localOutput = the model JSON; sentImage = the image size the model saw.",
+ "model": "ollama/qwen2.5vl:7b",
+ "sentImage": {
+  "width": 1461,
+  "height": 550
+ },
+ "localOutput": {
+  "elements": [
+   {
+    "id": "t1",
+    "type": "title",
+    "bbox_2d": [
+     38,
+     40,
+     450,
+     70
+    ],
+    "content": "From PPO to GRPO",
+    "color": "black"
+   },
+   {
+    "id": "t2",
+    "type": "text",
+    "bbox_2d": [
+     38,
+     112,
+     1420,
+     150
+    ],
+    "content": "Proximal Policy Optimization (PPO) (Schulman et al., 2017) is an actor-critic RL algorithm that is widely used in the RL fine-tuning stage of LLMs (Ouyang et al., 2022). In particular, it optimizes LLMs by maximizing the following surrogate objective:",
+    "color": "black"
+   },
+   {
+    "id": "t3",
+    "type": "math",
+    "bbox_2d": [
+     105,
+     245,
+     1403,
+     315
+    ],
+    "content": "\\\\(J_{PPO}(\\theta) = \\mathbb{E}[q \\sim P(Q), o \\sim \\pi_{\\theta_{old}}(O|q)] \\frac{1}{|o|} \\sum_{t=1}^{|o|} \\min \\left[ \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})} A_t, \\text{clip} \\left( \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})}, 1-\\varepsilon, 1+\\varepsilon \\right) A_t \\right],",
+    "color": "black"
+   },
+   {
+    "id": "t4",
+    "type": "text",
+    "bbox_2d": [
+     105,
+     360,
+     1420,
+     390
+    ],
+    "content": "where \\(\\pi_{\\theta}\\) and \\(\\pi_{\\theta_{old}}\\) are the current and old policy models, and \\(q, o\\) are questions and outputs sampled from the question dataset and the old policy \\(\\pi_{\\theta_{old}}\\), respectively. \\(\\varepsilon\\) is a clipping-related hyper-parameter introduced in PPO for stabilizing training. \\(A_t\\) is the advantage, which is computed by applying Generalized Advantage Estimation (GAE) (Schulman et al., 2015), based",
+    "color": "black"
+   }
+  ]
+ }
+}

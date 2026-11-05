@@ -132,7 +132,11 @@ function registerSketchIPC() {
     if (!validImage(image)) return { ok: false, error: 'Invalid image.', code: 'image' };
     log(runId, '00-input.png', png(image.base64));
     if (FAKE) {
-      const { elements, notes } = JSON.parse(fs.readFileSync(FAKE, 'utf8'));
+      const fake = JSON.parse(fs.readFileSync(FAKE, 'utf8'));
+      // A recorded local-model output is replayed through the real local-format conversion.
+      const { elements, notes } = fake.localOutput
+        ? require('./sketch-local.cjs').localToModelIR(fake.localOutput, fake.sentImage.width, fake.sentImage.height)
+        : fake;
       log(runId, '01-recognize.json', { model: model(), output: { elements, notes } });
       return { ok: true, data: { elements, notes }, model: model(), ms: 0 };
     }

@@ -1,0 +1,248 @@
+{
+  "replace": true,
+  "elements": [
+    {
+      "id": "zARaW73ULg",
+      "type": "text",
+      "x": 130,
+      "y": 220,
+      "w": 999,
+      "h": 43,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "From PPO to GRPO"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 32,
+        "color": "#000000",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "gt3-iN9RE4",
+      "type": "text",
+      "x": 8,
+      "y": 285,
+      "w": 1264,
+      "h": 22,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "Proximal Policy Optimization (PPO) (Schulman et al., 2017) is an actor-critic RL algorithm that is widely used in the RL fine-tuning stage of LLMs (Ouyang et al., 2022). In particular, it optimizes LLMs by maximizing the following surrogate objective:"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 16,
+        "color": "#000000",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "CuwcvNrK3N",
+      "type": "text",
+      "x": 106,
+      "y": 369,
+      "w": 1074,
+      "h": 76,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "mathBlock",
+            "attrs": {
+              "latex": "\\\\(J_{PPO}(\\theta) = \\mathbb{E}[q \\sim P(Q), o \\sim \\pi_{\\theta_{old}}(O|q)] \\frac{1}{|o|} \\sum_{t=1}^{|o|} \\min \\left[ \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})} A_t, \\text{clip} \\left( \\frac{\\pi_{\\theta}(o_t|q, o_{<t})}{\\pi_{\\theta_{old}}(o_t|q, o_{<t})}, 1-\\varepsilon, 1+\\varepsilon \\right) A_t \\right],"
+            }
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 20,
+        "color": "#000000",
+        "align": "center",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "HxhUlhgi3D",
+      "type": "text",
+      "x": 8,
+      "y": 470,
+      "w": 1264,
+      "h": 22,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "where \\("
+              },
+              {
+                "type": "mathInline",
+                "attrs": {
+                  "latex": "\\pi"
+                }
+              },
+              {
+                "type": "text",
+                "text": "_{"
+              },
+              {
+                "type": "mathInline",
+                "attrs": {
+                  "latex": "\\theta"
+                }
+              },
+              {
+                "type": "text",
+                "text": "}\\) and \\("
+              },
+              {
+                "type": "mathInline",
+                "attrs": {
+                  "latex": "\\pi"
+                }
+              },
+              {
+                "type": "text",
+                "text": "_{"
+              },
+              {
+                "type": "mathInline",
+                "attrs": {
+                  "latex": "\\theta"
+                }
+              },
+              {
+                "type": "text",
+                "text": "_{old}}\\) are the current and old policy models, and \\(q, o\\) are questions and outputs sampled from the question dataset and the old policy \\("
+              },
+              {
+                "type": "mathInline",
+                "attrs": {
+                  "latex": "\\pi"
+                }
+              },
+              {
+                "type": "text",
+                "text": "_{"
+              },
+              {
+                "type": "mathInline",
+                "attrs": {
+                  "latex": "\\theta"
+                }
+              },
+              {
+                "type": "text",
+                "text": "_{old}}\\), respectively. \\("
+              },
+              {
+                "type": "mathInline",
+                "attrs": {
+                  "latex": "\\varepsilon"
+                }
+              },
+              {
+                "type": "text",
+                "text": "\\) is a clipping-related hyper-parameter introduced in PPO for stabilizing training. \\(A_t\\) is the advantage, which is computed by applying Generalized Advantage Estimation (GAE) (Schulman et al., 2015), based"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 16,
+        "color": "#000000",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    }
+  ],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "fit",
+        "id": "t2",
+        "message": "Font reduced from 22 to 16 px to keep the text in place inside the image area."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "t2",
+        "message": "Moved inside the image area (by -122, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "math1",
+        "message": "Moved inside the image area (by -5, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "fit",
+        "id": "t3",
+        "message": "Font reduced from 22 to 16 px to keep the text in place inside the image area."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "t3",
+        "message": "Moved inside the image area (by -122, 0 px)."
+      },
+      {
+        "severity": "warning",
+        "code": "frame",
+        "id": "t2",
+        "message": "Extends beyond the image area (may cover other content)."
+      },
+      {
+        "severity": "warning",
+        "code": "frame",
+        "id": "t3",
+        "message": "Extends beyond the image area (may cover other content)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "math1",
+        "message": "Equation read by a local model: check the LaTeX against the sketch."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 2,
+      "info": 6
+    },
+    "review": [
+      "math1"
+    ]
+  }
+}

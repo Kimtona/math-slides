@@ -45,10 +45,21 @@ function repairLatex(s) {
   return s.replace(/[\n\t\f\b\r](?=[A-Za-z])/g, (c) => '\\' + CONTROL[c]).replace(/[\n\t\f\b\r]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-/** LaTeX commands inside a plain-text note (e.g. "\rightarrow 행동확률") become inline math so they render as symbols. */
+/**
+ * LaTeX commands written into a plain-text note OUTSIDE any math delimiters (e.g. "\rightarrow 행동확률") become inline
+ * math so they render as symbols. Parts already inside `$...$`, `$$...$$`, `\(...\)` or `\[...\]` are left exactly as they
+ * are (wrapping inside them corrupted `\(\pi_{\theta}\)` into `\($\pi$_{$\theta$}\)` — PPO capture).
+ */
+const MATH_SPAN = /\$\$[^$]+?\$\$|\$[^$]+?\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/g;
 function wrapInlineCommands(text) {
-  if (text.includes('$')) return text;
-  return text.replace(/\\[A-Za-z]+(?:\{[^{}]*\})*/g, (m) => `$${m}$`);
+  let out = '', last = 0, m;
+  const re = new RegExp(MATH_SPAN.source, 'g');
+  const wrap = (plain) => plain.replace(/\\[A-Za-z]+(?:\{[^{}]*\})*/g, (c) => `$${c}$`);
+  while ((m = re.exec(text))) {
+    out += wrap(text.slice(last, m.index)) + m[0];
+    last = m.index + m[0].length;
+  }
+  return out + wrap(text.slice(last));
 }
 
 const HANGUL = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]/;
@@ -148,7 +159,9 @@ function localToModelIR(data, width, height) {
     if (!TYPES.includes(e?.type) || !b) { notes.push(`Dropped an element without a valid type/box (${JSON.stringify(e).slice(0, 120)}).`); continue; }
     const x1 = Math.min(b[0], b[2]), x2 = Math.max(b[0], b[2]), y1 = Math.min(b[1], b[3]), y2 = Math.max(b[1], b[3]);
     const bbox = { x: scaleX(x1), y: scaleY(y1), w: scaleX(x2) - scaleX(x1), h: scaleY(y2) - scaleY(y1) };
-    const content = typeof e.content === 'string' ? e.content.replace(/\\n/g, '\n').trim() : '';
+    // A literal "\n" (backslash + n) the model meant as a line break — but not the start of a LaTeX command such as
+    // \nabla or \neq inside inline math.
+    const content = typeof e.content === 'string' ? e.content.replace(/\\n(?![A-Za-z])/g, '\n').trim() : '';
     const out = { id, bbox };
     if (COLORS.includes(e.color)) out.color = e.color;
     const unsure = typeof e.unsure === 'string' && e.unsure.trim() ? e.unsure.trim() : '';
