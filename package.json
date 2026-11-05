@@ -8,8 +8,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
-    "test": "node tests/current-slide.mjs && node tests/user-prefs-model.mjs && node tests/rich-text.mjs && node tests/user-prefs.mjs && node tests/emoji-tool.mjs && node tests/math-favorites.mjs && node tests/saved-colors.mjs",
+    "test": "node tests/current-slide.mjs && node tests/user-prefs-model.mjs && node tests/rich-text.mjs && node tests/user-prefs.mjs && node tests/emoji-tool.mjs && node tests/math-favorites.mjs && node tests/saved-colors.mjs && node tests/sketch-convert.mjs && node tests/sketch-dialog.mjs",
     "app": "vite build && electron .",
+    "sketch": "node scripts/sketch2slides.mjs",
     "app:dev": "concurrently -k \"vite --port 5173 --strictPort\" \"wait-on tcp:5173 && cross-env ELECTRON_DEV_URL=http://localhost:5173 electron .\"",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win"

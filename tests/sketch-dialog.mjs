@@ -8,7 +8,7 @@ import { mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createServer as netServer } from 'node:net';
 import { createRequire } from 'node:module';
 import { createServer } from 'vite';
@@ -154,6 +154,16 @@ try {
   const xml = await zip.file(`ppt/slides/slide${slideNo}.xml`).async('string');
   assert.ok(xml.includes('policy gradient') && xml.includes('action'), 'converted text is native PPTX text');
   console.log('PASS PPTX export');
+
+  // --- the command-line tool's .mslides output opens in the app (offline: --ir with the fixture) ---
+  const cliOut = path.join(profile, 'cli');
+  execFileSync(process.execPath, [path.join(root, 'scripts/sketch2slides.mjs'), path.join(root, 'examples/sketches/diagram-abc.png'), '--ir', path.join(root, 'tests/fixtures/sketch/diagram-abc.ir.json'), '--out', cliOut], { stdio: 'ignore' });
+  const text = await readFile(path.join(cliOut, 'diagram-abc.mslides'), 'utf8');
+  await evaluate(`import('/src/store/persistence.ts').then((m) => m.openFromText(${JSON.stringify(text)}, null))`);
+  const opened = await evaluate(`store.getState().deck.slides[0].elements.map((e) => e.type + (e.shape ? ':' + e.shape : ''))`);
+  assert.deepEqual(opened.sort(), ['line', 'line', 'line', 'shape:ellipse', 'shape:ellipse', 'shape:ellipse', 'text'], 'CLI deck opens with its elements');
+  await until(() => evaluate(`document.querySelectorAll('.canvas .el-shape, .stage .el-shape').length >= 3`), 'CLI deck renders on the canvas');
+  console.log('PASS CLI output opens in the app');
 } finally {
   await quit();
   await server.close();
