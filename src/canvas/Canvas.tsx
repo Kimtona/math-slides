@@ -3,6 +3,7 @@ import type { Box, ImageElement, LineElement, ShapeElement, Slide, SlideElement,
 import { clampFrameToSource, coverFrame, cropFrom, cropOf, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { lineBox } from '../model/defaults';
+import { controlFromMid, curveMid, isCurved, reframeControl } from '../model/curve';
 import { themedTextColor, todoAccent } from '../model/theme';
 import { boxOf, intersects, snap1, snapMove, snapTargets, translate, unionBox, type Guide } from '../model/geometry';
 import { currentSlide, useStore } from '../store/store';
@@ -136,6 +137,25 @@ function startAdjust(e: React.PointerEvent, el: ShapeElement, which: 'shaft' | '
 }
 const round3 = (v: number) => Math.round(v * 1000) / 1000;
 
+/** Curved line: dragging the bend handle (drawn on the curve's middle) moves the control point so the middle follows the pointer. */
+function startBend(e: React.PointerEvent, el: LineElement) {
+  e.stopPropagation();
+  e.preventDefault();
+  const st = useStore.getState();
+  if (st.editingId) st.stopEditing();
+  track(e, (ev) => {
+    const s = useStore.getState();
+    s.beginGesture();
+    const p = toSlide(ev.clientX, ev.clientY);
+    s.updateElements([el.id], (d) => {
+      const l = d as LineElement;
+      const c = controlFromMid({ x: l.x1, y: l.y1 }, { x: l.x2, y: l.y2 }, p);
+      l.cx = Math.round(c.x); l.cy = Math.round(c.y);
+      Object.assign(l, lineBox(l));
+    }, true);
+  }, (_ev, moved) => { if (moved) useStore.getState().endGesture(); });
+}
+
 // ---------- resize ----------
 
 function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle, opts: { crop?: boolean } = {}) {
@@ -169,6 +189,8 @@ function startResize(e: React.PointerEvent, el: SlideElement, handle: Handle, op
       s.updateElements([o.id], (d) => {
         const l = d as LineElement;
         if (handle === 'p1') { l.x1 = x; l.y1 = y; } else { l.x2 = x; l.y2 = y; }
+        // A curve keeps its bend (direction and relative depth) while an endpoint moves.
+        if (isCurved(o)) { const c = reframeControl(o, { x: o.cx, y: o.cy }, l); l.cx = Math.round(c.x); l.cy = Math.round(c.y); }
         Object.assign(l, lineBox(l));
       }, true);
       useStore.setState({ guides });
@@ -479,6 +501,11 @@ function SelectionOverlay({ scale }: { scale: number }) {
           <div key={h} className="handle round" style={{ left: h === 'p1' ? el.x1 : el.x2, top: h === 'p1' ? el.y1 : el.y2, width: hs, height: hs, borderWidth: bw }}
             onPointerDown={(e) => startResize(e, el, h)} />
         ))}
+        {isCurved(el) && (() => {
+          const m = curveMid(el);
+          return <div className="handle adjust adjust-bend" title="곡률 — 끌어서 굽힘 정도·방향 조절" style={{ left: m.x, top: m.y, width: hs * 0.85, height: hs * 0.85, borderWidth: bw }}
+            onPointerDown={(e) => startBend(e, el)} />;
+        })()}
       </>
     );
   }

@@ -1,6 +1,6 @@
 import { useStore } from '../store/store';
 import { Btn, Icons, MenuItem, Popover, Sep } from './controls';
-import { insertEmoji, insertLine, insertMathBox, insertShape, insertTextCenter, pickImages } from '../canvas/insert';
+import { insertCurve, insertEmoji, insertLine, insertMathBox, insertShape, insertTextCenter, pickImages } from '../canvas/insert';
 import { loadRecovery, newProject, openProject, restoreRecovered, saveProject } from '../store/persistence';
 import { useEffect, useRef, useState } from 'react';
 import { createQuickEmojiPanel } from '../editor/quickEmojiPanel';
@@ -69,6 +69,8 @@ export function Toolbar() {
               <MenuItem onClick={() => insertLine(false)} shortcut="L">╱ 선</MenuItem>
               <MenuItem onClick={() => insertLine(true)} shortcut="A">→ 화살표</MenuItem>
               <MenuItem onClick={() => insertShape('blockArrow')}>⇨ 두꺼운 화살표</MenuItem>
+              <MenuItem onClick={() => insertCurve(false)}>⌒ 곡선</MenuItem>
+              <MenuItem onClick={() => insertCurve(true)}>⤻ 곡선 화살표</MenuItem>
             </div>
           )}
         </Popover>

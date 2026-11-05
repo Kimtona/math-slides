@@ -103,6 +103,12 @@ export interface LineElement extends ElementBase {
   arrowEnd: boolean;
   arrowStart: boolean;
   dashed: boolean;
+  /**
+   * Curved line / curved arrow: control point of a quadratic Bézier from (x1, y1) to (x2, y2), slide px.
+   * Absent (older files, straight lines) = straight. x/y/w/h then bound the whole curve.
+   */
+  cx?: number;
+  cy?: number;
 }
 
 /**

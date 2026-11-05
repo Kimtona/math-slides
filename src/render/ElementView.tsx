@@ -8,6 +8,7 @@ import { themeLayout, themedTextColor, todoAccent } from '../model/theme';
 import { EMOJI_GLYPH_SCALE, shapeTextInset, shapeTextStyle } from '../model/defaults';
 import { slideFontVars } from '../model/fonts';
 import { blockArrowOutline } from '../model/blockArrow';
+import { endTangent, isCurved, quadSegment, tAtDistance } from '../model/curve';
 import { displayCitation } from '../citations/format';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 
@@ -63,6 +64,7 @@ export function arrowSize(sw: number) {
 
 /** Line rendered in an SVG whose origin is the line's bounding box minus LINE_PAD. */
 export function LineSvg({ el, hit }: { el: LineElement; hit?: boolean }) {
+  if (isCurved(el)) return <CurveSvg el={el} hit={hit} />;
   const ox = el.x - LINE_PAD, oy = el.y - LINE_PAD;
   let x1 = el.x1 - ox, y1 = el.y1 - oy, x2 = el.x2 - ox, y2 = el.y2 - oy;
   const len = Math.hypot(x2 - x1, y2 - y1) || 1;
@@ -70,9 +72,7 @@ export function LineSvg({ el, hit }: { el: LineElement; hit?: boolean }) {
   const { len: al, half } = arrowSize(el.strokeWidth);
   const heads: ReactNode[] = [];
   const head = (tx: number, ty: number, dx: number, dy: number, k: string) => {
-    const bx = tx - dx * al, by = ty - dy * al;
-    heads.push(<polygon key={k} fill={el.stroke}
-      points={`${tx},${ty} ${bx - dy * half},${by + dx * half} ${bx + dy * half},${by - dx * half}`} />);
+    heads.push(arrowHead(el, tx, ty, dx, dy, k, al, half));
   };
   const [sx1, sy1, sx2, sy2] = [x1, y1, x2, y2];
   if (el.arrowEnd) { head(sx2, sy2, ux, uy, 'e'); x2 -= ux * al * 0.8; y2 -= uy * al * 0.8; }
@@ -82,6 +82,40 @@ export function LineSvg({ el, hit }: { el: LineElement; hit?: boolean }) {
       style={{ left: -LINE_PAD, top: -LINE_PAD }}>
       {hit && <line className="line-hit" x1={sx1} y1={sy1} x2={sx2} y2={sy2} stroke="transparent" strokeWidth={Math.max(16, el.strokeWidth + 12)} />}
       <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={el.stroke} strokeWidth={el.strokeWidth}
+        strokeDasharray={el.dashed ? `${el.strokeWidth * 3} ${el.strokeWidth * 2}` : undefined} />
+      {heads}
+    </svg>
+  );
+}
+
+/** Triangle arrowhead with its tip at (tx, ty), pointing along the unit direction (dx, dy). */
+function arrowHead(el: LineElement, tx: number, ty: number, dx: number, dy: number, k: string, al: number, half: number) {
+  const bx = tx - dx * al, by = ty - dy * al;
+  return <polygon key={k} fill={el.stroke}
+    points={`${tx},${ty} ${bx - dy * half},${by + dx * half} ${bx + dy * half},${by - dx * half}`} />;
+}
+
+const f2 = (v: number) => Math.round(v * 100) / 100;
+
+/**
+ * Curved line / arrow (quadratic Bézier). Arrowheads follow the curve's end tangent; the stroke is trimmed by the same
+ * arc length a straight line is shortened by, so the line does not poke through the tip.
+ */
+function CurveSvg({ el, hit }: { el: LineElement & { cx: number; cy: number }; hit?: boolean }) {
+  const ox = el.x - LINE_PAD, oy = el.y - LINE_PAD;
+  const p0 = { x: el.x1 - ox, y: el.y1 - oy }, c = { x: el.cx - ox, y: el.cy - oy }, p2 = { x: el.x2 - ox, y: el.y2 - oy };
+  const { len: al, half } = arrowSize(el.strokeWidth);
+  const heads: ReactNode[] = [];
+  let t0 = 0, t1 = 1;
+  if (el.arrowEnd) { const d = endTangent(p0, c, p2); heads.push(arrowHead(el, p2.x, p2.y, d.x, d.y, 'e', al, half)); t1 = tAtDistance(p0, c, p2, al * 0.8, true); }
+  if (el.arrowStart) { const d = endTangent(p0, c, p2, true); heads.push(arrowHead(el, p0.x, p0.y, d.x, d.y, 's', al, half)); t0 = tAtDistance(p0, c, p2, al * 0.8); }
+  const [a, q, b] = t1 > t0 ? quadSegment(p0, c, p2, t0, t1) : [p0, c, p2];
+  const d = `M${f2(a.x)} ${f2(a.y)} Q${f2(q.x)} ${f2(q.y)} ${f2(b.x)} ${f2(b.y)}`;
+  return (
+    <svg className="line-svg" width={el.w + 2 * LINE_PAD} height={el.h + 2 * LINE_PAD}
+      style={{ left: -LINE_PAD, top: -LINE_PAD }}>
+      {hit && <path className="line-hit" d={`M${f2(p0.x)} ${f2(p0.y)} Q${f2(c.x)} ${f2(c.y)} ${f2(p2.x)} ${f2(p2.y)}`} fill="none" stroke="transparent" strokeWidth={Math.max(16, el.strokeWidth + 12)} />}
+      <path className="curve-path" d={d} fill="none" stroke={el.stroke} strokeWidth={el.strokeWidth}
         strokeDasharray={el.dashed ? `${el.strokeWidth * 3} ${el.strokeWidth * 2}` : undefined} />
       {heads}
     </svg>

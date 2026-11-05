@@ -13,7 +13,7 @@ import { SLIDE_H, SLIDE_W } from '../model/types';
 import { DEFAULT_TEXT_COLOR, lineBox, newLine, newShape, newText } from '../model/defaults';
 import { renderTex } from '../math/mathjax';
 import type { IRBox, IRColor, IRElement, IRIssue, IRPoint, SketchIR } from './ir';
-import { IR_SCALE } from './ir';
+import { hasArrowhead, IR_SCALE, isConnectorKind } from './ir';
 
 /** Slide area the sketch content is fitted into (keeps a margin and the footer free). */
 export const CONTENT_AREA = { x: 48, y: 40, w: SLIDE_W - 96, h: SLIDE_H - 96 };
@@ -302,15 +302,22 @@ export function boundaryPoint(shape: ShapeElement, p: { x: number; y: number }) 
 
 function lineElement(e: IRElement, pl: Placement, shapes: Map<string, ShapeElement>): LineElement {
   let p1 = mapPoint(e.from!, pl), p2 = mapPoint(e.to!, pl);
-  // Connectors: an endpoint attached to a shape starts/ends on its outline, in the drawn direction.
+  // Curved connector: its control point is mapped like any other point (same image → slide transform).
+  const curved = (e.kind === 'curvedArrow' || e.kind === 'curve') && e.control;
+  let c = curved ? mapPoint(e.control!, pl) : undefined;
+  // Connectors: an endpoint attached to a shape starts/ends on its outline, in the drawn direction
+  // (for a curve: towards its control point, i.e. along the curve's tangent at that end).
   const s1 = e.fromId ? shapes.get(e.fromId) : undefined;
   const s2 = e.toId ? shapes.get(e.toId) : undefined;
-  if (s1) p1 = boundaryPoint(s1, p2);
-  if (s2) p2 = boundaryPoint(s2, p1);
+  if (s1) p1 = boundaryPoint(s1, c ?? p2);
+  if (s2) p2 = boundaryPoint(s2, c ?? p1);
   const a = pl.area;
   const inside = (p: { x: number; y: number }) => ({ x: clamp(clamp(p.x, a.x, a.x + a.w), 4, SLIDE_W - 4), y: clamp(clamp(p.y, a.y, a.y + a.h), 4, SLIDE_H - 4) });
   p1 = inside(p1); p2 = inside(p2);
-  const el = newLine(round(p1.x), round(p1.y), round(p2.x), round(p2.y), e.kind === 'arrow');
+  // A quadratic Bézier stays inside the triangle of its three points, so clamping the control point too keeps the
+  // whole curve inside the image's area.
+  if (c) c = inside(c);
+  const el = newLine(round(p1.x), round(p1.y), round(p2.x), round(p2.y), hasArrowhead(e.kind), c);
   el.stroke = INK[e.color ?? 'black'];
   Object.assign(el, lineBox(el));
   return el;
@@ -350,11 +357,11 @@ export function irToElements(ir: SketchIR, frame?: Frame): ConversionResult {
   for (const e of ir.elements) {
     if (e.kind === 'shape' || absorbed.has(e.id)) continue;
     let el: SlideElement;
-    if (e.kind === 'arrow' || e.kind === 'line') el = lineElement(e, pl, shapes);
+    if (isConnectorKind(e.kind)) el = lineElement(e, pl, shapes);
     else if (e.kind === 'math') el = mathElement(e, pl, issues);
     else el = textElement(e, pl, issues);
     map[e.id] = [el.id];
-    out.push({ z: e.kind === 'arrow' || e.kind === 'line' ? 1 : 2, el });
+    out.push({ z: isConnectorKind(e.kind) ? 1 : 2, el });
   }
   // Stable z-order: shapes, then connectors, then text on top.
   out.sort((a, b) => a.z - b.z);

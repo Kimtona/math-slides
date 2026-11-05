@@ -8,6 +8,7 @@ import { EMOJI_GLYPH_SCALE, shapeTextInset, shapeTextStyle } from '../model/defa
 import { isDocEmpty } from '../editor/docUtils';
 import { tokenColor } from '../editor/codeHighlight';
 import { INLINE_CODE_BACKGROUND, INLINE_CODE_FONT } from '../model/textFormatting';
+import { curveBox, isCurved } from '../model/curve';
 import { blockArrowParams, blockArrowPoints } from '../model/blockArrow';
 import { DEFAULT_FONT, deckFont, fontFromCss } from '../model/fonts';
 
@@ -446,14 +447,29 @@ function addShape(pptx: PptxGenJS, s: Slide, el: ShapeElement, slideDom: Element
 }
 
 function addLine(pptx: PptxGenJS, s: Slide, el: LineElement) {
+  const line = {
+    color: hex(el.stroke), width: PT(el.strokeWidth), dashType: el.dashed ? ('dash' as const) : ('solid' as const),
+    endArrowType: el.arrowEnd ? ('triangle' as const) : undefined, beginArrowType: el.arrowStart ? ('triangle' as const) : undefined,
+  };
+  if (isCurved(el)) {
+    // Curved line / arrow: an open freeform path with one quadratic Bézier segment (<a:quadBezTo>), editable in
+    // PowerPoint (Edit Points); arrowheads are the native line ends, which follow the curve's tangent.
+    const b = curveBox(el);
+    const w = Math.max(1, b.w), h = Math.max(1, b.h);
+    const rel = (x: number, y: number) => ({ x: IN(x - b.x), y: IN(y - b.y) });
+    const end = rel(el.x2, el.y2), ctrl = rel(el.cx, el.cy);
+    s.addShape('custGeom' as unknown as typeof pptx.ShapeType.line, {
+      x: IN(b.x), y: IN(b.y), w: IN(w), h: IN(h),
+      points: [{ ...rel(el.x1, el.y1), moveTo: true }, { ...end, curve: { type: 'quadratic', x1: ctrl.x, y1: ctrl.y } }],
+      line, objectName: el.arrowEnd || el.arrowStart ? 'Curved Arrow' : 'Curve',
+    });
+    return;
+  }
   s.addShape(pptx.ShapeType.line, {
     x: IN(Math.min(el.x1, el.x2)), y: IN(Math.min(el.y1, el.y2)),
     w: IN(Math.abs(el.x2 - el.x1)), h: IN(Math.abs(el.y2 - el.y1)),
     flipH: el.x2 < el.x1, flipV: el.y2 < el.y1,
-    line: {
-      color: hex(el.stroke), width: PT(el.strokeWidth), dashType: el.dashed ? 'dash' : 'solid',
-      endArrowType: el.arrowEnd ? 'triangle' : undefined, beginArrowType: el.arrowStart ? 'triangle' : undefined,
-    },
+    line,
   });
 }
 

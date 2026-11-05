@@ -2,7 +2,8 @@
 // conversion to the shared model IR ({ elements, notes } with 0..1000 coordinates) that src/sketch/ir.ts validates.
 // Nothing is invented here: unreadable or inconsistent items are kept and flagged for review, or dropped with a note.
 
-const TYPES = ['title', 'text', 'math', 'circle', 'rectangle', 'arrow', 'line'];
+const TYPES = ['title', 'text', 'math', 'circle', 'rectangle', 'arrow', 'line', 'curved_arrow', 'curve'];
+const BENDS = ['up', 'down', 'left', 'right'];
 const COLORS = ['black', 'blue', 'red', 'green'];
 const str = { type: 'string' };
 const num = { type: 'number' };
@@ -22,6 +23,8 @@ const LOCAL_SCHEMA = {
           color: { type: 'string', enum: COLORS },
           points: { type: 'array', items: num, minItems: 4, maxItems: 4 },
           connects: { type: 'array', items: str },
+          via: { type: 'array', items: num, minItems: 2, maxItems: 2 },
+          bend: { type: 'string', enum: BENDS },
           explains: str,
           unsure: str,
         },
@@ -173,9 +176,16 @@ function localToModelIR(data, width, height) {
       Object.assign(out, { kind: 'shape', shape: e.type === 'circle' ? 'ellipse' : 'rect' });
       if (content) out.text = content;
     } else {
-      out.kind = e.type;
+      out.kind = e.type === 'curved_arrow' ? 'curvedArrow' : e.type;
       const p = Array.isArray(e.points) && e.points.length === 4 && e.points.every(isNum) ? e.points : null;
       if (p) { out.from = { x: scaleX(p[0]), y: scaleY(p[1]) }; out.to = { x: scaleX(p[2]), y: scaleY(p[3]) }; }
+      // Curves: "via" is a point ON the stroke at its middle (what a model can see); the Bézier control point that
+      // puts the curve's middle there is 2·via − (tail + tip)/2. Without it, "bend" gives the bulge side.
+      const via = Array.isArray(e.via) && e.via.length === 2 && e.via.every(isNum) ? e.via : null;
+      if (via && p && (out.kind === 'curvedArrow' || out.kind === 'curve')) {
+        const m = { x: scaleX(via[0]), y: scaleY(via[1]) };
+        out.control = { x: 2 * m.x - (out.from.x + out.to.x) / 2, y: 2 * m.y - (out.from.y + out.to.y) / 2 };
+      } else if (BENDS.includes(e.bend) && (out.kind === 'curvedArrow' || out.kind === 'curve')) out.bend = e.bend;
       const c = Array.isArray(e.connects) ? e.connects : [];
       const f = ref(c[0]), t = ref(c[1]);
       if (f && f !== id) out.fromId = f;

@@ -15,7 +15,8 @@ Elements (one per visual unit)
 - shape: a closed drawn figure. shape = "ellipse" for circles/ovals, "rect" for boxes, "roundRect" for boxes with clearly rounded corners.
 - arrow: a stroke with an arrowhead. "from" is the tail, "to" is the tip.
 - line: a plain stroke without arrowhead, e.g. a tick or connector linking a note to what it explains.
-- For arrows and lines, set fromId / toId to the id of the element an endpoint touches or points at, when there is one.
+- curvedArrow / curve: like arrow / line, but the stroke is clearly bent (an arc). Give "from" and "to" as for arrows, plus "control": the quadratic Bézier control point (the curve's middle lies halfway between the from-to midpoint and "control"). If you cannot place a control point, give "bend" instead: the side the arc bulges towards in the image ("up", "down", "left" or "right"), and optionally "bendDepth": how far the arc's middle lies from the straight from-to line, as a fraction of that line's length (about 0.25 for a clear arc). Use arrow / line for strokes that are (nearly) straight.
+- For arrows, lines and their curved forms, set fromId / toId to the id of the element an endpoint touches or points at, when there is one.
 
 Roles and relations
 - role "title": the heading of the slide (usually at the top). "label": text written inside a shape. "annotation": a side note that explains another element. "body": everything else.
@@ -71,11 +72,13 @@ For each element give:
   "text" = a handwritten note or word that is not inside a shape;
   "math" = a formula; "content" is its LaTeX. Use LaTeX commands, not Unicode: Greek letters as \\theta \\pi \\tau, \\nabla, \\log, \\cdot, and double-struck letters as \\mathbb{E}. Keep each symbol as written (lowercase stays lowercase).
   "circle" or "rectangle" = a drawn shape; "content" is the text written inside it, or "";
-  "arrow" = a stroke with an arrowhead; "line" = a stroke without arrowhead (for example a tick from a note to a term).
+  "arrow" = a stroke with an arrowhead; "line" = a stroke without arrowhead (for example a tick from a note to a term);
+  "curved_arrow" / "curve" = the same, but the stroke is clearly bent like an arc.
 - "bbox_2d": [x1, y1, x2, y2] in pixels of this image, tightly around the ink.
 - "content": the exact text or LaTeX (arrows and lines: "").
 - "color": ink color: "black", "blue", "red" or "green".
 - arrows and lines: "points": [tail_x, tail_y, tip_x, tip_y] in pixels, and "connects": [id at the tail, id at the tip] ("" if none).
+- curved_arrow and curve: also "via": [x, y], the point in the middle of the bent stroke, in pixels. If unsure, give "bend": the side the arc bulges towards ("up", "down", "left" or "right").
 - notes: "explains": the id of the formula, shape or arrow the note belongs to ("" if none).
 - "unsure": "" if you can read it clearly, otherwise say what is unclear.
 

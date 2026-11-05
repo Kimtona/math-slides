@@ -1,10 +1,11 @@
 import { useEffect, useReducer } from 'react';
+import { bendControl, isCurved } from '../model/curve';
 import type { ImageElement, LineElement, ShapeElement, SlideElement, TextElement } from '../model/types';
 import { useStore } from '../store/store';
 import { getActiveEditor, onActiveEditorChange } from '../editor/active';
 import { Btn, ColorButton, Icons, NumberField, Popover, Sep, WidthButton } from './controls';
 import { themeColorOf } from '../model/theme';
-import { DEFAULT_TEXT_COLOR, emptyDoc, shapeTextStyle } from '../model/defaults';
+import { DEFAULT_TEXT_COLOR, emptyDoc, lineBox, shapeTextStyle } from '../model/defaults';
 import { cropOf, isCropped, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { activeTextColor, activeTextFont, markActive, setDeckFont, setSelectionFont, setTextStyle, toggleList, toggleMark } from './textFormat';
@@ -150,6 +151,11 @@ function LineProps({ el }: { el: LineElement }) {
       <Btn title="점선" active={el.dashed} onClick={() => upd((d) => { d.dashed = !d.dashed; })}>┄</Btn>
       <Btn title="시작 화살표" active={el.arrowStart} onClick={() => upd((d) => { d.arrowStart = !d.arrowStart; })}>←</Btn>
       <Btn title="끝 화살표" active={el.arrowEnd} onClick={() => upd((d) => { d.arrowEnd = !d.arrowEnd; })}>→</Btn>
+      <Btn title={isCurved(el) ? '곡선 → 직선' : '직선 → 곡선 (선택 후 노란 핸들로 곡률 조절)'} active={isCurved(el)} onClick={() => upd((d) => {
+        if (isCurved(d)) { const l = d as LineElement; delete l.cx; delete l.cy; }
+        else { const c = bendControl({ x: d.x1, y: d.y1 }, { x: d.x2, y: d.y2 }); d.cx = Math.round(c.x); d.cy = Math.round(c.y); }
+        Object.assign(d, lineBox(d));
+      })}>⌒</Btn>
     </>
   );
 }

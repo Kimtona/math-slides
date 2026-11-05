@@ -300,6 +300,7 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .handle.adjust { background: #f5b82e; border-color: #fff; border-radius: 50%; }
 .handle.adjust-shaft { cursor: ns-resize; }
 .handle.adjust-head { cursor: ew-resize; }
+.handle.adjust-bend { cursor: move; }
 .handle.round { border-radius: 50%; cursor: crosshair; }
 .h-nw, .h-se { cursor: nwse-resize; }
 .h-ne, .h-sw { cursor: nesw-resize; }

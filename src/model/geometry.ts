@@ -23,6 +23,7 @@ export function translate(el: SlideElement, o: SlideElement, dx: number, dy: num
   if (el.type === 'line' && o.type === 'line') {
     el.x1 = o.x1 + dx; el.y1 = o.y1 + dy;
     el.x2 = o.x2 + dx; el.y2 = o.y2 + dy;
+    if (o.cx !== undefined && o.cy !== undefined) { el.cx = o.cx + dx; el.cy = o.cy + dy; }
   }
 }
 

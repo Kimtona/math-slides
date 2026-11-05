@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid';
+import { curveBox } from './curve';
 import type { Deck, EmojiElement, LineElement, PMNode, ShapeElement, ShapeKind, Slide, TextElement, TextStyle } from './types';
 import { SLIDE_H, SLIDE_W } from './types';
 import { HIGHLIGHT_COLORS, presetHex } from './colors';
@@ -58,13 +59,16 @@ export function newEmoji(emoji: string, cx: number, cy: number, size = EMOJI_DEF
   return { id: uid(), type: 'emoji', emoji, x: Math.round(cx - size / 2), y: Math.round(cy - size / 2), w: size, h: size };
 }
 
-export function lineBox(l: Pick<LineElement, 'x1' | 'y1' | 'x2' | 'y2'>) {
-  return { x: Math.min(l.x1, l.x2), y: Math.min(l.y1, l.y2), w: Math.abs(l.x2 - l.x1), h: Math.abs(l.y2 - l.y1) };
+/** Bounding box of a line (of the whole curve for a curved line). */
+export function lineBox(l: Pick<LineElement, 'x1' | 'y1' | 'x2' | 'y2'> & Partial<Pick<LineElement, 'cx' | 'cy'>>) {
+  return curveBox(l);
 }
 
-export function newLine(x1: number, y1: number, x2: number, y2: number, arrow = false): LineElement {
+/** `control`: quadratic Bézier control point → curved line / curved arrow; omitted = straight. */
+export function newLine(x1: number, y1: number, x2: number, y2: number, arrow = false, control?: { x: number; y: number }): LineElement {
+  const c = control ? { cx: Math.round(control.x), cy: Math.round(control.y) } : {};
   return {
-    id: uid(), type: 'line', x1, y1, x2, y2, ...lineBox({ x1, y1, x2, y2 }),
+    id: uid(), type: 'line', x1, y1, x2, y2, ...c, ...lineBox({ x1, y1, x2, y2, ...c }),
     stroke: DEFAULT_TEXT_COLOR, strokeWidth: 3, arrowEnd: arrow, arrowStart: false, dashed: false,
   };
 }

@@ -1,5 +1,6 @@
 import type { Asset, ImageElement, ShapeKind, SlideElement, TextElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
+import { bendControl } from '../model/curve';
 import { newEmoji, newLine, newShape, newText, uid } from '../model/defaults';
 import { currentSlide, useStore } from '../store/store';
 import { saveAsset } from '../store/persistence';
@@ -104,6 +105,13 @@ export function insertLine(arrow: boolean) {
   useStore.getState().addElements([newLine(SLIDE_W / 2 - 120, SLIDE_H / 2, SLIDE_W / 2 + 120, SLIDE_H / 2, arrow)]);
 }
 
+/** Curved line / curved arrow (quadratic Bézier), bent upwards by default; the bend is edited with its handle. */
+export function insertCurve(arrow: boolean) {
+  const x1 = SLIDE_W / 2 - 140, x2 = SLIDE_W / 2 + 140, y = SLIDE_H / 2 + 40;
+  const p0 = { x: x1, y }, p2 = { x: x2, y };
+  useStore.getState().addElements([newLine(x1, y, x2, y, arrow, bendControl(p0, p2))]);
+}
+
 export function insertPlainText(text: string) {
   const el = newText(SLIDE_W / 2 - 300, SLIDE_H / 2 - 40, { w: 600, doc: textToDoc(text) });
   useStore.getState().addElements([el]);
@@ -144,7 +152,10 @@ function pasteClip(clip: Clip) {
     c.id = uid();
     if (c.type === 'text') delete c.role; // a pasted TOC / Sub-title box is an ordinary text box
     c.x += off; c.y += off;
-    if (c.type === 'line') { c.x1 += off; c.y1 += off; c.x2 += off; c.y2 += off; }
+    if (c.type === 'line') {
+      c.x1 += off; c.y1 += off; c.x2 += off; c.y2 += off;
+      if (c.cx !== undefined && c.cy !== undefined) { c.cx += off; c.cy += off; }
+    }
     return c;
   });
   st.addElements(els);

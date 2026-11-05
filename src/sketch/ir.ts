@@ -10,8 +10,16 @@
 
 export const IR_SCALE = 1000;
 
-export type IRKind = 'text' | 'math' | 'shape' | 'arrow' | 'line';
-export const IR_KINDS: readonly IRKind[] = ['text', 'math', 'shape', 'arrow', 'line'];
+export type IRKind = 'text' | 'math' | 'shape' | 'arrow' | 'line' | 'curvedArrow' | 'curve';
+export const IR_KINDS: readonly IRKind[] = ['text', 'math', 'shape', 'arrow', 'line', 'curvedArrow', 'curve'];
+/** Connector kinds (straight or curved). `curvedArrow`/`curve` are the curved forms of `arrow`/`line`. */
+export const isConnectorKind = (k: IRKind) => k === 'arrow' || k === 'line' || k === 'curvedArrow' || k === 'curve';
+export const hasArrowhead = (k: IRKind) => k === 'arrow' || k === 'curvedArrow';
+/** Side a curved stroke bulges towards, as seen in the image. */
+export type IRBend = 'up' | 'down' | 'left' | 'right';
+export const IR_BENDS: readonly IRBend[] = ['up', 'down', 'left', 'right'];
+/** Default depth of a curve whose bend side is known but not its depth (curve middle's distance / chord length). */
+export const DEFAULT_BEND_DEPTH = 0.25;
 export type IRShape = 'ellipse' | 'rect' | 'roundRect';
 export const IR_SHAPES: readonly IRShape[] = ['ellipse', 'rect', 'roundRect'];
 export type IRRole = 'title' | 'body' | 'annotation' | 'label';
@@ -54,6 +62,15 @@ export interface IRElement {
   /** arrow/line: ids of the elements the endpoints touch, if any. */
   fromId?: string;
   toId?: string;
+  /**
+   * curvedArrow/curve (also accepted on arrow/line, which then become curved): the quadratic Bézier control point,
+   * normalized 0..1000. Alternatively `bend` (+ optional `bendDepth`): the side the stroke bulges towards and how far its
+   * middle lies from the straight from→to chord, as a fraction of the chord length. `parseIR` always resolves a curve
+   * to a `control` point.
+   */
+  control?: IRPoint;
+  bend?: IRBend;
+  bendDepth?: number;
   role?: IRRole;
   color?: IRColor;
   relations?: IRRelation[];
@@ -94,6 +111,9 @@ export const IR_ELEMENT_SCHEMA = {
     to: point,
     fromId: { type: 'string' },
     toId: { type: 'string' },
+    control: point,
+    bend: { type: 'string', enum: [...IR_BENDS] },
+    bendDepth: { type: 'number' },
     role: { type: 'string', enum: [...IR_ROLES] },
     color: { type: 'string', enum: [...IR_COLORS] },
     relations: {
@@ -203,6 +223,57 @@ function cleanPoint(p: unknown): IRPoint | null {
 }
 
 /**
+ * Curved connectors end up with a `control` point (straight ones without): an explicit control point wins; otherwise
+ * `bend` (+ `bendDepth`) gives the side and depth; otherwise the bulge is estimated from how far the ink's bbox reaches
+ * beyond the chord. A straight `arrow`/`line` that carries a control point or bend becomes curved (compatible
+ * upgrade); a `curvedArrow`/`curve` whose bend cannot be determined stays straight, with an issue. Geometry is
+ * computed in image pixels (the 0..1000 axes are not to scale).
+ */
+function resolveCurve(el: IRElement, image: { width: number; height: number }, issues: IRIssue[]) {
+  const curvedKind = el.kind === 'curvedArrow' || el.kind === 'curve';
+  const { bend, bendDepth } = el;
+  delete el.bend; delete el.bendDepth;
+  if (el.control) {
+    if (!curvedKind) el.kind = el.kind === 'arrow' ? 'curvedArrow' : 'curve';
+    return;
+  }
+  if (!curvedKind && !bend) return;
+  const sx = image.width / IR_SCALE, sy = image.height / IR_SCALE;
+  const p0 = { x: el.from!.x * sx, y: el.from!.y * sy }, p2 = { x: el.to!.x * sx, y: el.to!.y * sy };
+  const dx = p2.x - p0.x, dy = p2.y - p0.y, len = Math.hypot(dx, dy);
+  const straight = (why: string) => {
+    el.kind = hasArrowhead(el.kind) ? 'arrow' : 'line';
+    issues.push({ severity: 'warning', code: 'geometry', id: el.id, message: `Curve drawn straight: ${why}` });
+  };
+  if (len < 1e-6) { straight('its endpoints coincide.'); return; }
+  // Unit left normal of the chord in image coordinates (y down).
+  const n = { x: dy / len, y: -dx / len };
+  const mid = { x: (p0.x + p2.x) / 2, y: (p0.y + p2.y) / 2 };
+  let side = 0, depth = 0; // side: +1 = towards n, -1 = away; depth: px of the curve's middle from the chord
+  if (bend) {
+    const dir = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } }[bend];
+    const dot = dir.x * n.x + dir.y * n.y;
+    if (Math.abs(dot) < 0.2) { straight(`bend "${bend}" is along the stroke's own direction.`); return; }
+    side = Math.sign(dot);
+    depth = (bendDepth ?? DEFAULT_BEND_DEPTH) * len;
+  } else {
+    // How far the ink's box reaches beyond the chord on either side.
+    const b = el.bbox;
+    const corners = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]].map(([x, y]) => (x * sx - mid.x) * n.x + (y * sy - mid.y) * n.y);
+    const pos = Math.max(0, ...corners), neg = Math.max(0, ...corners.map((c) => -c));
+    // For a diagonal chord the box's corners overshoot the ink, so only clear one-sided bulges count.
+    if (Math.max(pos, neg) < 0.08 * len || Math.min(pos, neg) > 0.6 * Math.max(pos, neg)) { straight('no bend direction or control point, and the ink box shows no clear bulge.'); return; }
+    side = pos > neg ? 1 : -1;
+    depth = Math.min(Math.max(pos, neg), 0.8 * len);
+    issues.push({ severity: 'info', code: 'geometry', id: el.id, message: 'Curve bend estimated from the ink bounding box.' });
+  }
+  // The curve's middle is halfway between the chord midpoint and the control point.
+  const c = { x: mid.x + n.x * side * 2 * depth, y: mid.y + n.y * side * 2 * depth };
+  el.control = { x: clampN(c.x / sx), y: clampN(c.y / sy) };
+  if (!curvedKind) el.kind = el.kind === 'arrow' ? 'curvedArrow' : 'curve';
+}
+
+/**
  * Validates and normalizes model output. Elements that cannot be represented are dropped with an issue
  * (never silently): unknown kinds, missing content, bad geometry. Coordinates are clamped into 0..1000.
  */
@@ -231,6 +302,10 @@ export function parseIR(raw: unknown, image: { width: number; height: number }):
     if (to) el.to = to;
     if (typeof e.fromId === 'string' && e.fromId) el.fromId = e.fromId;
     if (typeof e.toId === 'string' && e.toId) el.toId = e.toId;
+    const control = cleanPoint(e.control);
+    if (control) el.control = control;
+    if (IR_BENDS.includes(e.bend)) el.bend = e.bend;
+    if (finite(e.bendDepth) && e.bendDepth > 0) el.bendDepth = Math.min(1, e.bendDepth);
     if (Array.isArray(e.relations)) {
       const rel = e.relations.filter((r: any) => isObj(r) && IR_RELATIONS.includes(r.type) && typeof r.target === 'string');
       if (rel.length) el.relations = rel.map((r: any) => ({ type: r.type, target: r.target }));
@@ -244,7 +319,7 @@ export function parseIR(raw: unknown, image: { width: number; height: number }):
     if (el.kind === 'text' && !el.text?.trim()) { drop('schema', 'Text element without text.'); continue; }
     if (el.kind === 'math' && !el.latex) { drop('schema', 'Math element without LaTeX.'); continue; }
     if (el.kind === 'shape' && !el.shape) el.shape = 'rect';
-    if ((el.kind === 'arrow' || el.kind === 'line') && !(el.from && el.to)) {
+    if (isConnectorKind(el.kind) && !(el.from && el.to)) {
       // Fall back to the bbox diagonal's main axis: a horizontal or vertical stroke through the box.
       const b = el.bbox;
       const horizontal = b.w >= b.h;
@@ -252,6 +327,8 @@ export function parseIR(raw: unknown, image: { width: number; height: number }):
       el.to = horizontal ? { x: b.x + b.w, y: b.y + b.h / 2 } : { x: b.x + b.w / 2, y: b.y + b.h };
       issues.push({ severity: 'warning', code: 'geometry', id, message: 'Arrow/line endpoints missing; derived from its bounding box.' });
     }
+    if (isConnectorKind(el.kind)) resolveCurve(el, image, issues);
+    else { delete el.control; delete el.bend; delete el.bendDepth; }
     seen.add(id);
     out.push(el);
   }
