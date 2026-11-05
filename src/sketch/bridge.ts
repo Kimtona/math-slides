@@ -65,4 +65,15 @@ export async function imageForModel(el: ImageElement, asset: Asset, size: Sketch
   return { base64: dataUrl.slice(dataUrl.indexOf(',') + 1), mime: 'image/png', width: w, height: h, dataUrl };
 }
 
+/** RGBA pixels of an image (for measurements on the exact image the model saw). */
+export async function rasterOf(dataUrl: string): Promise<{ data: Uint8ClampedArray; width: number; height: number }> {
+  const img = await loadImage(dataUrl);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0);
+  const d = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  return { data: d.data, width: d.width, height: d.height };
+}
+
 export const newRunId = () => new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19) + '-' + Math.random().toString(36).slice(2, 6);

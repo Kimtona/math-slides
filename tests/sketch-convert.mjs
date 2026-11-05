@@ -286,6 +286,77 @@ try {
     const xIR = parseIR({ elements: [{ id: 'L', kind: 'math', latex: eqOf(12), bbox: { x: 0, y: 0, w: 1000, h: 1000 } }] }, { width: lf.w, height: lf.h }).ir;
     assert.ok(validateSketch(xIR, xc, undefined, { frame: lf }).issues.some((i) => i.code === 'frame'), 'leaving the image area is reported');
   }
+  // ---- Ink measurements from pixels (highlighter color/width, bends) and the FullDuplex sketch ----
+  {
+    const { measureOutline, measureBulge, applyInkMeasurements } = await server.ssrLoadModule('/src/sketch/ink.ts');
+    const W = 600, H = 400;
+    const blank = () => { const data = new Uint8Array(W * H * 4); for (let i = 0; i < data.length; i += 4) { data[i] = 238; data[i + 1] = 238; data[i + 2] = 234; data[i + 3] = 255; } return { data, width: W, height: H }; };
+    const dot = (img, x, y, rgb, r = 0) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const xi = Math.round(x + dx), yi = Math.round(y + dy); if (xi < 0 || yi < 0 || xi >= W || yi >= H) continue; const i = (yi * W + xi) * 4; img.data[i] = rgb[0]; img.data[i + 1] = rgb[1]; img.data[i + 2] = rgb[2]; } };
+    const ring = (img, cx, cy, a, b, thick, rgb) => { for (let t = 0; t < 2 * Math.PI; t += 0.002) for (let s = -thick / 2; s <= thick / 2; s += 0.5) dot(img, cx + (a + s) * Math.cos(t), cy + (b + s) * Math.sin(t), rgb); };
+    const N = (x, y) => ({ x: (x / W) * 1000, y: (y / H) * 1000 });
+    const box = (x, y, w, h) => ({ x: (x / W) * 1000, y: (y / H) * 1000, w: (w / W) * 1000, h: (h / H) * 1000 });
+    const LIME = [190, 204, 106], INKC = [30, 30, 30];
+
+    // Thick lime loop: measured color ≈ lime, thickness ≈ 12 px, recognized as a highlighter.
+    const img = blank(); ring(img, 200, 200, 120, 70, 12, LIME); ring(img, 450, 200, 60, 60, 2, INKC);
+    const hl = { id: 'h', kind: 'shape', shape: 'ellipse', color: 'green', bbox: box(80, 130, 240, 140) };
+    const m = measureOutline(hl, img);
+    // Color = the stroke's core, white-balanced against the paper (238,238,234 here): 190·255/238, 204·255/238, 106·255/234.
+    const wbHex = '#' + [190 * 255 / 238, 204 * 255 / 238, 106 * 255 / 234].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
+    assert.ok(m && m.colorHex === wbHex && Math.abs(m.width - 12) <= 3, 'lime highlighter measured: ' + JSON.stringify(m) + ' expected ' + wbHex);
+    // A thin black circle has no colored stroke → nothing measured, nothing changed.
+    assert.equal(measureOutline({ id: 'c', kind: 'shape', shape: 'ellipse', bbox: box(390, 140, 120, 120) }, img), null, 'black outline: no color invented');
+    const applied = applyInkMeasurements({ version: 1, image: { width: W, height: H }, elements: [hl, { id: 'c', kind: 'shape', shape: 'ellipse', bbox: box(390, 140, 120, 120) }] }, img);
+    const [ah, ac] = applied.ir.elements;
+    assert.equal(ah.pen, 'highlighter'); assert.equal(ah.colorHex, wbHex);
+    assert.ok(!ac.colorHex && !ac.pen, 'untouched without a measurement');
+
+    // Bent stroke: the bulge is found and the arrow becomes a curve; a straight stroke whose model endpoints are a few
+    // pixels off is NOT turned into a curve; a model-given control point is never replaced.
+    const arc = blank(); for (let t = 0; t <= 1; t += 0.001) { const x = (1 - t) ** 2 * 100 + 2 * (1 - t) * t * 300 + t ** 2 * 500, y = (1 - t) ** 2 * 300 + 2 * (1 - t) * t * 120 + t ** 2 * 300; dot(arc, x, y, INKC, 1); }
+    assert.ok(measureBulge({ id: 'a', kind: 'arrow', from: N(100, 300), to: N(500, 300), bbox: box(100, 200, 400, 100) }, arc), 'bend found');
+    const straight = blank(); for (let x = 100; x <= 500; x++) dot(straight, x, 300, INKC, 1);
+    assert.equal(measureBulge({ id: 's', kind: 'arrow', from: N(100, 308), to: N(500, 306), bbox: box(100, 290, 400, 20) }, straight), null, 'endpoints slightly off a straight stroke: still straight');
+    const keep = applyInkMeasurements({ version: 1, image: { width: W, height: H }, elements: [
+      { id: 'a', kind: 'arrow', from: N(100, 300), to: N(500, 300), bbox: box(100, 200, 400, 100) },
+      { id: 'b', kind: 'curvedArrow', from: N(100, 300), to: N(500, 300), control: N(300, 380), bbox: box(100, 200, 400, 100) },
+    ] }, arc).ir.elements;
+    assert.equal(keep[0].kind, 'curvedArrow'); assert.ok(keep[0].control.y < N(0, 300).y, 'bulges up like the ink');
+    assert.deepEqual(keep[1].control, N(300, 380), "the model's control point is kept");
+
+    // Local format: pen + explains on a highlight loop survive (FullDuplex: explains was dropped for shapes).
+    const { createRequire } = await import('node:module');
+    const { localToModelIR } = createRequire(import.meta.url)(path.join(root, 'electron/sketch-local.cjs'));
+    const loc = localToModelIR({ elements: [
+      { id: 'e1', type: 'text', bbox_2d: [928, 85, 1116, 182], content: '말하기' },
+      { id: 'e7', type: 'circle', bbox_2d: [845, 35, 1206, 198], content: '', color: 'green', explains: 'e1', pen: 'highlighter' },
+    ] }, 1252, 641);
+    const e7 = loc.elements.find((e) => e.id === 'e7');
+    assert.equal(e7.pen, 'highlighter'); assert.deepEqual(e7.relations, [{ type: 'annotates', target: 'e1' }]);
+
+    // A highlighter around a word without `explains` (real model run): still an intended overlap.
+    const hlIR = parseIR({ elements: [
+      { id: 't', kind: 'text', text: '말하기', bbox: { x: 400, y: 400, w: 200, h: 100 } },
+      { id: 'h', kind: 'shape', shape: 'ellipse', pen: 'highlighter', bbox: { x: 350, y: 350, w: 300, h: 200 } },
+    ] }, { width: 1000, height: 1000 }).ir;
+    assert.ok(!validateSketch(hlIR, irToElements(hlIR)).issues.some((i) => i.code === 'overlap'), 'highlighter overlap is intended');
+    // FullDuplex, hand-written correct IR → elements.
+    const raw = await fixture('fullduplex.ir.json');
+    const { ir: fIR, issues: fIssues } = parseIR(raw, raw.image);
+    assert.deepEqual(fIssues, []);
+    const frame = { x: 100, y: 200, w: 1000, h: 512 };
+    const fc = irToElements(fIR, frame);
+    const shapes = fc.elements.filter((e) => e.type === 'shape');
+    assert.ok(shapes.every((s) => s.stroke === '#BFCC6A' && s.strokeWidth >= 6 && s.fill === null), 'highlighters: measured lime, thick: ' + JSON.stringify(shapes.map((s) => [s.stroke, s.strokeWidth])));
+    const lines = fc.elements.filter((e) => e.type === 'line');
+    assert.equal(lines.filter((l) => l.cx !== undefined).length, 2, 'two curved arrows keep their control points');
+    assert.equal(lines.filter((l) => l.cx === undefined).length, 1, 'the straight arrow stays straight');
+    assert.ok(fc.elements.findIndex((e) => e.type === 'shape') < fc.elements.findIndex((e) => e.type === 'text'), 'highlighters under the text');
+    const fRep = validateSketch(fIR, fc, undefined, { frame });
+    assert.ok(!fRep.issues.some((i) => i.code === 'overlap'), 'a highlight around its word is not an overlap: ' + JSON.stringify(fRep.issues.filter((i) => i.code === 'overlap')));
+    const saved = JSON.parse(JSON.stringify(fc.elements));
+    assert.deepEqual(saved.filter((e) => e.type === 'line').map((l) => [l.cx, l.cy]), lines.map((l) => [l.cx, l.cy]), 'control points survive JSON (save/reopen)');
+  }
   console.log('sketch-convert: all checks passed');
 } finally {
   await server.close();

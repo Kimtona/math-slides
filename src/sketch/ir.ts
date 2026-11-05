@@ -20,6 +20,8 @@ export type IRBend = 'up' | 'down' | 'left' | 'right';
 export const IR_BENDS: readonly IRBend[] = ['up', 'down', 'left', 'right'];
 /** Default depth of a curve whose bend side is known but not its depth (curve middle's distance / chord length). */
 export const DEFAULT_BEND_DEPTH = 0.25;
+export type IRPen = 'pen' | 'highlighter';
+export const IR_PENS: readonly IRPen[] = ['pen', 'highlighter'];
 export type IRShape = 'ellipse' | 'rect' | 'roundRect';
 export const IR_SHAPES: readonly IRShape[] = ['ellipse', 'rect', 'roundRect'];
 export type IRRole = 'title' | 'body' | 'annotation' | 'label';
@@ -73,6 +75,15 @@ export interface IRElement {
   bendDepth?: number;
   role?: IRRole;
   color?: IRColor;
+  /**
+   * Pen kind: 'highlighter' = a thick, light marker stroke (e.g. a lime loop around a word), drawn as a thick light
+   * outline under the text; absent/'pen' = an ordinary pen stroke.
+   */
+  pen?: IRPen;
+  /** Ink color measured from the source image's pixels (#rrggbb), when it could be measured. Wins over `color`. */
+  colorHex?: string;
+  /** Stroke thickness measured from the source image, in source-image pixels. */
+  inkWidth?: number;
   relations?: IRRelation[];
   review?: IRReview;
 }
@@ -116,6 +127,7 @@ export const IR_ELEMENT_SCHEMA = {
     bendDepth: { type: 'number' },
     role: { type: 'string', enum: [...IR_ROLES] },
     color: { type: 'string', enum: [...IR_COLORS] },
+    pen: { type: 'string', enum: [...IR_PENS] },
     relations: {
       type: 'array',
       items: {
@@ -297,6 +309,9 @@ export function parseIR(raw: unknown, image: { width: number; height: number }):
     if (IR_SHAPES.includes(e.shape)) el.shape = e.shape;
     if (IR_ROLES.includes(e.role)) el.role = e.role;
     if (IR_COLORS.includes(e.color)) el.color = e.color;
+    if (IR_PENS.includes(e.pen)) el.pen = e.pen;
+    if (typeof e.colorHex === 'string' && /^#[0-9a-fA-F]{6}$/.test(e.colorHex)) el.colorHex = e.colorHex.toUpperCase();
+    if (finite(e.inkWidth) && e.inkWidth > 0) el.inkWidth = e.inkWidth;
     const from = cleanPoint(e.from), to = cleanPoint(e.to);
     if (from) el.from = from;
     if (to) el.to = to;

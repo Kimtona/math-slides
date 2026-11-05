@@ -13,7 +13,14 @@ import type { IRElement, IRIssue } from '../sketch/ir';
 
 const PREVIEW_W = 720;
 const PREVIEW_SCALE = PREVIEW_W / SLIDE_W;
-const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+// requestAnimationFrame does not fire while the window is hidden or covered (macOS occlusion, background throttling):
+// a timer fallback keeps the conversion from waiting until the user looks at the window again (layout is still
+// computed synchronously when measured). Same approach as the export code.
+const nextFrame = () => new Promise<void>((r) => {
+  const done = () => { clearTimeout(t); r(); };
+  const t = setTimeout(done, 100);
+  requestAnimationFrame(done);
+});
 
 function SettingsForm() {
   const status = useSketch((s) => s.status);
@@ -210,7 +217,7 @@ export function SketchDialog() {
                 {s.report ? (issues.length ? issues.map((i, k) => <div key={k} className={sevClass(i.severity)}>{i.id && <b>{i.id}</b>} [{i.code}] {i.message}</div>)
                   : <div className="sk-muted">No problems found.</div>) : <div className="sk-muted">—</div>}
               </section>
-              {s.timings.total ? <div className="sk-muted">Time: {(s.timings.total / 1000).toFixed(1)} s (recognition {((s.timings.recognize ?? 0) / 1000).toFixed(1)} s{s.rounds.length ? `, review ${(s.rounds.reduce((a, r) => a + r.ms, 0) / 1000).toFixed(1)} s` : ''})</div> : null}
+              {s.timings.total ? <div className="sk-muted" title={Object.entries(s.timings).map(([k, v]) => `${k}: ${(v / 1000).toFixed(1)} s`).join('\n')}>Time: {(s.timings.total / 1000).toFixed(1)} s (recognition {((s.timings.recognize ?? 0) / 1000).toFixed(1)} s{s.rounds.some((r) => !r.skipped) ? `, AI review ${(s.rounds.reduce((a, r) => a + r.ms, 0) / 1000).toFixed(1)} s` : ''}, other steps {(((s.timings.total ?? 0) - (s.timings.recognizeWall ?? 0) - Object.entries(s.timings).filter(([k]) => /^reviewWall/.test(k)).reduce((a, [, v]) => a + v, 0)) / 1000).toFixed(1)} s)</div> : null}
             </div>
           </div>
         )}

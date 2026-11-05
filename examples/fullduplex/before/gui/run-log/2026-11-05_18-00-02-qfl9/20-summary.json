@@ -1,0 +1,59 @@
+{
+  "model": "ollama/qwen2.5vl:7b",
+  "timings": {
+    "recognize": 119026,
+    "total": 119226
+  },
+  "rounds": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "e8",
+        "message": "Overlaps \"e1\" (100% of the smaller box)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "e9",
+        "message": "Overlaps \"e5\" (94% of the smaller box)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e1",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e3",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e5",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 2,
+      "info": 3
+    },
+    "review": [
+      "e1",
+      "e3",
+      "e5"
+    ]
+  },
+  "parseIssues": [
+    {
+      "severity": "info",
+      "code": "model-note",
+      "message": "Merged 1 stacked line(s) into multi-line notes."
+    }
+  ]
+}

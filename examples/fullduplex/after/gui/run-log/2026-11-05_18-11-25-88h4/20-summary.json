@@ -1,0 +1,70 @@
+{
+  "model": "ollama/qwen2.5vl:7b",
+  "timings": {
+    "prepare": 53,
+    "recognizeWall": 111853,
+    "recognize": 111842,
+    "ink": 112,
+    "render": 85,
+    "total": 112106,
+    "other": 3
+  },
+  "rounds": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e1",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e3",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e4",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 3
+    },
+    "review": [
+      "e1",
+      "e3",
+      "e4"
+    ]
+  },
+  "parseIssues": [
+    {
+      "severity": "info",
+      "code": "ink",
+      "id": "e7",
+      "message": "Stroke bends 49 px off its chord in the image: drawn as a curve."
+    },
+    {
+      "severity": "info",
+      "code": "ink",
+      "id": "e8",
+      "message": "Outline color #CDD182, 12 px thick (measured from the image), highlighter."
+    },
+    {
+      "severity": "info",
+      "code": "ink",
+      "id": "e9",
+      "message": "Outline color #E4E495, 12 px thick (measured from the image), highlighter."
+    },
+    {
+      "severity": "info",
+      "code": "model-note",
+      "message": "Merged 1 stacked line(s) into multi-line notes."
+    }
+  ]
+}

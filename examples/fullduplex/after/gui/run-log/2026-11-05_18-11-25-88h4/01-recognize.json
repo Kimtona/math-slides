@@ -1,0 +1,288 @@
+{
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 111842,
+  "usage": {
+    "input_tokens": 1753,
+    "output_tokens": 623,
+    "load_ms": 25,
+    "prompt_ms": 16344,
+    "eval_ms": 95236
+  },
+  "stopReason": "stop",
+  "image": {
+    "width": 1252,
+    "height": 641
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"e1\",\n      \"type\": \"text\",\n      \"bbox_2d\": [928, 85, 1116, 180],\n      \"content\": \"말하기\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e2\",\n      \"type\": \"text\",\n      \"bbox_2d\": [402, 205, 790, 327],\n      \"content\": \"FullDuplex\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e3\",\n      \"type\": \"text\",\n      \"bbox_2d\": [800, 385, 836, 435],\n      \"content\": \"三\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e4\",\n      \"type\": \"text\",\n      \"bbox_2d\": [194, 435, 458, 543],\n      \"content\": \"들으면서\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e5\",\n      \"type\": \"text\",\n      \"bbox_2d\": [765, 435, 898, 523],\n      \"content\": \"생각\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e6\",\n      \"type\": \"arrow\",\n      \"bbox_2d\": [277, 346, 385, 435],\n      \"content\": \"\",\n      \"points\": [277, 435, 385, 346],\n      \"connects\": [\"e4\", \"e2\"]\n    },\n    {\n      \"id\": \"e7\",\n      \"type\": \"arrow\",\n      \"bbox_2d\": [673, 275, 867, 385],\n      \"content\": \"\",\n      \"points\": [673, 385, 867, 275],\n      \"connects\": [\"e2\", \"e5\"]\n    },\n    {\n      \"id\": \"e8\",\n      \"type\": \"circle\",\n      \"bbox_2d\": [95, 385, 468, 560],\n      \"content\": \"\",\n      \"pen\": \"highlighter\",\n      \"unsure\": \"\"\n    },\n    {\n      \"id\": \"e9\",\n      \"type\": \"circle\",\n      \"bbox_2d\": [845, 38, 1208, 195],\n      \"content\": \"\",\n      \"pen\": \"highlighter\",\n      \"unsure\": \"\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "e1",
+        "type": "text",
+        "bbox_2d": [
+          928,
+          85,
+          1116,
+          180
+        ],
+        "content": "말하기",
+        "color": "black"
+      },
+      {
+        "id": "e2",
+        "type": "text",
+        "bbox_2d": [
+          402,
+          205,
+          790,
+          327
+        ],
+        "content": "FullDuplex",
+        "color": "black"
+      },
+      {
+        "id": "e3",
+        "type": "text",
+        "bbox_2d": [
+          800,
+          385,
+          836,
+          435
+        ],
+        "content": "三",
+        "color": "black"
+      },
+      {
+        "id": "e4",
+        "type": "text",
+        "bbox_2d": [
+          194,
+          435,
+          458,
+          543
+        ],
+        "content": "들으면서",
+        "color": "black"
+      },
+      {
+        "id": "e5",
+        "type": "text",
+        "bbox_2d": [
+          765,
+          435,
+          898,
+          523
+        ],
+        "content": "생각",
+        "color": "black"
+      },
+      {
+        "id": "e6",
+        "type": "arrow",
+        "bbox_2d": [
+          277,
+          346,
+          385,
+          435
+        ],
+        "content": "",
+        "points": [
+          277,
+          435,
+          385,
+          346
+        ],
+        "connects": [
+          "e4",
+          "e2"
+        ]
+      },
+      {
+        "id": "e7",
+        "type": "arrow",
+        "bbox_2d": [
+          673,
+          275,
+          867,
+          385
+        ],
+        "content": "",
+        "points": [
+          673,
+          385,
+          867,
+          275
+        ],
+        "connects": [
+          "e2",
+          "e5"
+        ]
+      },
+      {
+        "id": "e8",
+        "type": "circle",
+        "bbox_2d": [
+          95,
+          385,
+          468,
+          560
+        ],
+        "content": "",
+        "pen": "highlighter",
+        "unsure": ""
+      },
+      {
+        "id": "e9",
+        "type": "circle",
+        "bbox_2d": [
+          845,
+          38,
+          1208,
+          195
+        ],
+        "content": "",
+        "pen": "highlighter",
+        "unsure": ""
+      }
+    ]
+  },
+  "output": {
+    "elements": [
+      {
+        "id": "e1",
+        "bbox": {
+          "x": 741.2140575079871,
+          "y": 132.60530421216848,
+          "w": 150.1597444089458,
+          "h": 148.20592823712948
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "말하기",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "말하기"
+        }
+      },
+      {
+        "id": "e2",
+        "bbox": {
+          "x": 321.08626198083067,
+          "y": 319.8127925117005,
+          "w": 309.90415335463257,
+          "h": 190.32761310452418
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "FullDuplex",
+        "role": "body"
+      },
+      {
+        "id": "e3",
+        "bbox": {
+          "x": 611.0223642172524,
+          "y": 600.6240249609984,
+          "w": 106.23003194888179,
+          "h": 215.2886115444618
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "三\n생각",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "三\n생각"
+        }
+      },
+      {
+        "id": "e4",
+        "bbox": {
+          "x": 154.95207667731628,
+          "y": 678.6271450858035,
+          "w": 210.86261980830668,
+          "h": 168.48673946957865
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "들으면서",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "들으면서"
+        }
+      },
+      {
+        "id": "e6",
+        "bbox": {
+          "x": 221.24600638977634,
+          "y": 539.7815912636505,
+          "w": 86.26198083067098,
+          "h": 138.84555382215297
+        },
+        "kind": "arrow",
+        "from": {
+          "x": 221.24600638977634,
+          "y": 678.6271450858035
+        },
+        "to": {
+          "x": 307.5079872204473,
+          "y": 539.7815912636505
+        },
+        "fromId": "e4",
+        "toId": "e2"
+      },
+      {
+        "id": "e7",
+        "bbox": {
+          "x": 537.5399361022364,
+          "y": 429.0171606864275,
+          "w": 154.9520766773163,
+          "h": 171.60686427457097
+        },
+        "kind": "arrow",
+        "from": {
+          "x": 537.5399361022364,
+          "y": 600.6240249609984
+        },
+        "to": {
+          "x": 692.4920127795527,
+          "y": 429.0171606864275
+        },
+        "fromId": "e2",
+        "toId": "e3"
+      },
+      {
+        "id": "e8",
+        "bbox": {
+          "x": 75.87859424920129,
+          "y": 600.6240249609984,
+          "w": 297.9233226837061,
+          "h": 273.0109204368175
+        },
+        "pen": "highlighter",
+        "kind": "shape",
+        "shape": "ellipse"
+      },
+      {
+        "id": "e9",
+        "bbox": {
+          "x": 674.9201277955272,
+          "y": 59.2823712948518,
+          "w": 289.9361022364217,
+          "h": 244.92979719188767
+        },
+        "pen": "highlighter",
+        "kind": "shape",
+        "shape": "ellipse"
+      }
+    ],
+    "notes": [
+      "Merged 1 stacked line(s) into multi-line notes."
+    ]
+  }
+}

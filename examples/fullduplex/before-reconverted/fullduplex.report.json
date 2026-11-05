@@ -1,0 +1,374 @@
+{
+  "source": "saved IR",
+  "file": "examples/fullduplex/before/fullduplex.ir.json",
+  "model": "ollama/qwen2.5vl:7b",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "e1",
+        "type": "text",
+        "bbox_2d": [
+          928,
+          85,
+          1116,
+          182
+        ],
+        "content": "말하기",
+        "color": "black"
+      },
+      {
+        "id": "e2",
+        "type": "text",
+        "bbox_2d": [
+          402,
+          205,
+          790,
+          326
+        ],
+        "content": "FullDuplex",
+        "color": "black"
+      },
+      {
+        "id": "e3",
+        "type": "text",
+        "bbox_2d": [
+          194,
+          435,
+          458,
+          542
+        ],
+        "content": "들으면서",
+        "color": "black"
+      },
+      {
+        "id": "e4",
+        "type": "text",
+        "bbox_2d": [
+          764,
+          435,
+          898,
+          524
+        ],
+        "content": "생각",
+        "color": "black"
+      },
+      {
+        "id": "e5",
+        "type": "arrow",
+        "bbox_2d": [
+          277,
+          346,
+          385,
+          435
+        ],
+        "content": "",
+        "color": "black",
+        "points": [
+          277,
+          410,
+          385,
+          377
+        ],
+        "connects": [
+          "e2",
+          "e3"
+        ]
+      },
+      {
+        "id": "e6",
+        "type": "arrow",
+        "bbox_2d": [
+          672,
+          275,
+          867,
+          385
+        ],
+        "content": "",
+        "color": "black",
+        "points": [
+          672,
+          345,
+          867,
+          312
+        ],
+        "connects": [
+          "e2",
+          "e4"
+        ]
+      },
+      {
+        "id": "e7",
+        "type": "circle",
+        "bbox_2d": [
+          845,
+          35,
+          1206,
+          198
+        ],
+        "content": "",
+        "color": "green",
+        "explains": "e1"
+      },
+      {
+        "id": "e8",
+        "type": "circle",
+        "bbox_2d": [
+          95,
+          390,
+          495,
+          560
+        ],
+        "content": "",
+        "color": "green",
+        "explains": "e3"
+      }
+    ]
+  },
+  "sentImage": {
+    "width": 1252,
+    "height": 641
+  },
+  "totalMs": 438,
+  "parseIssues": [
+    {
+      "severity": "info",
+      "code": "ink",
+      "id": "e6",
+      "message": "Stroke bends 55 px off its chord in the image: drawn as a curve."
+    },
+    {
+      "severity": "info",
+      "code": "ink",
+      "id": "e7",
+      "message": "Outline color #E4E49E, 11 px thick (measured from the image), highlighter."
+    },
+    {
+      "severity": "info",
+      "code": "ink",
+      "id": "e8",
+      "message": "Outline color #D0D18C, 10 px thick (measured from the image), highlighter."
+    }
+  ],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e1",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e3",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e4",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 3
+    },
+    "review": [
+      "e1",
+      "e3",
+      "e4"
+    ]
+  },
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1252,
+      "height": 641
+    },
+    "elements": [
+      {
+        "id": "e1",
+        "kind": "text",
+        "bbox": {
+          "x": 741.2140575079871,
+          "y": 132.60530421216848,
+          "w": 150.1597444089458,
+          "h": 151.32605304212174
+        },
+        "text": "말하기",
+        "role": "body",
+        "color": "black",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "말하기"
+        }
+      },
+      {
+        "id": "e2",
+        "kind": "text",
+        "bbox": {
+          "x": 321.08626198083067,
+          "y": 319.8127925117005,
+          "w": 309.90415335463257,
+          "h": 188.76755070202807
+        },
+        "text": "FullDuplex",
+        "role": "body",
+        "color": "black"
+      },
+      {
+        "id": "e3",
+        "kind": "text",
+        "bbox": {
+          "x": 154.95207667731628,
+          "y": 678.6271450858035,
+          "w": 210.86261980830668,
+          "h": 166.92667706708266
+        },
+        "text": "들으면서",
+        "role": "body",
+        "color": "black",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "들으면서"
+        }
+      },
+      {
+        "id": "e4",
+        "kind": "text",
+        "bbox": {
+          "x": 610.223642172524,
+          "y": 678.6271450858035,
+          "w": 107.02875399361017,
+          "h": 138.84555382215274
+        },
+        "text": "생각",
+        "role": "body",
+        "color": "black",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "생각"
+        }
+      },
+      {
+        "id": "e5",
+        "kind": "arrow",
+        "bbox": {
+          "x": 221.24600638977634,
+          "y": 539.7815912636505,
+          "w": 86.26198083067098,
+          "h": 138.84555382215297
+        },
+        "color": "black",
+        "from": {
+          "x": 221.24600638977634,
+          "y": 639.625585023401
+        },
+        "to": {
+          "x": 307.5079872204473,
+          "y": 588.1435257410296
+        },
+        "fromId": "e2",
+        "toId": "e3"
+      },
+      {
+        "id": "e6",
+        "kind": "curvedArrow",
+        "bbox": {
+          "x": 536.7412140575079,
+          "y": 429.0171606864275,
+          "w": 155.7507987220448,
+          "h": 171.60686427457097
+        },
+        "color": "black",
+        "from": {
+          "x": 536.7412140575079,
+          "y": 538.2215288611545
+        },
+        "to": {
+          "x": 692.4920127795527,
+          "y": 486.73946957878314
+        },
+        "fromId": "e2",
+        "toId": "e4",
+        "control": {
+          "x": 629.2766880241372,
+          "y": 681.6815872080972
+        }
+      },
+      {
+        "id": "e7",
+        "kind": "shape",
+        "bbox": {
+          "x": 674.9201277955272,
+          "y": 54.6021840873635,
+          "w": 288.3386581469649,
+          "h": 254.29017160686428
+        },
+        "shape": "ellipse",
+        "color": "green",
+        "relations": [
+          {
+            "type": "annotates",
+            "target": "e1"
+          }
+        ],
+        "colorHex": "#E4E49E",
+        "inkWidth": 11,
+        "pen": "highlighter"
+      },
+      {
+        "id": "e8",
+        "kind": "shape",
+        "bbox": {
+          "x": 75.87859424920129,
+          "y": 608.424336973479,
+          "w": 319.4888178913738,
+          "h": 265.210608424337
+        },
+        "shape": "ellipse",
+        "color": "green",
+        "relations": [
+          {
+            "type": "annotates",
+            "target": "e3"
+          }
+        ],
+        "colorHex": "#D0D18C",
+        "inkWidth": 10,
+        "pen": "highlighter"
+      }
+    ]
+  },
+  "map": {
+    "e7": [
+      "EB0YZ2h56S"
+    ],
+    "e8": [
+      "QrFPdOsBAF"
+    ],
+    "e1": [
+      "pKhFsWqBsm"
+    ],
+    "e2": [
+      "ymMWG8hCQg"
+    ],
+    "e3": [
+      "DqVgmURv-U"
+    ],
+    "e4": [
+      "hYY2xuF-Ea"
+    ],
+    "e5": [
+      "_RPtj5T_Sh"
+    ],
+    "e6": [
+      "zvzw7c4xCm"
+    ]
+  }
+}

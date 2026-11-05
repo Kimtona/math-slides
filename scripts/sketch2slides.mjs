@@ -17,6 +17,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { createServer } from 'vite';
+import { decodePng, stripPngMetadata } from './png-raster.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
@@ -54,14 +55,17 @@ export function imageInfo(buf) {
 
 /** Rescales by k with macOS `sips` (PNG, metadata such as EXIF/GPS dropped); other systems send the original. */
 async function resize(buf, info, k) {
-  if (Math.abs(k - 1) < 0.02 || process.platform !== 'darwin') return { buf, info };
+  // Always re-encode to PNG on macOS (also when the size is already right): the result has no EXIF/GPS (stripped below)
+  // and can be decoded for the pixel measurements.
+  if (process.platform !== 'darwin') return { buf, info };
   const { execFileSync } = await import('node:child_process');
   const tmp = await mkdtemp(path.join(tmpdir(), 'sketch2slides-'));
   const src = path.join(tmp, 'in'), dst = path.join(tmp, 'sent.png');
   await writeFile(src, buf);
   const w = Math.max(1, Math.round(info.width * k)), h = Math.max(1, Math.round(info.height * k));
   execFileSync('sips', ['-s', 'format', 'png', '-z', String(h), String(w), src, '--out', dst], { stdio: 'ignore' });
-  const out = await readFile(dst);
+  // sips keeps the photo's EXIF (incl. GPS) as an eXIf chunk: drop all metadata chunks.
+  const out = stripPngMetadata(await readFile(dst));
   return { buf: out, info: imageInfo(out) };
 }
 
@@ -87,7 +91,9 @@ async function main() {
     if (saved.localOutput && saved.sentImage) {
       // Local-model run: redo the deterministic local-format → IR step too (picks up converter fixes).
       const { localToModelIR } = require(path.join(root, 'electron/sketch-local.cjs'));
-      info = { ...info, width: saved.sentImage.width, height: saved.sentImage.height };
+      // Rebuild the image the model saw (same size), so the pixel measurements can run too.
+      ({ buf, info } = await resize(buf, info, saved.sentImage.width / info.width));
+      if (info.width !== saved.sentImage.width || info.height !== saved.sentImage.height) info = { ...info, width: saved.sentImage.width, height: saved.sentImage.height, mime: 'n/a' };
       raw = localToModelIR(saved.localOutput, info.width, info.height);
     } else {
       raw = saved.output ?? saved; // a *.ir.json written by this tool, or a bare { elements }
@@ -126,7 +132,18 @@ async function main() {
   const { irToElements } = await loadTs('/src/sketch/convert.ts');
   const { validateSketch } = await loadTs('/src/sketch/validate.ts');
   const { uid } = await loadTs('/src/model/defaults.ts');
-  const { ir, issues } = parseIR(raw, { width: info.width, height: info.height });
+  const parsed = parseIR(raw, { width: info.width, height: info.height });
+  // Same pixel measurements as the app (ink colors/thickness, bends), when the image the model saw is a decodable PNG.
+  let ir = parsed.ir, issues = parsed.issues;
+  if (info.mime === 'image/png' && info.width === parsed.ir.image.width) {
+    try {
+      const { applyInkMeasurements } = await loadTs('/src/sketch/ink.ts');
+      const m = applyInkMeasurements(parsed.ir, decodePng(buf));
+      ir = m.ir; issues = [...issues, ...m.issues];
+    } catch (e) {
+      issues = [...issues, { severity: 'info', code: 'ink', message: `Pixel measurements skipped: ${e.message}` }];
+    }
+  }
   const conv = irToElements(ir);
   const report = validateSketch(ir, conv);
 

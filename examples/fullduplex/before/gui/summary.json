@@ -1,0 +1,255 @@
+{
+  "started": "2026-11-05T17:59:58.327Z",
+  "runs": [
+    {
+      "image": "fullduplex.png",
+      "wallMs": 119240,
+      "frame": {
+        "x": 181,
+        "y": 200,
+        "w": 918,
+        "h": 470
+      },
+      "phase": "preview",
+      "error": null,
+      "model": "ollama/qwen2.5vl:7b",
+      "timings": {
+        "recognize": 119026,
+        "total": 119226
+      },
+      "rounds": [],
+      "counts": {
+        "error": 0,
+        "warning": 2,
+        "info": 3
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "code": "model-note",
+          "message": "Merged 1 stacked line(s) into multi-line notes."
+        },
+        {
+          "severity": "warning",
+          "code": "overlap",
+          "id": "e8",
+          "message": "Overlaps \"e1\" (100% of the smaller box)."
+        },
+        {
+          "severity": "warning",
+          "code": "overlap",
+          "id": "e9",
+          "message": "Overlaps \"e5\" (94% of the smaller box)."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "e1",
+          "message": "Korean handwriting read by a local model: check the wording."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "e3",
+          "message": "Korean handwriting read by a local model: check the wording."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "e5",
+          "message": "Korean handwriting read by a local model: check the wording."
+        }
+      ],
+      "ir": {
+        "version": 1,
+        "image": {
+          "width": 1252,
+          "height": 641
+        },
+        "elements": [
+          {
+            "id": "e1",
+            "kind": "text",
+            "bbox": {
+              "x": 741.2140575079871,
+              "y": 132.60530421216848,
+              "w": 149.36102236421732,
+              "h": 148.20592823712948
+            },
+            "text": "말하기",
+            "role": "body",
+            "color": "black",
+            "review": {
+              "needed": true,
+              "reason": "Korean handwriting read by a local model: check the wording.",
+              "transcribed": "말하기"
+            }
+          },
+          {
+            "id": "e2",
+            "kind": "text",
+            "bbox": {
+              "x": 321.08626198083067,
+              "y": 319.8127925117005,
+              "w": 309.90415335463257,
+              "h": 188.76755070202807
+            },
+            "text": "FullDuplex",
+            "role": "body",
+            "color": "black"
+          },
+          {
+            "id": "e3",
+            "kind": "text",
+            "bbox": {
+              "x": 611.0223642172524,
+              "y": 600.6240249609984,
+              "w": 106.23003194888179,
+              "h": 215.2886115444618
+            },
+            "text": "三\n생각",
+            "role": "body",
+            "color": "black",
+            "review": {
+              "needed": true,
+              "reason": "Korean handwriting read by a local model: check the wording.",
+              "transcribed": "三\n생각"
+            }
+          },
+          {
+            "id": "e5",
+            "kind": "text",
+            "bbox": {
+              "x": 154.95207667731628,
+              "y": 678.6271450858035,
+              "w": 210.0638977635783,
+              "h": 168.48673946957865
+            },
+            "text": "들으면서",
+            "role": "body",
+            "color": "black",
+            "review": {
+              "needed": true,
+              "reason": "Korean handwriting read by a local model: check the wording.",
+              "transcribed": "들으면서"
+            }
+          },
+          {
+            "id": "e6",
+            "kind": "arrow",
+            "bbox": {
+              "x": 222.04472843450478,
+              "y": 539.7815912636505,
+              "w": 107.02875399361025,
+              "h": 138.84555382215297
+            },
+            "color": "black",
+            "from": {
+              "x": 222.04472843450478,
+              "y": 639.625585023401
+            },
+            "to": {
+              "x": 329.073482428115,
+              "y": 588.1435257410296
+            },
+            "fromId": "e5",
+            "toId": "e2"
+          },
+          {
+            "id": "e7",
+            "kind": "arrow",
+            "bbox": {
+              "x": 537.5399361022364,
+              "y": 429.0171606864275,
+              "w": 154.15335463258793,
+              "h": 171.60686427457097
+            },
+            "color": "black",
+            "from": {
+              "x": 537.5399361022364,
+              "y": 530.4212168486739
+            },
+            "to": {
+              "x": 691.6932907348244,
+              "y": 488.29953198127924
+            },
+            "fromId": "e2",
+            "toId": "e3"
+          },
+          {
+            "id": "e8",
+            "kind": "shape",
+            "bbox": {
+              "x": 697.2843450479234,
+              "y": 54.6021840873635,
+              "w": 266.7731629392971,
+              "h": 249.60998439937597
+            },
+            "shape": "ellipse",
+            "color": "green"
+          },
+          {
+            "id": "e9",
+            "kind": "shape",
+            "bbox": {
+              "x": 79.87220447284345,
+              "y": 600.6240249609984,
+              "w": 293.1309904153354,
+              "h": 269.8907956318253
+            },
+            "shape": "ellipse",
+            "color": "green"
+          }
+        ],
+        "notes": [
+          "Merged 1 stacked line(s) into multi-line notes."
+        ]
+      },
+      "elementTypes": [
+        "shape:ellipse",
+        "shape:ellipse",
+        "line",
+        "line",
+        "text",
+        "text",
+        "text",
+        "text"
+      ],
+      "applied": [
+        "text",
+        "text",
+        "shape:ellipse",
+        "shape:ellipse",
+        "line",
+        "line",
+        "text",
+        "text",
+        "text",
+        "text"
+      ],
+      "outsideFrame": [],
+      "coversExisting": [],
+      "textEditable": true,
+      "undoRedo": "ok"
+    }
+  ],
+  "status": {
+    "provider": "ollama",
+    "model": "ollama/qwen2.5vl:7b",
+    "ready": true
+  },
+  "saved": {
+    "slides": 2,
+    "elements": 12
+  },
+  "pdf": {
+    "file": "Untitled presentation.pdf",
+    "bytes": 22424,
+    "pages": 2
+  },
+  "pptx": {
+    "bytes": 17799,
+    "slides": 2
+  },
+  "finished": "2026-11-05T18:02:03.576Z"
+}

@@ -156,6 +156,7 @@ image ─► vision model (Ollama or Claude, JSON) ─► IR ─► converter �
 
 - **IR** (`src/sketch/ir.ts`): elements with kind (`text`/`math`/`shape`/`arrow`/`line`), coordinates normalized 0..1000, text or LaTeX, arrow endpoints and the ids they attach to, relations (`inside`, `annotates`), role (title/label/annotation/body), ink color, and a review flag. The flag is *not* a probability; it only marks what a human should check. The model never writes `.mslides` JSON.
 - **Converter** (`src/sketch/convert.ts`): IR coordinates map onto the image's frame on the slide (the command-line tool, which has no slide, fits the content into the slide instead); equation size from MathJax's real typeset size; text inside a shape becomes the shape's text; arrows attached to shapes start and end on their outlines. No auto-beautify (alignment, spacing) yet.
+- **Pixel measurements** (`src/sketch/ink.ts`): colored outlines are measured on the image the model saw — color (stroke core, white-balanced against the paper, so a dim photo still gives the color as drawn), thickness, and whether it is a highlighter (light + thick) — and straight arrows that clearly bend in the ink become curves. Nothing is invented: no measurement, no change; a model-given control point or bend is kept. Highlighters are thick light outlines under the text (shapes are drawn first, so no transparency is needed).
 - **Math in text**: inline math written as `$...$`, `$$...$$`, `\(...\)` or `\[...\]` becomes the editor's inline equations (MathJax); display equations lose only their delimiters. Long equations are scaled by their real typeset width to fit; paragraphs wrap within the image area.
 - **Checks** (`src/sketch/validate.ts`): structure, slide bounds, leaving the image area, covering existing slide content, LaTeX that does not render, unsupported elements, unintended overlaps (labels in shapes, notes on what they annotate and connectors are allowed to touch).
 - **AI review**: a second request compares the original with a screenshot of the converted slide (+ the IR and the check results) and returns patches for real conversion errors only, never "improvements" to the writer's content.
@@ -173,7 +174,7 @@ node scripts/render-mslides.mjs sketch-out/policy-gradient.mslides out.png      
 
 It writes `<name>.ir.json` (raw model text and output), `<name>.mslides` (open it in MathSlides) and `<name>.report.json`
 (checks, timings, token usage); a failed model call leaves `<name>.failed.json`. Like the app, it resizes the image for
-the model (macOS `sips`; metadata such as GPS is dropped). The AI review loop needs the rendered slide, so it runs in
+the model (macOS `sips`, then all PNG metadata chunks — EXIF incl. GPS, text — are removed; `sips` alone keeps EXIF), and runs the same pixel measurements as the app. The AI review loop needs the rendered slide, so it runs in
 the app only.
 
 ### Tests

@@ -26,6 +26,7 @@ const LOCAL_SCHEMA = {
           via: { type: 'array', items: num, minItems: 2, maxItems: 2 },
           bend: { type: 'string', enum: BENDS },
           explains: str,
+          pen: { type: 'string', enum: ['pen', 'highlighter'] },
           unsure: str,
         },
         required: ['id', 'type', 'bbox_2d', 'content'],
@@ -167,6 +168,7 @@ function localToModelIR(data, width, height) {
     const content = typeof e.content === 'string' ? e.content.replace(/\\n(?![A-Za-z])/g, '\n').trim() : '';
     const out = { id, bbox };
     if (COLORS.includes(e.color)) out.color = e.color;
+    if (e.pen === 'highlighter' || e.pen === 'pen') out.pen = e.pen;
     const unsure = typeof e.unsure === 'string' && e.unsure.trim() ? e.unsure.trim() : '';
     if (e.type === 'title' || e.type === 'text') {
       Object.assign(out, { kind: 'text', text: wrapInlineCommands(content), role: e.type === 'title' ? 'title' : 'body' });
@@ -194,6 +196,10 @@ function localToModelIR(data, width, height) {
     const target = ref(e.explains);
     if (target && target !== id && (out.kind === 'text')) {
       out.role = out.role === 'title' ? 'title' : 'annotation';
+      out.relations = [{ type: 'annotates', target }];
+    } else if (target && target !== id) {
+      // A highlight loop or an arrow that belongs to a word (FullDuplex run: the model gave it, the converter dropped it,
+      // so the highlighter around 말하기 was reported as an unintended overlap).
       out.relations = [{ type: 'annotates', target }];
     }
     // Empty content where content is required: keep the element visible for review instead of inventing text.

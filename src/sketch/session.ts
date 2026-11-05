@@ -8,7 +8,8 @@ import { findSlide, useStore } from '../store/store';
 import { applyPatches, MODEL_IR_SCHEMA, parseIR, REVIEW_SCHEMA, type IRElement, type IRIssue, type ReviewResult, type SketchIR } from './ir';
 import { irToElements, type ConversionResult, type Frame } from './convert';
 import { validateSketch, type ValidationReport } from './validate';
-import { imageForModel, newRunId, sketchNative, type SketchImage, type SketchSettings, type SketchStatus } from './bridge';
+import { applyInkMeasurements } from './ink';
+import { imageForModel, newRunId, rasterOf, sketchNative, type SketchImage, type SketchSettings, type SketchStatus } from './bridge';
 
 export const MAX_REVIEW_ROUNDS = 2;
 
@@ -137,17 +138,25 @@ export async function runSketch() {
   try {
     const status = get().status ?? await refreshStatus();
     const local = status.provider === 'ollama';
-    const image = await imageForModel(src.el, src.asset, status.image);
+    // Wall-clock time of every step (`recognize` alone is the model call as measured in the main process).
+    const step = async <T,>(name: string, fn: () => Promise<T>): Promise<T> => {
+      const s0 = performance.now();
+      try { return await fn(); } finally { timings[name] = Math.round((timings[name] ?? 0) + performance.now() - s0); }
+    };
+    const image = await step('prepare', () => imageForModel(src.el, src.asset, status.image));
     set({ image });
     const { dataUrl: _d, ...img } = image;
-    const res = await native.recognize({ runId, image: img, schema: MODEL_IR_SCHEMA });
+    const res = await step('recognizeWall', () => native.recognize({ runId, image: img, schema: MODEL_IR_SCHEMA }));
     timings.recognize = res.ms ?? 0;
     if (!res.ok) throw new Error(res.error);
     set({ model: res.model ?? '' });
-    const { ir, issues } = parseIR(res.data, { width: image.width, height: image.height });
-    if (!ir.elements.length) throw new Error('Nothing was recognized in this image.');
+    const parsed = parseIR(res.data, { width: image.width, height: image.height });
+    if (!parsed.ir.elements.length) throw new Error('Nothing was recognized in this image.');
+    // Pixel measurements on the image the model saw: real ink colors/thickness, bends of strokes the model called straight.
+    const measured = await step('ink', async () => applyInkMeasurements(parsed.ir, await rasterOf(image.dataUrl)));
+    const ir = measured.ir, issues = [...parsed.issues, ...measured.issues];
     set({ parseIssues: [...issues, ...((ir.notes ?? []).map((n) => ({ severity: 'info' as const, code: 'model-note', message: n })))], phase: get().aiReview ? 'reviewing' : 'preview' });
-    let cur = await rebuild(ir);
+    let cur = await step('render', () => rebuild(ir));
     native.log(runId, '02-ir.json', { ir, parseIssues: issues, validation: cur.report });
 
     // AI review: compare original vs rendering; apply its patches; at most MAX_REVIEW_ROUNDS rounds.
@@ -160,9 +169,9 @@ export async function runSketch() {
         set({ rounds: [...get().rounds, { round, ok: true, summary: 'Skipped: the automatic checks found no problems (saves a local model call).', patches: [], before: cur.report.counts, ms: 0, skipped: true }] });
         break;
       }
-      const rr = await native.review({
-        runId, round, original: img, rendering: cur.shot, ir: get().ir!, issues: issueLines(cur.report), schema: REVIEW_SCHEMA,
-      });
+      const rr = await step(`reviewWall${round}`, () => native.review({
+        runId, round, original: img, rendering: cur.shot!, ir: get().ir!, issues: issueLines(cur.report), schema: REVIEW_SCHEMA,
+      }));
       timings[`review${round}`] = rr.ms ?? 0;
       const before = cur.report.counts;
       if (!rr.ok) {
@@ -177,12 +186,14 @@ export async function runSketch() {
       }
       const patched = applyPatches(get().ir!, entry.patches);
       set({ parseIssues: [...get().parseIssues, ...patched.issues] });
-      cur = await rebuild(patched.ir);
+      cur = await step(`render${round}`, () => rebuild(patched.ir));
       entry.after = cur.report.counts;
       set({ rounds: [...get().rounds, entry] });
       native.log(runId, `1${round}-patched-ir.json`, { ir: patched.ir, patchIssues: patched.issues, validation: cur.report });
     }
     timings.total = Math.round(performance.now() - t0);
+    // Anything not covered by a measured step (should stay near zero).
+    timings.other = timings.total - Object.entries(timings).filter(([k]) => k !== 'total' && k !== 'recognize' && !/^review\d$/.test(k)).reduce((a, [, v]) => a + v, 0);
     set({ phase: 'preview', timings: { ...timings } });
     native.log(runId, '20-summary.json', { model: get().model, timings, rounds: get().rounds, validation: get().report, parseIssues: get().parseIssues });
   } catch (e) {

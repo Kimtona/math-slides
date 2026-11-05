@@ -104,6 +104,10 @@ export function validateSketch(ir: SketchIR, conv: ConversionResult, heights?: R
       if (!textLike(a) && !textLike(b)) continue; // shape/shape overlaps are drawn that way
       const ia = irOf.get(a.id), ib = irOf.get(b.id);
       if (ia && ib && related.has(ia + '|' + ib)) continue;
+      // A highlighter is drawn around/over words by definition: its overlap with text is intended (even when the model
+      // did not say which word it marks).
+      const highlighter = (id?: string) => !!id && ir.elements.find((x) => x.id === id)?.pen === 'highlighter';
+      if (highlighter(ia) || highlighter(ib)) continue;
       const limit = textLike(a) && textLike(b) ? OVERLAP_TEXT : OVERLAP_SHAPE;
       const r = overlapRatio(a, b);
       if (r > limit) issues.push({ severity: 'warning', code: 'overlap', id: ia, message: `Overlaps "${ib}" (${Math.round(r * 100)}% of the smaller box).` });

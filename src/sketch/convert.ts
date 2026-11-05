@@ -273,10 +273,14 @@ function mathElement(e: IRElement, pl: Placement, issues: IRIssue[]): TextElemen
 function shapeElement(e: IRElement, label: IRElement | undefined, pl: Placement, issues: IRIssue[]): ShapeElement {
   const b = keepInside(mapBox(e.bbox, pl), issues, e.id, pl.area);
   const el = newShape(e.shape ?? 'rect', round(b.x), round(b.y), round(Math.max(8, b.w)), round(Math.max(8, b.h)));
-  // Hand-drawn shapes are outlines in the pen color.
+  // Hand-drawn shapes are outlines in the pen color: the color measured from the image when available
+  // (e.g. a lime highlighter), else the model's named color. A highlighter keeps its thick stroke; shapes are drawn
+  // under text and connectors, so the light opaque stroke reads like a marker without needing transparency.
   el.fill = null;
-  el.stroke = INK[e.color ?? 'black'];
-  el.strokeWidth = 3;
+  el.stroke = e.colorHex ?? INK[e.color ?? 'black'];
+  const sy = pl.sy;
+  if (e.pen === 'highlighter') el.strokeWidth = round(clamp(e.inkWidth ? e.inkWidth * sy : 0.012 * Math.min(pl.area.w, pl.area.h), 4, 28));
+  else el.strokeWidth = e.inkWidth ? round(clamp(e.inkWidth * sy, 2, 8)) : 3;
   const text = (label?.text ?? e.text ?? '').trim();
   if (text) {
     const ink = label ? mapBox(label.bbox, pl).h / text.split('\n').length : b.h * 0.35;
@@ -318,7 +322,7 @@ function lineElement(e: IRElement, pl: Placement, shapes: Map<string, ShapeEleme
   // whole curve inside the image's area.
   if (c) c = inside(c);
   const el = newLine(round(p1.x), round(p1.y), round(p2.x), round(p2.y), hasArrowhead(e.kind), c);
-  el.stroke = INK[e.color ?? 'black'];
+  el.stroke = e.colorHex ?? INK[e.color ?? 'black'];
   Object.assign(el, lineBox(el));
   return el;
 }

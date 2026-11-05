@@ -1,0 +1,15 @@
+{
+  "_note": "Hand-written test fixture (NOT model output): a correct recognition of examples/sketches/fullduplex.png (1500×768). Coordinates 0..1000. colorHex/inkWidth as the pixel measurement would give them.",
+  "image": { "width": 1500, "height": 768 },
+  "elements": [
+    { "id": "fd", "kind": "text", "text": "FullDuplex", "role": "body", "bbox": { "x": 320, "y": 345, "w": 305, "h": 160 } },
+    { "id": "hear", "kind": "text", "text": "들으면서", "role": "body", "bbox": { "x": 155, "y": 690, "w": 210, "h": 130 } },
+    { "id": "speak", "kind": "text", "text": "말하기", "role": "body", "bbox": { "x": 725, "y": 140, "w": 145, "h": 130 } },
+    { "id": "think", "kind": "text", "text": "생각", "role": "body", "bbox": { "x": 610, "y": 700, "w": 100, "h": 105 } },
+    { "id": "hl1", "kind": "shape", "shape": "ellipse", "color": "green", "pen": "highlighter", "colorHex": "#BFCC6A", "inkWidth": 12, "bbox": { "x": 80, "y": 615, "w": 310, "h": 255 }, "relations": [{ "type": "annotates", "target": "hear" }] },
+    { "id": "hl2", "kind": "shape", "shape": "ellipse", "color": "green", "pen": "highlighter", "colorHex": "#BFCC6A", "inkWidth": 12, "bbox": { "x": 690, "y": 55, "w": 270, "h": 280 }, "relations": [{ "type": "annotates", "target": "speak" }] },
+    { "id": "a1", "kind": "arrow", "from": { "x": 225, "y": 665 }, "to": { "x": 323, "y": 555 }, "bbox": { "x": 225, "y": 545, "w": 100, "h": 125 }, "fromId": "hear", "toId": "fd" },
+    { "id": "a2", "kind": "curvedArrow", "from": { "x": 645, "y": 310 }, "to": { "x": 720, "y": 225 }, "control": { "x": 670, "y": 225 }, "bbox": { "x": 645, "y": 215, "w": 80, "h": 100 }, "fromId": "fd", "toId": "speak" },
+    { "id": "a3", "kind": "curvedArrow", "from": { "x": 565, "y": 495 }, "to": { "x": 650, "y": 440 }, "control": { "x": 600, "y": 700 }, "bbox": { "x": 560, "y": 430, "w": 115, "h": 165 }, "fromId": "think", "toId": "fd" }
+  ]
+}

@@ -254,3 +254,81 @@ it passes.
 
 **Recognition errors that remain (model, not rendering; prompts unchanged as requested):** `\mathcal{J}_{PPO}` read
 as `J_{PPO}`; the section number "4.1.1." dropped from the heading; paragraph boxes reported as one line high.
+
+## 2026-11-06 — Stage 7: FullDuplex sketch — curved arrows, lime highlighter, conversion time
+
+**Input.** `~/Downloads/test3.jpeg` (iPhone photo, 1500×768, **EXIF with GPS**). The repository keeps
+`examples/sketches/fullduplex.png`, re-encoded with all metadata chunks removed (only IHDR/IDAT/IEND/iCCP/cICP left).
+Finding on the way: `sips -s format png` **keeps the photo's EXIF as an `eXIf` chunk**, so the README's earlier claim
+that the CLI drops GPS was wrong (the app was never affected: it re-encodes through a canvas). The CLI now strips all
+metadata chunks after `sips` (`scripts/png-raster.mjs`).
+
+Original content: "FullDuplex" (center), "들으면서" in a lime highlighter loop (bottom left), "말하기" in a lime loop
+(top right), "생각" with "≡" (bottom), black arrows 들으면서→FullDuplex (slightly bent), FullDuplex→말하기 (bent), and a
+looping arrow from 생각 up to FullDuplex.
+
+### Before (current code, real qwen2.5vl:7b) — `examples/fullduplex/before/`
+
+CLI 114.7 s (prompt 16.7 s / 1623 tok, generation 85.8 s / 581 tok, load 11.0 s); GUI (`before/gui/`) 119.2 s with
+recognition 119.0 s. Stage by stage (raw model text in `before/fullduplex.ir.json` → `rawText`):
+
+| what | model output | local → IR | IR → elements | result |
+|---|---|---|---|---|
+| arrows | 2 × `arrow` (straight), no `curved_arrow`/`via`/`bend`; arrow to 말하기 **missing**; `connects` reversed | unchanged | straight lines | straight; one arrow missing, one misplaced |
+| highlighters | 2 × `circle`, `color: "green"`, `explains: e1/e3` | `explains` **dropped for shapes** | `#2CA02C`, 3 px, opaque (IR has only 5 named colors, fixed width) | thin dark-green ellipses; 2 overlap warnings |
+
+So: curvature is lost in the **model output** (the prompt already described curved arrows); the highlighter's color
+name was right but MathSlides could not express a light, thick marker and dropped the `explains` relation. (In the
+user's own run the loops came out black — with this model the color name varies between runs; measuring it from the
+pixels removes that dependency.)
+
+### Changes (no new shape type)
+
+1. `src/sketch/ink.ts` (pure, tested on synthetic rasters), run on the exact image the model saw (app: canvas; CLI:
+   decoded PNG):
+   - colored outline of each shape: stroke color (most saturated quarter of its pixels, **white-balanced against the
+     measured paper**: the photo's paper is ≈ #AFB1AD, the raw highlighter pixels ≈ #7E7F5D look olive on a white
+     slide), thickness (median run across the outline), highlighter = light + thick. No colored stroke → nothing set.
+   - straight `arrow`/`line` without control/bend: if the ink's middle lies consistently further from the chord than
+     its ends (≥ 10 % of the chord), the stroke becomes a curve through that point. A uniform offset (model endpoints a
+     few px off a straight stroke) is not a bend (unit test). Model-given `control`/`bend` are never replaced.
+2. IR: optional `pen` (`pen`/`highlighter`), `colorHex`, `inkWidth`. Converter: highlighter = thick outline (measured
+   width, 4–28 px) in the measured color; shapes are drawn under text, so a light opaque stroke looks like a marker —
+   no opacity field needed. Measured `colorHex` wins over the named color for shapes and connectors.
+3. Local format: `pen` field; `explains` on shapes/connectors is kept as an `annotates` relation. Validation: a
+   highlighter overlapping text is intended (also when the model gives no `explains`).
+4. Local prompt: highlighter marks (`pen`, `explains`), "hand-drawn arrows are often bent — use curved_arrow + via",
+   "list every arrow".
+
+Re-conversion of the **same** before-model output (`before-reconverted/`, no model call): highlighters #E4E49E and
+#D0D18C, 10–11 px; the arrow the model called straight (the loop near 생각) bends 55 px in the ink → curve; 0 warnings.
+
+### After (real model, new prompt) — `examples/fullduplex/after/`
+
+CLI 114.6 s. The model now marks both loops `pen: "highlighter"` (new), but still writes every arrow as a straight
+`arrow` (the curve wording did not change this 7B model's output), still omits the arrow to 말하기, and put the marked
+word into `unsure` instead of `explains`. Pixel measurements: highlighters #E4E49E / #D3D38C (11 px), one arrow bends
+49 px → curve. GUI (`after/gui/`): 112.1 s; 0 errors, 0 warnings; inside the image area, title/body untouched;
+Undo/Redo, save (2 slides, 12 elements), PDF (2 pages), PPTX (2 slides) ✓.
+
+Remaining (model limits): the arrow to 말하기 is not recognized; the recovered curve uses the model's endpoints, which
+lie between the loop arrow and the 말하기 arrow; "≡" is read as "三".
+
+### Conversion time: where did 218 s go?
+
+New per-step timings (dialog tooltip, run log `20-summary.json`): `prepare`, `recognizeWall` (model call incl. IPC),
+`ink`, `render` (convert + measure + screenshot), `reviewWall<n>`, `render<n>`, `other`. GUI after-run: prepare 0.05 s,
+recognition 111.8 s, ink 0.11 s, render 0.09 s, other 0.003 s — i.e. everything but the model call is < 0.3 s.
+
+Two code paths can add minutes after recognition:
+- **AI review** (only if its checkbox is on; off by default with Ollama): each local review round took 45–115 s in
+  earlier runs (stage 4: 114.7 s + 45.2 s), and it runs only when checks report warnings — which this sketch had
+  before the highlighter fixes (2 overlap warnings).
+- **A stalled `requestAnimationFrame`** (fixed): measuring the preview waited for two animation frames with no fallback.
+  Measured with the real app's window settings: visible window 24 ms; **window hidden: not called within 8 s** (it
+  resumes only when the window is shown again). Switching to another app during the ~50–110 s recognition therefore
+  froze the conversion until the user came back. `nextFrame` now falls back to a 100 ms timer (same approach as the
+  export code): 34 ms visible, 2.0 s hidden (background timers are slowed to ~1/s).
+
+The user's 268 s run left no run log, so which of the two caused it cannot be shown; both are now visible in the step
+timings, and the stall is fixed.

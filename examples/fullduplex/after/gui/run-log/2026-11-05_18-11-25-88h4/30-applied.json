@@ -1,0 +1,224 @@
+{
+  "replace": true,
+  "elements": [
+    {
+      "id": "immTImwTtq",
+      "type": "shape",
+      "shape": "ellipse",
+      "x": 251,
+      "y": 482,
+      "w": 273,
+      "h": 128,
+      "fill": null,
+      "stroke": "#CDD182",
+      "strokeWidth": 9,
+      "radius": 16
+    },
+    {
+      "id": "JPtU4mlgEm",
+      "type": "shape",
+      "shape": "ellipse",
+      "x": 801,
+      "y": 228,
+      "w": 266,
+      "h": 115,
+      "fill": null,
+      "stroke": "#E4E495",
+      "strokeWidth": 9,
+      "radius": 16
+    },
+    {
+      "id": "E8vOXNvR6F",
+      "type": "line",
+      "x1": 384,
+      "y1": 519,
+      "x2": 463,
+      "y2": 454,
+      "x": 384,
+      "y": 454,
+      "w": 79,
+      "h": 65,
+      "stroke": "#000000",
+      "strokeWidth": 3,
+      "arrowEnd": true,
+      "arrowStart": false,
+      "dashed": false
+    },
+    {
+      "id": "6rEhKoEZ4i",
+      "type": "line",
+      "x1": 674,
+      "y1": 482,
+      "x2": 817,
+      "y2": 402,
+      "cx": 781,
+      "cy": 504,
+      "x": 674,
+      "y": 402,
+      "w": 143,
+      "h": 83.90322580645159,
+      "stroke": "#000000",
+      "strokeWidth": 3,
+      "arrowEnd": true,
+      "arrowStart": false,
+      "dashed": false
+    },
+    {
+      "id": "i_T_61myhd",
+      "type": "text",
+      "x": 861,
+      "y": 265,
+      "w": 161,
+      "h": 65,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "말하기"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 48,
+        "color": "#000000",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "Umv1YVUi8q",
+      "type": "text",
+      "x": 476,
+      "y": 363,
+      "w": 284,
+      "h": 65,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "FullDuplex"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 48,
+        "color": "#000000",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "3ZK2wxWeHF",
+      "type": "text",
+      "x": 742,
+      "y": 479,
+      "w": 98,
+      "h": 108,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "三"
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "생각"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 40,
+        "color": "#000000",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "nnfDdCZwSb",
+      "type": "text",
+      "x": 323,
+      "y": 526,
+      "w": 212,
+      "h": 65,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "들으면서"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 48,
+        "color": "#000000",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    }
+  ],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e1",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e3",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e4",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 3
+    },
+    "review": [
+      "e1",
+      "e3",
+      "e4"
+    ]
+  }
+}
