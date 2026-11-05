@@ -1,0 +1,13 @@
+{
+  "_note": "Hand-written test fixture (NOT model output): what a correct recognition of examples/sketches/policy-gradient.png looks like. Coordinates 0..1000.",
+  "image": { "width": 1500, "height": 582 },
+  "elements": [
+    { "id": "title", "kind": "text", "text": "[policy gradient]", "role": "title", "color": "blue", "bbox": { "x": 10, "y": 52, "w": 303, "h": 154 } },
+    { "id": "eq", "kind": "math", "latex": "\\nabla_\\theta J(\\theta) = \\mathbb{E}_{\\pi}\\left[ r(\\tau) \\cdot \\nabla_\\theta \\log \\pi_\\theta(a|s) \\right]", "role": "body", "bbox": { "x": 60, "y": 300, "w": 780, "h": 172 } },
+    { "id": "s1", "kind": "line", "color": "red", "bbox": { "x": 400, "y": 490, "w": 7, "h": 60 }, "from": { "x": 407, "y": 490 }, "to": { "x": 400, "y": 550 }, "fromId": "eq", "toId": "n1" },
+    { "id": "n1", "kind": "text", "text": "그 action이\n얼마나 좋았다", "role": "annotation", "color": "red", "bbox": { "x": 317, "y": 567, "w": 216, "h": 206 }, "relations": [{ "type": "annotates", "target": "eq" }] },
+    { "id": "s2", "kind": "line", "color": "red", "bbox": { "x": 673, "y": 498, "w": 1, "h": 60 }, "from": { "x": 673, "y": 498 }, "to": { "x": 673, "y": 558 }, "fromId": "eq", "toId": "n2" },
+    { "id": "n2", "kind": "text", "text": "이 action의\n확률을 어떻게 바꿀까", "role": "annotation", "color": "red", "bbox": { "x": 627, "y": 567, "w": 326, "h": 206 }, "relations": [{ "type": "annotates", "target": "eq" }] },
+    { "id": "n3", "kind": "text", "text": "→ 행동 확률의 gradient", "role": "annotation", "color": "red", "bbox": { "x": 600, "y": 842, "w": 373, "h": 103 }, "relations": [{ "type": "annotates", "target": "n2" }] }
+  ]
+}

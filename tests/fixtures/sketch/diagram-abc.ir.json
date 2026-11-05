@@ -1,0 +1,16 @@
+{
+  "_note": "Hand-written test fixture (NOT model output): what a correct recognition of examples/sketches/diagram-abc.png looks like. Coordinates 0..1000.",
+  "image": { "width": 1636, "height": 798 },
+  "elements": [
+    { "id": "cA", "kind": "shape", "shape": "ellipse", "bbox": { "x": 67, "y": 162, "w": 165, "h": 300 } },
+    { "id": "tA", "kind": "text", "text": "A", "role": "label", "bbox": { "x": 125, "y": 270, "w": 40, "h": 140 }, "relations": [{ "type": "inside", "target": "cA" }] },
+    { "id": "cB", "kind": "shape", "shape": "ellipse", "bbox": { "x": 419, "y": 181, "w": 143, "h": 281 } },
+    { "id": "tB", "kind": "text", "text": "B", "role": "label", "bbox": { "x": 480, "y": 260, "w": 35, "h": 120 }, "relations": [{ "type": "inside", "target": "cB" }] },
+    { "id": "cC", "kind": "shape", "shape": "ellipse", "bbox": { "x": 755, "y": 219, "w": 131, "h": 250 } },
+    { "id": "tC", "kind": "text", "text": "C", "role": "label", "bbox": { "x": 815, "y": 320, "w": 30, "h": 60 }, "relations": [{ "type": "inside", "target": "cC" }] },
+    { "id": "a1", "kind": "arrow", "bbox": { "x": 263, "y": 285, "w": 98, "h": 30 }, "from": { "x": 263, "y": 300 }, "to": { "x": 361, "y": 295 }, "fromId": "cA", "toId": "cB" },
+    { "id": "a2", "kind": "arrow", "bbox": { "x": 605, "y": 315, "w": 86, "h": 20 }, "from": { "x": 605, "y": 327 }, "to": { "x": 691, "y": 322 }, "fromId": "cB", "toId": "cC" },
+    { "id": "l1", "kind": "line", "bbox": { "x": 640, "y": 425, "w": 4, "h": 237 }, "from": { "x": 642, "y": 425 }, "to": { "x": 642, "y": 662 }, "fromId": "a2", "toId": "n1" },
+    { "id": "n1", "kind": "text", "text": "'중요'", "role": "annotation", "bbox": { "x": 544, "y": 719, "w": 134, "h": 143 }, "relations": [{ "type": "annotates", "target": "a2" }] }
+  ]
+}
