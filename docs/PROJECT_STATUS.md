@@ -37,6 +37,15 @@ Implemented editor features: Code Block, Callout, Academic Blocks, Todo, Image +
 
 See `README.md` for usage; source layout: `src/{canvas,editor,export,model,render,store,ui}`, `electron/`, tests in `tests/` (`rich-text.mjs` Electron GUI suite; `current-slide.mjs` headless store test).
 
+## Sketch-to-Slides (AI, added 2026-11-06)
+
+Image props bar → **Convert to Editable Slide** turns a hand-drawn slide image into ordinary elements. No model/schema change: output is `TextElement` (incl. `mathBlock`/`mathInline`), outlined `ShapeElement` with shape text, and `LineElement` arrows/connectors, so autosave, `.mslides`, undo, PDF and PPTX are untouched.
+
+- Pipeline: `src/sketch/session.ts` (dialog state + orchestration), `ir.ts` (IR, JSON Schemas, `parseIR`, `applyPatches`), `convert.ts` (layout mapping), `validate.ts` (deterministic checks), `bridge.ts` (renderer side of IPC, crop + downscale to 1600 px); UI `src/ui/SketchDialog.tsx`.
+- Main process: `electron/sketch-main.cjs` (IPC, safeStorage key `userData/ai-key.bin`, env `ANTHROPIC_API_KEY` wins, run log `MATHSLIDES_SKETCH_LOG`, test fake `MATHSLIDES_SKETCH_FAKE`), `sketch-ai.cjs` (SDK calls, shared with the CLI), `sketch-prompts.cjs`.
+- Invariants: the renderer never receives the key; Apply is one `commit` (one undo step restores the image); the slide starts from the literal transcription (`review.inferred` is only offered); the model never writes `.mslides` JSON.
+- CLI: `scripts/sketch2slides.mjs` (`npm run sketch`). Tests: `tests/sketch-convert.mjs`, `tests/sketch-dialog.mjs`. Development log: `docs/SKETCH_DEVLOG.md`.
+
 ## Desktop document lifecycle
 
 **Explicit documents.** `.mslides` files are user-managed: Open, Save, Save As, Finder, double-click. Autosave never overwrites them; Save / Cmd+S writes the file; Save As creates an independent logical document with a new `Deck.id`.

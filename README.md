@@ -93,6 +93,59 @@ The macOS build is currently unsigned and not notarized, so macOS may show a sec
 
 ---
 
+## Sketch-to-Slides (AI)
+
+*Think on paper. Present with MathSlides.* Draw a slide on paper or in GoodNotes, paste the photo or screenshot on a slide, select it and press **Convert to Editable Slide** (image toolbar). Claude reads the sketch and MathSlides rebuilds it from ordinary, editable elements: text boxes, LaTeX equations (`/math` blocks, never pictures), outlined shapes with their labels, arrows and connector lines, in the ink colors and the layout you drew.
+
+### Setup
+
+1. `npm install` (adds the official `@anthropic-ai/sdk`).
+2. Get an Anthropic API key (console.anthropic.com) and either
+   - start the app with it in the environment: `ANTHROPIC_API_KEY=sk-ant-... npm run app` (takes precedence), or
+   - enter it in the dialog the first time you convert (**AI key…** changes or removes it later). It is stored encrypted with the OS keychain (Electron `safeStorage`) in the app's user-data folder as `ai-key.bin`.
+
+   The key lives only in the Electron main process; the page never sees it, and nothing is hard-coded. The feature needs the desktop app (`npm run app`); in browser dev mode the button is disabled.
+3. Optional: `MATHSLIDES_SKETCH_MODEL=<model id>` (default `claude-opus-5-5`), `MATHSLIDES_SKETCH_LOG=<dir>` to keep a log of every conversion (input, model output, IR, validation, review screenshots and patches, timings).
+
+### Using it
+
+1. Paste (`⌘V`) or drop the sketch image on a slide (crop it first if it contains more than the slide).
+2. Select it → **Convert to Editable Slide**. The dialog shows the original next to the editable result.
+3. Look at **Check these**: equations, and anything the model could not read with certainty. For an ambiguous symbol you get *As written* (what is literally on the page, used by default) and *Inferred* (the model's reading from context, e.g. a probable typo). You can edit any text or LaTeX right there.
+4. **Apply** replaces the image with the elements (one `⌘Z` brings the image back); **Apply, keep image** keeps it; **Cancel** changes nothing.
+
+### How it works
+
+```text
+image ─► Claude vision (structured JSON) ─► IR ─► converter ─► deterministic checks ─► preview
+                                              ▲                                          │
+                                              └──── patches ◄── AI review (≤ 2 rounds) ◄─┘ (original + screenshot)
+```
+
+- **IR** (`src/sketch/ir.ts`): elements with kind (`text`/`math`/`shape`/`arrow`/`line`), coordinates normalized 0..1000, text or LaTeX, arrow endpoints and the ids they attach to, relations (`inside`, `annotates`), role (title/label/annotation/body), ink color, and a review flag. The flag is *not* a probability; it only marks what a human should check. The model never writes `.mslides` JSON.
+- **Converter** (`src/sketch/convert.ts`): one uniform scale fits the sketch's content into the slide (layout and aspect ratio kept, nothing leaves the slide); equation size from MathJax's real typeset size; text inside a shape becomes the shape's text; arrows attached to shapes start and end on their outlines. No auto-beautify (alignment, spacing) yet.
+- **Checks** (`src/sketch/validate.ts`): structure, slide bounds, LaTeX that does not render, unsupported elements, unintended overlaps (labels in shapes, notes on what they annotate and connectors are allowed to touch).
+- **AI review**: a second request compares the original with a screenshot of the converted slide (+ the IR and the check results) and returns patches for real conversion errors only, never "improvements" to the writer's content.
+- Prompts: `electron/sketch-prompts.cjs`. Model calls: `electron/sketch-ai.cjs`. Key storage and IPC: `electron/sketch-main.cjs`.
+
+### Command line (no GUI)
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... npm run sketch -- examples/sketches/policy-gradient.png --out sketch-out
+# offline, from a saved model output (no key needed):
+npm run sketch -- examples/sketches/diagram-abc.png --ir tests/fixtures/sketch/diagram-abc.ir.json
+```
+
+It writes `<name>.ir.json` (the model output), `<name>.mslides` (open it in MathSlides) and `<name>.report.json` (checks, timings, token usage). The AI review loop needs the rendered slide, so it runs in the app only.
+
+### Tests
+
+`node tests/sketch-convert.mjs` (IR parsing, conversion, checks; headless) and `node tests/sketch-dialog.mjs` (the dialog end to end in Electron). The GUI test replaces the model with a fixture (`MATHSLIDES_SKETCH_FAKE=<ir.json>`, shown as "fake (test fixture)" in the dialog), so it needs no key or network. The fixtures in `tests/fixtures/sketch/` are hand-written expected recognitions, not model output.
+
+### Measuring time saved
+
+For a fair comparison, use the same sketch for both: (1) with a stopwatch, rebuild it by hand in MathSlides until it matches the sketch; (2) with a stopwatch, convert it and fix whatever needs fixing until it matches. Record both times and the number of manual fixes in `docs/SKETCH_DEVLOG.md`. The dialog shows the conversion time, and the run log has per-step timings.
+
 ## Design
 
 ### 1. Architecture and tech stack
