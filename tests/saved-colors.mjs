@@ -11,16 +11,13 @@ import { createServer as netServer } from 'node:net';
 import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import { testElectronEnv } from './electron-env.mjs';
+import { launchElectron, startViteServer, stopElectron } from './test-ports.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-colors-profile-'));
-const probe = netServer();
-await new Promise((r) => probe.listen(0, '127.0.0.1', r));
-const debugPort = probe.address().port;
-await new Promise((r) => probe.close(r));
-const server = await createServer({ root, configLoader: 'runner', cacheDir: path.join(profile, 'vite'), server: { host: '127.0.0.1', port: 5191, strictPort: true } });
-await server.listen();
+let debugPort; // assigned by launchElectron (Chromium binds a free port itself)
+const { server, url: devUrl } = await startViteServer(createServer, { root, configLoader: 'runner', cacheDir: path.join(profile, 'vite') }); // OS-assigned port
 const wrapper = path.join(profile, 'main.cjs');
 await writeFile(wrapper, `const { app } = require('electron'); app.setPath('userData', ${JSON.stringify(profile)}); require(${JSON.stringify(path.join(root, 'electron/main.cjs'))});\n`);
 
@@ -41,7 +38,7 @@ async function evaluate(expression) {
   return r.result.value;
 }
 async function launch() {
-  electron = spawn(require('electron'), [wrapper, `--remote-debugging-port=${debugPort}`], { cwd: root, env: testElectronEnv({ ELECTRON_DEV_URL: 'http://127.0.0.1:5191' }), stdio: ['ignore', 'pipe', 'pipe'] });
+  ({ child: electron, debugPort } = await launchElectron(require('electron'), [wrapper], { cwd: root, env: testElectronEnv({ ELECTRON_DEV_URL: devUrl }) }));
   electron.stderr.on('data', () => {});
   const target = await until(async () => (await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json()).find((t) => t.type === 'page'), 'debug target');
   socket = new WebSocket(target.webSocketDebuggerUrl);
@@ -51,7 +48,7 @@ async function launch() {
   await until(() => evaluate(`!!document.querySelector('.propsbar')`), 'app mount');
   await evaluate(`(async () => { window.store = (await import('/src/store/store.ts')).useStore; window.defaults = await import('/src/model/defaults.ts'); window.prefs = await import('/src/store/userPrefs.ts'); window.idb = await import('/node_modules/idb-keyval/dist/index.js'); })()`);
 }
-async function quit() { socket?.close(); if (electron?.exitCode === null) { electron.kill('SIGTERM'); await new Promise((r) => electron.once('exit', r)); } }
+async function quit() { socket?.close(); await stopElectron(electron); }
 const click = async (sel) => {
   const r = await evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) throw Error('Missing ' + ${JSON.stringify(sel)}); const r = e.getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()`);
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', clickCount: 1, ...r });

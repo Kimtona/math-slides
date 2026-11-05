@@ -19,6 +19,7 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import JSZip from 'jszip';
 import { testElectronEnv } from './electron-env.mjs';
+import { launchElectron, startViteServer, stopElectron } from './test-ports.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -27,10 +28,8 @@ if (!outArg || !images.length) { console.error('usage: node tests/sketch-ollama-
 const out = path.resolve(outArg);
 await mkdir(out, { recursive: true });
 const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-ollama-e2e-'));
-const free = async () => { const s = netServer(); await new Promise((r) => s.listen(0, '127.0.0.1', r)); const p = s.address().port; await new Promise((r) => s.close(r)); return p; };
-const debugPort = await free(), vitePort = await free();
-const server = await createServer({ root, configLoader: 'runner', cacheDir: path.join(profile, 'vite'), logLevel: 'error', server: { host: '127.0.0.1', port: vitePort, strictPort: true } });
-await server.listen();
+let debugPort; // assigned by launchElectron (Chromium binds a free port itself)
+const { server, url: devUrl } = await startViteServer(createServer, { root, configLoader: 'runner', cacheDir: path.join(profile, 'vite'), logLevel: 'error' }); // OS-assigned port
 const wrapper = path.join(profile, 'main.cjs');
 await writeFile(wrapper, `const { app } = require('electron'); app.setPath('userData', ${JSON.stringify(profile)}); require(${JSON.stringify(path.join(root, 'electron/main.cjs'))});\n`);
 
@@ -54,10 +53,10 @@ const shot = async (file) => { const s = await send('Page.captureScreenshot', { 
 
 const summary = { started: new Date().toISOString(), runs: [] };
 try {
-  electron = spawn(require('electron'), [wrapper, `--remote-debugging-port=${debugPort}`], {
-    cwd: root, stdio: ['ignore', 'pipe', 'pipe'],
-    env: testElectronEnv({ ELECTRON_DEV_URL: `http://127.0.0.1:${vitePort}`, MATHSLIDES_SKETCH_LOG: path.join(out, 'run-log'), ANTHROPIC_API_KEY: '', MATHSLIDES_SKETCH_FAKE: '', MATHSLIDES_TEST_PDF_DIR: out }),
-  });
+  ({ child: electron, debugPort } = await launchElectron(require('electron'), [wrapper], {
+    cwd: root,
+    env: testElectronEnv({ ELECTRON_DEV_URL: devUrl, MATHSLIDES_SKETCH_LOG: path.join(out, 'run-log'), ANTHROPIC_API_KEY: '', MATHSLIDES_SKETCH_FAKE: '', MATHSLIDES_TEST_PDF_DIR: out }),
+  }));
   electron.stderr.on('data', () => {});
   const target = await until(async () => (await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json()).find((t) => t.type === 'page'), 'debug target');
   socket = new WebSocket(target.webSocketDebuggerUrl);
@@ -174,6 +173,6 @@ try {
   summary.finished = new Date().toISOString();
   await writeFile(path.join(out, 'summary.json'), JSON.stringify(summary, null, 2));
   socket?.close();
-  if (electron?.exitCode === null) { electron.kill('SIGTERM'); await new Promise((r) => electron.once('exit', r)); }
+  await stopElectron(electron);
   await server.close();
 }

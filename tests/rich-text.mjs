@@ -13,21 +13,19 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import JSZip from 'jszip';
 import { testElectronEnv } from './electron-env.mjs';
+import { launchElectron, startViteServer, stopElectron } from './test-ports.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = process.env.MATHSLIDES_TEST_OUTPUT || await mkdtemp(path.join(tmpdir(), 'mathslides-rich-text-'));
 await mkdir(output, { recursive: true });
 const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-profile-'));
-// Choose a fresh debugging port; never connect to an existing user browser/session.
-const portProbe = netServer();
-await new Promise(r => portProbe.listen(0, '127.0.0.1', r));
-const debugPort = portProbe.address().port;
-await new Promise(r => portProbe.close(r));
-const server = await createServer({ root, configLoader: 'runner', cacheDir: path.join(profile, 'vite'), server: { host: '127.0.0.1', port: 5187, strictPort: true } });
+// Never connect to an existing user browser/session: Electron gets its own DevTools port (assigned by launchElectron),
+// and the dev server listens on an OS-assigned port, so concurrent test runs cannot collide.
+let debugPort;
+const { server, url: devUrl } = await startViteServer(createServer, { root, configLoader: 'runner', cacheDir: path.join(profile, 'vite') });
 // Deterministic arXiv transport fixture; parsing, resolution, and rendering stay real.
 const arxivXml = '<feed><entry><title>Attention Is All You Need</title><published>2017-06-12</published><author><name>Ashish Vaswani</name></author><author><name>Noam Shazeer</name></author><author><name>Niki Parmar</name></author></entry></feed>';
-await server.listen();
 const wrapper = path.join(profile, 'main.cjs');
 // Electron's runtime resolves "electron" itself, unlike Node's executable-path package.
 await writeFile(wrapper, `const { app, dialog } = require('electron');
@@ -110,7 +108,7 @@ async function inject() {
   })()`);
 }
 async function launch({ args = [], env = {} } = {}) {
-  electron = spawn(require('electron'), [wrapper, `--remote-debugging-port=${debugPort}`, ...args], { cwd: root, env: testElectronEnv({ ELECTRON_DEV_URL: 'http://127.0.0.1:5187', ...env }), stdio: ['ignore', 'pipe', 'pipe'] });
+  ({ child: electron, debugPort } = await launchElectron(require('electron'), [wrapper, ...args], { cwd: root, env: testElectronEnv({ ELECTRON_DEV_URL: devUrl, ...env }) }));
   electron.stderr.on('data', () => {});
   await connect();
 }
@@ -1634,7 +1632,7 @@ try {
   await until(()=>evaluate("store.getState().saveState === 'saved'"), 'Autosave pending');
   // Close and start the actual desktop process with the same disposable profile.
   const archiveBeforeRestart = await evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())");
-  socket.close(); electron.kill('SIGTERM'); await new Promise(r=>electron.once('exit',r));
+  socket.close(); await stopElectron(electron);
   await launch();
   assert.deepEqual(await evaluate('store.getState().deck'), saved.deck, 'restart restores the working presentation (same Deck.id and content)');
   assert.equal(await evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())"), archiveBeforeRestart, 'restart does not displace anything');
@@ -1739,7 +1737,7 @@ try {
   const archiveSig = () => evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())");
   const setTitle2 = async (t) => { await evaluate(`store.getState().commit(d => { d.title = ${JSON.stringify(t)}; })`); await pause(); };
   const settled = () => until(() => evaluate("store.getState().saveState === 'saved'"), 'autosave settled');
-  const restart = async (opts) => { await settled(); await pause(300); socket.close(); electron.kill('SIGTERM'); await new Promise((r) => electron.once('exit', r)); await launch(opts); };
+  const restart = async (opts) => { await settled(); await pause(300); socket.close(); await stopElectron(electron); await launch(opts); };
   const assoc = () => evaluate(`new Promise((res) => { const o = indexedDB.open('keyval-store'); o.onsuccess = () => { const g = o.result.transaction('keyval').objectStore('keyval').get('file:v1'); g.onsuccess = () => res(g.result ? {name: g.result.name, deckId: g.result.deckId, hasHandle: !!g.result.handle} : null); }; })`);
   const stubSavePicker = (name) => evaluate(`window.__picks = 0; window.showSaveFilePicker = async () => { __picks++; return await (await __opfsDir()).getFileHandle(${JSON.stringify(name)}, {create: true}); };`);
   const fileDeck = async (name) => JSON.parse(await evaluate(`__opfsRead(${JSON.stringify(name)})`)).deck;
@@ -2013,6 +2011,6 @@ try {
   throw error;
 } finally {
   socket?.close();
-  if (electron && electron.exitCode === null) { electron.kill('SIGTERM'); await new Promise(r=>electron.once('exit', r)); }
+  await stopElectron(electron);
   await server.close();
 }

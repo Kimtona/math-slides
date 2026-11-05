@@ -16,6 +16,7 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import JSZip from 'jszip';
 import { testElectronEnv } from './electron-env.mjs';
+import { launchElectron, startViteServer, stopElectron } from './test-ports.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -24,10 +25,8 @@ const pdfDir = path.join(profile, 'pdf');
 await mkdir(pdfDir);
 const shots = process.env.SKETCH_LATEX_SHOTS ? path.resolve(process.env.SKETCH_LATEX_SHOTS) : null;
 if (shots) await mkdir(shots, { recursive: true });
-const free = async () => { const s = netServer(); await new Promise((r) => s.listen(0, '127.0.0.1', r)); const p = s.address().port; await new Promise((r) => s.close(r)); return p; };
-const debugPort = await free(), vitePort = await free();
-const server = await createServer({ root, configLoader: 'runner', cacheDir: path.join(profile, 'vite'), logLevel: 'error', server: { host: '127.0.0.1', port: vitePort, strictPort: true } });
-await server.listen();
+let debugPort; // assigned by launchElectron (Chromium binds a free port itself)
+const { server, url: devUrl } = await startViteServer(createServer, { root, configLoader: 'runner', cacheDir: path.join(profile, 'vite'), logLevel: 'error' }); // OS-assigned port
 const wrapper = path.join(profile, 'main.cjs');
 await writeFile(wrapper, `const { app } = require('electron'); app.setPath('userData', ${JSON.stringify(profile)}); require(${JSON.stringify(path.join(root, 'electron/main.cjs'))});\n`);
 
@@ -43,10 +42,10 @@ const latexOf = (els) => els.flatMap((e) => { const out = []; const walk = (n) =
 const unxml = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 
 try {
-  electron = spawn(require('electron'), [wrapper, `--remote-debugging-port=${debugPort}`], {
-    cwd: root, stdio: ['ignore', 'pipe', 'pipe'],
-    env: testElectronEnv({ ELECTRON_DEV_URL: `http://127.0.0.1:${vitePort}`, MATHSLIDES_SKETCH_FAKE: path.join(root, 'tests/fixtures/sketch/ppo-grpo.local.json'), MATHSLIDES_TEST_PDF_DIR: pdfDir, ANTHROPIC_API_KEY: '' }),
-  });
+  ({ child: electron, debugPort } = await launchElectron(require('electron'), [wrapper], {
+    cwd: root,
+    env: testElectronEnv({ ELECTRON_DEV_URL: devUrl, MATHSLIDES_SKETCH_FAKE: path.join(root, 'tests/fixtures/sketch/ppo-grpo.local.json'), MATHSLIDES_TEST_PDF_DIR: pdfDir, ANTHROPIC_API_KEY: '' }),
+  }));
   electron.stderr.on('data', () => {});
   const target = await until(async () => (await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json()).find((t) => t.type === 'page'), 'debug target');
   socket = new WebSocket(target.webSocketDebuggerUrl);
@@ -140,6 +139,6 @@ try {
   console.log('PASS PDF export, PPTX keeps all 7 LaTeX strings');
 } finally {
   socket?.close();
-  if (electron?.exitCode === null) { electron.kill('SIGTERM'); await new Promise((r) => electron.once('exit', r)); }
+  await stopElectron(electron);
   await server.close();
 }

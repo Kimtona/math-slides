@@ -14,18 +14,15 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import { testElectronEnv } from './electron-env.mjs';
 import JSZip from 'jszip';
+import { launchElectron, startViteServer, stopElectron } from './test-ports.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-sketch-profile-'));
 const logDir = path.join(profile, 'sketch-log');
 const fixture = path.join(root, 'tests/fixtures/sketch/policy-gradient.ir.json');
-const probe = netServer();
-await new Promise((r) => probe.listen(0, '127.0.0.1', r));
-const debugPort = probe.address().port;
-await new Promise((r) => probe.close(r));
-const server = await createServer({ root, configLoader: 'runner', cacheDir: path.join(profile, 'vite'), server: { host: '127.0.0.1', port: 5187, strictPort: true } });
-await server.listen();
+let debugPort; // assigned by launchElectron (Chromium binds a free port itself)
+const { server, url: devUrl } = await startViteServer(createServer, { root, configLoader: 'runner', cacheDir: path.join(profile, 'vite') }); // OS-assigned port
 const wrapper = path.join(profile, 'main.cjs');
 await writeFile(wrapper, `const { app } = require('electron'); app.setPath('userData', ${JSON.stringify(profile)}); require(${JSON.stringify(path.join(root, 'electron/main.cjs'))});\n`);
 
@@ -44,10 +41,10 @@ async function evaluate(expression) {
   return r.result.value;
 }
 async function launch() {
-  electron = spawn(require('electron'), [wrapper, `--remote-debugging-port=${debugPort}`], {
-    cwd: root, stdio: ['ignore', 'pipe', 'pipe'],
-    env: testElectronEnv({ ELECTRON_DEV_URL: 'http://127.0.0.1:5187', MATHSLIDES_SKETCH_FAKE: fixture, MATHSLIDES_SKETCH_LOG: logDir, ANTHROPIC_API_KEY: '' }),
-  });
+  ({ child: electron, debugPort } = await launchElectron(require('electron'), [wrapper], {
+    cwd: root,
+    env: testElectronEnv({ ELECTRON_DEV_URL: devUrl, MATHSLIDES_SKETCH_FAKE: fixture, MATHSLIDES_SKETCH_LOG: logDir, ANTHROPIC_API_KEY: '' }),
+  }));
   electron.stderr.on('data', () => {});
   const target = await until(async () => (await (await fetch(`http://127.0.0.1:${debugPort}/json`)).json()).find((t) => t.type === 'page'), 'debug target');
   socket = new WebSocket(target.webSocketDebuggerUrl);
@@ -63,7 +60,7 @@ async function launch() {
     window.showSaveFilePicker = async ({suggestedName}) => ({name:suggestedName,createWritable:async()=>({write:async(blob)=>{testFiles[suggestedName]=[...new Uint8Array(await blob.arrayBuffer())]},close:async()=>{}})});
   })()`);
 }
-async function quit() { socket?.close(); if (electron?.exitCode === null) { electron.kill('SIGTERM'); await new Promise((r) => electron.once('exit', r)); } }
+async function quit() { socket?.close(); await stopElectron(electron); }
 const clickButton = (text) => evaluate(`(() => { const b = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === ${JSON.stringify(text)}); if (!b) throw Error('Missing button ' + ${JSON.stringify(text)}); if (b.disabled) throw Error('Disabled button ' + ${JSON.stringify(text)}); b.click(); return true; })()`);
 const slideEls = () => evaluate(`store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements.map((e) => ({ id: e.id, type: e.type }))`);
 const phase = () => evaluate(`sketch.useSketch.getState().phase`);
