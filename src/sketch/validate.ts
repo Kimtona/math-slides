@@ -9,7 +9,10 @@ import type { PMNode, SlideElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { renderTex } from '../math/mathjax';
 import type { IRIssue, SketchIR } from './ir';
-import type { ConversionResult } from './convert';
+import type { ConversionResult, Frame } from './convert';
+
+/** Where the conversion goes: the source image's frame and the slide's other elements (never modified). */
+export interface PlacementContext { frame?: Frame; others?: SlideElement[] }
 
 export interface ValidationReport {
   issues: IRIssue[];
@@ -49,7 +52,7 @@ function relatedPairs(ir: SketchIR): Set<string> {
 export const OVERLAP_TEXT = 0.12;
 export const OVERLAP_SHAPE = 0.35;
 
-export function validateSketch(ir: SketchIR, conv: ConversionResult, heights?: Record<string, number>): ValidationReport {
+export function validateSketch(ir: SketchIR, conv: ConversionResult, heights?: Record<string, number>, ctx: PlacementContext = {}): ValidationReport {
   const issues: IRIssue[] = [...conv.issues];
   const irOf = new Map<string, string>(); // slide element id → IR id (first owner)
   for (const [irId, ids] of Object.entries(conv.map)) for (const id of ids) if (!irOf.has(id)) irOf.set(id, irId);
@@ -60,6 +63,25 @@ export function validateSketch(ir: SketchIR, conv: ConversionResult, heights?: R
     const id = irOf.get(el.id);
     if (el.x < -0.5 || el.y < -0.5 || el.x + el.w > SLIDE_W + 0.5 || el.y + el.h > SLIDE_H + 0.5)
       issues.push({ severity: 'error', code: 'bounds', id, message: `Extends beyond the slide (${Math.round(el.x)},${Math.round(el.y)} ${Math.round(el.w)}×${Math.round(el.h)}).` });
+  }
+
+  // Image area: converted elements should stay where the image was (typeset text can need more room).
+  if (ctx.frame) {
+    const f = ctx.frame, tol = 4;
+    for (const el of els) {
+      if (el.x < f.x - tol || el.y < f.y - tol || el.x + el.w > f.x + f.w + tol || el.y + el.h > f.y + f.h + tol)
+        issues.push({ severity: 'warning', code: 'frame', id: irOf.get(el.id), message: 'Extends beyond the image area (may cover other content).' });
+    }
+  }
+  // Existing slide content: report what the converted elements would cover (nothing is moved or changed).
+  for (const o of ctx.others ?? []) {
+    for (const el of els) {
+      const r = overlapRatio(el, o);
+      const limit = el.type === 'text' || o.type === 'text' ? OVERLAP_TEXT : OVERLAP_SHAPE;
+      if (r > limit && el.type !== 'line') {
+        issues.push({ severity: 'warning', code: 'overlap-existing', id: irOf.get(el.id), message: `Overlaps an existing ${o.type} on the slide (${Math.round(r * 100)}%).` });
+      }
+    }
   }
 
   // LaTeX: every equation (block or inline, in text boxes and shapes) must render.

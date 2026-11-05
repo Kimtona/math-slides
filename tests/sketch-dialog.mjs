@@ -73,11 +73,17 @@ async function insertSketch() {
     const blob = await (await fetch('/examples/sketches/policy-gradient.png')).blob();
     await insert.insertImageFiles([new File([blob], 'policy-gradient.png', { type: 'image/png' })]);
   })()`);
-  const img = await until(async () => (await slideEls()).find((e) => e.type === 'image'), 'image inserted');
+  const img = await until(async () => (await slideEls()).find((e) => e.type === 'image' && !seenImages.has(e.id)), 'image inserted');
+  seenImages.add(img.id);
+  // Below the template's title and body placeholders (1500×582 image at 0.72 scale).
+  await evaluate(`store.getState().updateElements([${JSON.stringify(img.id)}], (d) => { d.x = 100; d.y = 200; d.w = 1080; d.h = 419; })`);
   await evaluate(`store.getState().select([${JSON.stringify(img.id)}])`);
   await pause(200);
   return img;
 }
+const seenImages = new Set();
+const fullEls = () => evaluate(`JSON.parse(JSON.stringify(store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements))`);
+const inFrame = (el, f, tol = 2) => el.x >= f.x - tol && el.y >= f.y - tol && el.x + el.w <= f.x + f.w + tol && el.y + el.h <= f.y + f.h + tol;
 
 try {
   await launch();
@@ -88,9 +94,10 @@ try {
   // --- button in the image props bar opens the dialog and runs the pipeline ---
   await clickButton('Convert to Editable Slide');
   await until(async () => (await phase()) === 'preview', 'dialog reaches preview', 30000);
-  const st = await evaluate(`(() => { const s = sketch.useSketch.getState(); return { n: s.conv.elements.length, counts: s.report.counts, rounds: s.rounds, model: s.model, previewEls: document.querySelectorAll('.sk-preview .el').length }; })()`);
+  const st = await evaluate(`(() => { const s = sketch.useSketch.getState(); return { n: s.conv.elements.length, others: s.others.length, counts: s.report.counts, rounds: s.rounds, model: s.model, previewEls: document.querySelectorAll('.sk-preview .el').length }; })()`);
   assert.equal(st.n, 7, 'seven converted elements');
-  assert.equal(st.previewEls, 7, 'preview renders them');
+  assert.equal(st.others, 2, 'the template title/body are the other elements');
+  assert.equal(st.previewEls, 7 + st.others, 'preview renders them in place, with the rest of the slide');
   assert.equal(st.counts.error, 0, 'no validation errors');
   assert.equal(st.rounds.length, 1, 'one review round (fixture review reports no problems)');
   assert.ok(st.model.startsWith('fake'), 'fake model is labeled as such');
@@ -99,6 +106,15 @@ try {
   assert.ok(await evaluate(`!!document.querySelector('.sk-preview .math-block svg') && !document.querySelector('.sk-preview .el-image')`), 'equation rendered by MathJax, no image');
   console.log('PASS recognition → preview → review round');
 
+  // --- placement: inside the image's frame, nothing else on the slide touched or covered ---
+  const frame = { x: 100, y: 200, w: 1080, h: 419 };
+  const placed = await evaluate(`(() => { const s = sketch.useSketch.getState(); return { frame: s.frame, els: s.conv.elements.map((e) => ({ x: e.x, y: e.y, w: e.w, h: e.h, type: e.type })), codes: s.report.issues.map((i) => i.code) }; })()`);
+  assert.deepEqual(placed.frame, frame, 'session uses the image frame');
+  assert.ok(placed.els.every((e) => inFrame(e, frame)), 'converted elements inside the image frame: ' + JSON.stringify(placed.els.filter((e) => !inFrame(e, frame))));
+  assert.ok(!placed.codes.includes('overlap-existing') && !placed.codes.includes('frame'), 'no overlap with the template, nothing outside: ' + placed.codes);
+  assert.ok(await evaluate(`!!document.querySelector('.sk-preview .sk-frame')`), 'preview marks the image area');
+  console.log('PASS placement inside the image frame');
+
   // --- user edit in the review list re-converts ---
   await evaluate(`sketch.editElement('eq', { latex: '\\\\nabla_\\\\theta J(\\\\theta) = 1' })`);
   assert.ok(await evaluate(`sketch.useSketch.getState().conv.elements.some((e) => e.type === 'text' && e.doc.content[0].type === 'mathBlock' && e.doc.content[0].attrs.latex.endsWith('= 1'))`), 'edit applied');
@@ -106,12 +122,18 @@ try {
   console.log('PASS user edit re-converts');
 
   // --- Apply replaces the image in ONE undo step ---
+  const othersBefore = (await fullEls()).filter((e) => e.id !== img.id);
   await clickButton('Apply');
   await until(async () => (await phase()) === 'idle', 'dialog closed');
   const afterApply = await slideEls();
   assert.ok(!afterApply.some((e) => e.id === img.id), 'image removed');
   assert.equal(afterApply.length, before.length - 1 + 7, 'seven elements added');
   assert.equal(await evaluate(`store.getState().selection.length`), 7, 'converted elements selected');
+  const othersAfter = (await fullEls()).filter((e) => othersBefore.some((o) => o.id === e.id));
+  assert.deepEqual(othersAfter, othersBefore, 'template title/body untouched');
+  const imgIndex = before.findIndex((e) => e.id === img.id);
+  const selected = await evaluate(`store.getState().selection`);
+  assert.deepEqual(afterApply.slice(imgIndex, imgIndex + 7).map((e) => e.id).sort(), [...selected].sort(), 'inserted at the image layer');
   await evaluate(`store.getState().undo()`);
   assert.deepEqual(await slideEls(), before, 'one undo restores the image exactly');
   await evaluate(`store.getState().redo()`);
@@ -126,6 +148,22 @@ try {
   await until(async () => (await phase()) === 'idle', 'dialog closed');
   assert.ok((await slideEls()).some((e) => e.id === img2.id), 'image kept');
   console.log('PASS apply (keep image)');
+
+  // --- cropped image: the model gets only the visible part, elements map onto the cropped frame ---
+  const img3 = await insertSketch();
+  await evaluate(`store.getState().updateElements([${JSON.stringify(img3.id)}], (d) => { d.crop = { x: 0, y: 0, w: 0.5, h: 1 }; d.x = 300; d.y = 220; d.w = 540; d.h = 419; })`);
+  await evaluate(`store.getState().select([${JSON.stringify(img3.id)}])`); await pause(150);
+  await clickButton('Convert to Editable Slide');
+  await until(async () => (await phase()) === 'preview', 'cropped run preview', 30000);
+  const cropRun = await evaluate(`(() => { const s = sketch.useSketch.getState(); return { image: { w: s.image.width, h: s.image.height }, frame: s.frame, els: s.conv.elements.map((e) => ({ x: e.x, y: e.y, w: e.w, h: e.h })) }; })()`);
+  assert.ok(Math.abs(cropRun.image.w / cropRun.image.h - 750 / 582) < 0.01, 'only the visible half is sent: ' + JSON.stringify(cropRun.image));
+  const cf = { x: 300, y: 220, w: 540, h: 419 };
+  assert.deepEqual(cropRun.frame, cf);
+  // The fixture describes the full image, so this only checks the mapping: shapes/lines start inside the cropped frame.
+  assert.ok(cropRun.els.every((e) => e.x >= cf.x - 2 && e.y >= cf.y - 2), 'mapped onto the cropped frame');
+  await clickButton('Cancel');
+  await evaluate(`store.getState().select([${JSON.stringify(img3.id)}]); store.getState().deleteSelection()`);
+  console.log('PASS cropped image');
 
   // --- Cancel leaves the slide untouched ---
   const beforeCancel = await slideEls();

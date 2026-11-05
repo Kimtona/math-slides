@@ -113,6 +113,54 @@ try {
     const p = boundaryPoint({ shape: 'ellipse', x: 0, y: 0, w: 200, h: 100 }, { x: 500, y: 50 });
     assert.ok(Math.abs(p.x - 204) < 0.01 && Math.abs(p.y - 50) < 0.01, 'ellipse boundary point');
   }
+  // ---- Placement inside the source image's frame (app) ----
+  {
+    const raw = await fixture('diagram-abc.ir.json');
+    const { ir } = parseIR(raw, raw.image);
+    const box = (b) => ({ x: b.x, y: b.y, w: b.w, h: b.h });
+    // A full-image shape maps exactly onto the frame; the frame center maps to the IR center.
+    const one = parseIR({ elements: [{ id: 's', kind: 'shape', shape: 'rect', bbox: { x: 0, y: 0, w: 1000, h: 1000 } }, { id: 'l', kind: 'line', bbox: { x: 500, y: 500, w: 0, h: 0 }, from: { x: 500, y: 500 }, to: { x: 500, y: 500 } }] }, { width: 800, height: 400 }).ir;
+    const frame = { x: 600, y: 300, w: 400, h: 200 };
+    const c1 = irToElements(one, frame);
+    assert.deepEqual(box(c1.elements[0]), frame, 'full-image box = frame');
+    assert.deepEqual([c1.elements[1].x1, c1.elements[1].y1], [800, 400], 'IR center = frame center');
+    // Stretched image (frame aspect 4:1, image 2:1): x and y scale separately, like the picture.
+    const c2 = irToElements(one, { x: 100, y: 100, w: 800, h: 200 });
+    assert.deepEqual(box(c2.elements[0]), { x: 100, y: 100, w: 800, h: 200 }, 'stretched frame');
+    assert.deepEqual([c2.elements[1].x1, c2.elements[1].y1], [500, 200], 'stretched center');
+
+    // The diagram rebuilt in a frame in the lower-right part of the slide (beside other content).
+    const f = { x: 560, y: 330, w: 680, h: 332 }; // 1636×798 image at 0.416 scale
+    const c = irToElements(ir, f);
+    const inF = (el, tol = 1) => el.x >= f.x - tol && el.y >= f.y - tol && el.x + el.w <= f.x + f.w + tol && el.y + el.h <= f.y + f.h + tol;
+    assert.ok(c.elements.every((el) => inF(el)), 'every element inside the image frame: ' + JSON.stringify(c.elements.filter((el) => !inF(el)).map(box)));
+    const shapes = c.elements.filter((e) => e.type === 'shape');
+    assert.ok(shapes[0].x < shapes[1].x && shapes[1].x < shapes[2].x, 'left-to-right order kept in the frame');
+    // Relative positions are the image's: circle A's left edge sits where it was drawn (6.7% of the width).
+    assert.ok(Math.abs(shapes[0].x - (f.x + 0.067 * f.w)) <= 1, 'drawn position kept: ' + shapes[0].x);
+    const arrows = c.elements.filter((e) => e.type === 'line' && e.arrowEnd);
+    const [cA, cB, cC] = shapes;
+    assert.ok(arrows[0].x1 >= cA.x + cA.w - 2 && arrows[0].x2 <= cB.x + 2, 'arrow A→B still attached to the outlines');
+    assert.ok(arrows[1].x1 >= cB.x + cB.w - 2 && arrows[1].x2 <= cC.x + 2, 'arrow B→C still attached to the outlines');
+    // Content-area mode (no frame, command-line tool) is unchanged by the frame option.
+    assert.deepEqual(irToElements(ir).elements.map(box), irToElements(ir).elements.map(box));
+
+    // Checks against the slide: overlap with an existing element and leaving the image area are reported.
+    const title = { id: 'title', type: 'text', x: 64, y: 40, w: 1152, h: 68, doc: { type: 'doc', content: [] }, style: {} };
+    const overlapping = { x: 0, y: 0, w: 1280, h: 400 };
+    const rep = validateSketch(ir, irToElements(ir, overlapping), undefined, { frame: overlapping, others: [title] });
+    assert.ok(rep.issues.some((i) => i.code === 'overlap-existing'), 'overlap with existing content reported');
+    const clean = validateSketch(ir, c, undefined, { frame: f, others: [title] });
+    assert.ok(!clean.issues.some((i) => i.code === 'overlap-existing' || i.code === 'frame'), 'frame below the title: no overlap, nothing outside ' + JSON.stringify(clean.issues));
+    // Text that needs more room than a tiny frame: centered on the frame, reported, never moves other content.
+    const note = parseIR({ elements: [{ id: 'n', kind: 'text', text: 'a long handwritten note here', bbox: { x: 0, y: 0, w: 1000, h: 1000 } }] }, { width: 100, height: 30 }).ir;
+    const tiny = { x: 600, y: 600, w: 100, h: 30 };
+    const cn = irToElements(note, tiny);
+    const t = cn.elements[0];
+    assert.ok(Math.abs(t.x + t.w / 2 - (tiny.x + tiny.w / 2)) <= 1, 'wide text centered on the frame');
+    assert.ok(validateSketch(note, cn, undefined, { frame: tiny }).issues.some((i) => i.code === 'frame'), 'beyond the frame reported');
+  }
+
   // ---- Local-model (Ollama) output format → IR (electron/sketch-local.cjs) ----
   {
     const { createRequire } = await import('node:module');
@@ -149,6 +197,22 @@ try {
       { id: 'n2', type: 'text', bbox_2d: [935, 293, 1130, 390], content: '이 action의', color: 'red' },
     ] }, 1437, 559);
     assert.deepEqual(wide.elements.map((e) => e.text), ['그 action의', '이 action의'], 'separate notes on one line stay separate');
+    // Regression (real GUI run, frame placement): notes from the real model output in the image's frame on the
+    // slide must not be pushed onto each other at the frame edge.
+    const real = localToModelIR({ elements: [
+      { id: 't1', type: 'title', bbox_2d: [28, 55, 470, 150], content: '[policy gradient]', color: 'blue' },
+      { id: 't3', type: 'text', bbox_2d: [465, 325, 778, 383], content: '그 action의', color: 'red' },
+      { id: 't4', type: 'text', bbox_2d: [465, 395, 778, 455], content: '일관나중있다', color: 'red' },
+      { id: 't5', type: 'text', bbox_2d: [935, 293, 1130, 390], content: '이 action의', color: 'red' },
+      { id: 't6', type: 'text', bbox_2d: [935, 395, 1373, 455], content: '확률은 어떻게 바꿀까', color: 'red' },
+      { id: 't7', type: 'text', bbox_2d: [868, 490, 1426, 560], content: '→ 행동확률의 gradient', color: 'red' },
+    ] }, 1437, 559);
+    const realIR = parseIR(real, { width: 1437, height: 559 }).ir;
+    const realFrame = { x: 100, y: 200, w: 1080, h: 420 };
+    const realConv = irToElements(realIR, realFrame);
+    const realRep = validateSketch(realIR, realConv, undefined, { frame: realFrame });
+    assert.ok(realConv.issues.some((i) => i.code === 'fit'), 'a note that does not fit gets a smaller font (instead of moving)');
+    assert.ok(!realRep.issues.some((i) => i.code === 'overlap' || i.code === 'frame'), 'notes stay in place without overlapping: ' + JSON.stringify(realRep.issues.filter((i) => i.severity !== 'info')));
     const { ir, issues } = parseIR(r, { width: 800, height: 600 });
     assert.deepEqual(issues, [], 'local output converts to a valid IR');
     assert.equal(validateSketch(ir, irToElements(ir)).counts.error, 0);

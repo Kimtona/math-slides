@@ -88,8 +88,14 @@ try {
       await insert.insertImageFiles([new File([u], ${JSON.stringify(path.basename(file))}, { type: ${JSON.stringify(mime)} })]);
     })()`);
     const img = await until(async () => (await slideEls()).find((e) => e.type === 'image'), 'image inserted');
+    // Real use: the sketch sits below the slide's title/body placeholders (aspect kept, at most 1080×470).
+    const ar = await evaluate(`(() => { const a = store.getState().assets[store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements.find((e) => e.type === 'image').assetId]; return a.width / a.height; })()`);
+    const fw = Math.round(Math.min(1080, 470 * ar)), fh = Math.round(fw / ar);
+    const frame = { x: Math.round((1280 - fw) / 2), y: 200, w: fw, h: fh };
+    await evaluate(`store.getState().updateElements([${JSON.stringify(img.id)}], (d) => { Object.assign(d, ${JSON.stringify(frame)}); })`);
     await evaluate(`store.getState().select([${JSON.stringify(img.id)}])`); await pause(300);
     const before = await slideEls();
+    const othersBefore = await evaluate(`JSON.parse(JSON.stringify(store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements.filter((e) => e.type !== 'image')))`);
 
     const t0 = Date.now();
     await clickButton('Convert to Editable Slide');
@@ -98,7 +104,7 @@ try {
     await pause(500);
     await shot(path.join(out, `${name}-dialog.png`));
     const st = await evaluate(`(() => { const s = sketch.useSketch.getState(); return { phase: s.phase, error: s.error, model: s.model, timings: s.timings, rounds: s.rounds.map((r) => ({ round: r.round, ok: r.ok, skipped: !!r.skipped, patches: r.patches.length, summary: r.summary, error: r.error, ms: r.ms })), counts: s.report?.counts, issues: [...s.parseIssues, ...(s.report?.issues ?? [])], ir: s.ir, elementTypes: s.conv?.elements.map((e) => e.type + (e.shape ? ':' + e.shape : '')) }; })()`);
-    const run = { image: path.basename(file), wallMs, ...st };
+    const run = { image: path.basename(file), wallMs, frame, ...st };
     summary.runs.push(run);
     console.log(`${name}: ${phase} in ${(wallMs / 1000).toFixed(1)} s · ${st.elementTypes?.length ?? 0} elements · counts ${JSON.stringify(st.counts)} · review ${JSON.stringify(st.rounds)}`);
     if (phase !== 'preview') { await clickButton('Cancel'); continue; }
@@ -108,6 +114,15 @@ try {
     await until(async () => (await evaluate(`sketch.useSketch.getState().phase`)) === 'idle', 'dialog closed');
     const after = await slideEls();
     run.applied = after.map((e) => e.type + (e.shape ? ':' + e.shape : ''));
+    // Placement: converted elements inside the image's frame; the title/body placeholders unchanged and not covered.
+    const fresh = await evaluate(`JSON.parse(JSON.stringify(store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements))`);
+    const added = fresh.filter((e) => !othersBefore.some((o) => o.id === e.id));
+    const tol = 2, inF = (e) => e.x >= frame.x - tol && e.y >= frame.y - tol && e.x + e.w <= frame.x + frame.w + tol && e.y + e.h <= frame.y + frame.h + tol;
+    run.outsideFrame = added.filter((e) => !inF(e)).map((e) => ({ type: e.type, x: e.x, y: e.y, w: e.w, h: e.h }));
+    assert.deepEqual(fresh.filter((e) => othersBefore.some((o) => o.id === e.id)), othersBefore, 'other slide elements untouched');
+    const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    run.coversExisting = added.filter((e) => othersBefore.some((o) => hit(e, o))).map((e) => e.type);
+    assert.deepEqual(run.coversExisting, [], 'converted elements do not cover the existing title/body');
     assert.ok(!after.some((e) => e.id === img.id), 'image replaced');
     assert.equal(new Set(after.map((e) => e.id)).size, after.length, 'separate elements');
     // Individually editable: move one element, the others stay; open a text element in the editor.

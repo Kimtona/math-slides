@@ -141,8 +141,10 @@ export function SketchDialog() {
 
   if (phase === 'idle' || !s.sourceId) return null;
   const busy = phase === 'recognizing' || phase === 'reviewing';
+  // The result in place: the slide's other elements (unchanged) + the converted elements in the image's frame.
+  // The AI-review screenshot shows the converted elements only.
   const previewSlide: Slide | null = s.conv && currentSlide
-    ? { id: 'sketch-preview', background: currentSlide.background, elements: s.conv.elements, notes: '' }
+    ? { id: 'sketch-preview', background: currentSlide.background, elements: capturing ? s.conv.elements : [...s.others, ...s.conv.elements], notes: '' }
     : null;
   const issues = [...s.parseIssues, ...(s.report?.issues ?? [])].filter((i, k, all) => all.findIndex((j) => j.code === i.code && j.id === i.id && j.message === i.message) === k);
   const flaggedIds = new Set(issues.filter((i) => i.severity !== 'info' || i.code === 'review').map((i) => i.id).filter(Boolean) as string[]);
@@ -173,13 +175,14 @@ export function SketchDialog() {
                 </div>
               </figure>
               <figure className="sk-pane">
-                <figcaption>Editable result {busy && <span className="sk-muted">· {phase === 'recognizing' ? 'recognizing' : `AI review (≤${MAX_REVIEW_ROUNDS} rounds)`}… <Elapsed /></span>}</figcaption>
+                <figcaption>Editable result <span className="sk-muted">(on this slide; dashed = image area)</span> {busy && <span className="sk-muted">· {phase === 'recognizing' ? 'recognizing' : `AI review (≤${MAX_REVIEW_ROUNDS} rounds)`}… <Elapsed /></span>}</figcaption>
                 <div className="sk-preview" style={{ width: PREVIEW_W, height: PREVIEW_W * 9 / 16 }}>
                   <div ref={previewRef} className="sk-preview-inner" style={{ width: PREVIEW_W, height: PREVIEW_W * 9 / 16 }}>
                     {previewSlide
                       ? <SlideView slide={previewSlide} assets={assets} index={0} total={1} className="sk-slide" />
                       : <div className="sk-wait">{phase === 'error' ? '' : 'Reading the sketch…'}</div>}
                   </div>
+                  {!capturing && s.frame && <div className="sk-frame" title="Area of the original image" style={{ left: s.frame.x * PREVIEW_SCALE, top: s.frame.y * PREVIEW_SCALE, width: s.frame.w * PREVIEW_SCALE, height: s.frame.h * PREVIEW_SCALE }} />}
                   {!capturing && s.conv && Object.entries(s.conv.map).filter(([irId]) => flaggedIds.has(irId)).flatMap(([irId, ids]) => ids.map((id) => {
                     const b = elBox(id);
                     if (!b) return null;

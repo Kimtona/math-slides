@@ -2,8 +2,11 @@
  * IR → ordinary MathSlides elements (text boxes, math blocks, shapes, lines/arrows).
  * Pure and deterministic: the same IR always yields the same layout (only element ids are random).
  *
- * Layout preservation: one uniform scale maps the sketch's content bounds into the slide's content area,
- * so relative positions and sizes are kept for any aspect ratio. No beautification (alignment/spacing) is applied.
+ * Layout preservation. In the app the sketch is rebuilt INSIDE THE IMAGE'S FRAME on the slide (`frame`): IR coordinates
+ * (0..1000 of the visible, cropped image) map linearly onto the frame, so elements land where they were drawn and
+ * the rest of the slide is untouched; a stretched image (frame aspect ≠ image aspect) maps x and y separately, like
+ * the picture itself. Without a frame (command-line tool) one uniform scale fits the content into the content area.
+ * No beautification (alignment/spacing) is applied.
  */
 import type { LineElement, PMNode, ShapeElement, SlideElement, TextElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
@@ -30,15 +33,21 @@ export const INK: Record<IRColor, string> = {
 };
 
 export interface Placement {
-  /** slide px per source-image px */
-  s: number;
+  /** slide px per source-image px, per axis (equal unless the image is stretched) */
+  sx: number;
+  sy: number;
   /** slide position of source pixel (0,0) */
   ox: number;
   oy: number;
   /** source image px per IR unit */
   ux: number;
   uy: number;
+  /** Area the elements are kept inside: the image frame, or the slide's content area. */
+  area: Frame;
 }
+
+/** A rectangle on the slide (the image element's x/y/w/h). */
+export interface Frame { x: number; y: number; w: number; h: number }
 
 export interface ConversionResult {
   elements: SlideElement[];
@@ -49,11 +58,20 @@ export interface ConversionResult {
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+/** Whole slide with a small margin (the area when there is no image frame). */
+const SLIDE_AREA: Frame = { x: 8, y: 8, w: SLIDE_W - 16, h: SLIDE_H - 16 };
 const round = (v: number) => Math.round(v);
 
-/** Uniform scale from the union of all element boxes (in source pixels) into CONTENT_AREA. */
-export function computePlacement(ir: SketchIR): Placement {
+/**
+ * With `frame`: the image's frame on the slide (IR 0..1000 → frame edges). Without: uniform scale from the union of
+ * all element boxes into CONTENT_AREA.
+ */
+export function computePlacement(ir: SketchIR, frame?: Frame): Placement {
   const ux = ir.image.width / IR_SCALE, uy = ir.image.height / IR_SCALE;
+  if (frame) {
+    const sx = frame.w / ir.image.width, sy = frame.h / ir.image.height;
+    return { sx, sy, ox: frame.x, oy: frame.y, ux, uy, area: frame };
+  }
   const boxes = ir.elements.map((e) => e.bbox);
   let minX = 0, minY = 0, maxX = IR_SCALE, maxY = IR_SCALE;
   if (boxes.length) {
@@ -67,13 +85,13 @@ export function computePlacement(ir: SketchIR): Placement {
   const ox = CONTENT_AREA.x + (CONTENT_AREA.w - cw * s) / 2 - minX * ux * s;
   // With a title the sketch reads top-down like a slide: start at the top. A bare diagram is centered.
   const oy = (hasTitle ? CONTENT_AREA.y : CONTENT_AREA.y + (CONTENT_AREA.h - ch * s) / 2) - minY * uy * s;
-  return { s, ox, oy, ux, uy };
+  return { sx: s, sy: s, ox, oy, ux, uy, area: SLIDE_AREA };
 }
 
-export const mapPoint = (p: IRPoint, pl: Placement) => ({ x: pl.ox + p.x * pl.ux * pl.s, y: pl.oy + p.y * pl.uy * pl.s });
+export const mapPoint = (p: IRPoint, pl: Placement) => ({ x: pl.ox + p.x * pl.ux * pl.sx, y: pl.oy + p.y * pl.uy * pl.sy });
 export function mapBox(b: IRBox, pl: Placement) {
   const tl = mapPoint(b, pl);
-  return { x: tl.x, y: tl.y, w: b.w * pl.ux * pl.s, h: b.h * pl.uy * pl.s };
+  return { x: tl.x, y: tl.y, w: b.w * pl.ux * pl.sx, h: b.h * pl.uy * pl.sy };
 }
 
 // ---------- text ----------
@@ -140,12 +158,17 @@ export function fontFromInk(lineInkPx: number, role?: string) {
   return snapFont(clamp(lineInkPx * 0.8, min, ROLE_MAX_FONT[role ?? 'body'] ?? 48));
 }
 
-/** Keeps a box inside the slide (moves it; shrinks only if it is larger than the slide). */
-function keepInside(b: { x: number; y: number; w: number; h: number }, issues: IRIssue[], id: string) {
+/**
+ * Keeps a box inside the placement area (the image frame in the app) and always inside the slide. A box larger than
+ * the area (typeset text can be wider than handwriting) is centered on it instead.
+ */
+function keepInside(b: { x: number; y: number; w: number; h: number }, issues: IRIssue[], id: string, area: Frame) {
+  const fit = (pos: number, size: number, lo: number, len: number) => (size <= len ? clamp(pos, lo, lo + len - size) : lo + (len - size) / 2);
   const w = Math.min(b.w, SLIDE_W - 16), h = Math.min(b.h, SLIDE_H - 16);
-  const x = clamp(b.x, 8, SLIDE_W - 8 - w), y = clamp(b.y, 8, SLIDE_H - 8 - h);
+  let x = fit(b.x, w, area.x, area.w), y = fit(b.y, h, area.y, area.h);
+  x = clamp(x, 8, SLIDE_W - 8 - w); y = clamp(y, 8, SLIDE_H - 8 - h);
   if (Math.abs(x - b.x) > 1 || Math.abs(y - b.y) > 1 || w < b.w || h < b.h)
-    issues.push({ severity: 'info', code: 'bounds', id, message: `Moved inside the slide (by ${round(x - b.x)}, ${round(y - b.y)} px).` });
+    issues.push({ severity: 'info', code: 'bounds', id, message: `Moved inside the ${area === SLIDE_AREA ? 'slide' : 'image area'} (by ${round(x - b.x)}, ${round(y - b.y)} px).` });
   return { x, y, w, h };
 }
 
@@ -153,16 +176,29 @@ function textElement(e: IRElement, pl: Placement, issues: IRIssue[]): TextElemen
   const b = mapBox(e.bbox, pl);
   const text = (e.text ?? '').trim();
   const lines = text.split('\n');
-  const fontSize = fontFromInk(b.h / lines.length, e.role);
-  const contentW = Math.max(...lines.map(lineWidthEm)) * fontSize;
+  let fontSize = fontFromInk(b.h / lines.length, e.role);
+  const align: TextElement['style']['align'] = e.role === 'annotation' || e.role === 'label' ? 'center' : 'left';
+  const widthEm = Math.max(...lines.map(lineWidthEm));
+  // Typeset text is often wider than the handwriting. If it does not fit between its written position and the edge
+  // of the placement area, the font gets smaller instead of the box being pushed sideways onto its neighbours
+  // (real GUI run: a right-hand note moved 107 px left over the left-hand note).
+  const a = pl.area, cx = b.x + b.w / 2;
+  const room = align === 'center' ? 2 * Math.min(cx - a.x, a.x + a.w - cx) : a.x + a.w - b.x;
+  if (widthEm * fontSize * 1.06 + 8 > room && room > 8) {
+    const fitted = Math.max(MIN_FONT, Math.floor((room - 8) / (widthEm * 1.06)));
+    if (fitted < fontSize) {
+      issues.push({ severity: 'info', code: 'fit', id: e.id, message: `Font reduced from ${fontSize} to ${fitted} px to keep the text in place inside the image area.` });
+      fontSize = fitted;
+    }
+  }
+  const contentW = widthEm * fontSize;
   // The written box, widened to what the typeset text needs (never narrowed: wrapping changes the layout).
   const w = Math.max(b.w, contentW * 1.06 + 8);
   const h = lines.length * fontSize * LINE_HEIGHT;
-  const align: TextElement['style']['align'] = e.role === 'annotation' || e.role === 'label' ? 'center' : 'left';
   // Centered text keeps its written center; left-aligned text keeps its written left edge.
   const x = align === 'center' ? b.x + b.w / 2 - w / 2 : b.x;
   const y = b.y + b.h / 2 - h / 2;
-  const box = keepInside({ x, y, w, h }, issues, e.id);
+  const box = keepInside({ x, y, w, h }, issues, e.id, pl.area);
   const el = newText(round(box.x), round(box.y), {
     w: round(box.w),
     doc: textToSketchDoc(text),
@@ -190,7 +226,7 @@ function mathElement(e: IRElement, pl: Placement, issues: IRIssue[]): TextElemen
     w = m.widthEm * fontSize + 24;
     h = (m.heightEm + 0.3) * fontSize;
   }
-  const box = keepInside({ x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h }, issues, e.id);
+  const box = keepInside({ x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h }, issues, e.id, pl.area);
   const el = newText(round(box.x), round(box.y), {
     w: round(box.w),
     doc: { type: 'doc', content: [{ type: 'mathBlock', attrs: { latex } }] },
@@ -201,7 +237,7 @@ function mathElement(e: IRElement, pl: Placement, issues: IRIssue[]): TextElemen
 }
 
 function shapeElement(e: IRElement, label: IRElement | undefined, pl: Placement, issues: IRIssue[]): ShapeElement {
-  const b = keepInside(mapBox(e.bbox, pl), issues, e.id);
+  const b = keepInside(mapBox(e.bbox, pl), issues, e.id, pl.area);
   const el = newShape(e.shape ?? 'rect', round(b.x), round(b.y), round(Math.max(8, b.w)), round(Math.max(8, b.h)));
   // Hand-drawn shapes are outlines in the pen color.
   el.fill = null;
@@ -237,7 +273,8 @@ function lineElement(e: IRElement, pl: Placement, shapes: Map<string, ShapeEleme
   const s2 = e.toId ? shapes.get(e.toId) : undefined;
   if (s1) p1 = boundaryPoint(s1, p2);
   if (s2) p2 = boundaryPoint(s2, p1);
-  const inside = (p: { x: number; y: number }) => ({ x: clamp(p.x, 4, SLIDE_W - 4), y: clamp(p.y, 4, SLIDE_H - 4) });
+  const a = pl.area;
+  const inside = (p: { x: number; y: number }) => ({ x: clamp(clamp(p.x, a.x, a.x + a.w), 4, SLIDE_W - 4), y: clamp(clamp(p.y, a.y, a.y + a.h), 4, SLIDE_H - 4) });
   p1 = inside(p1); p2 = inside(p2);
   const el = newLine(round(p1.x), round(p1.y), round(p2.x), round(p2.y), e.kind === 'arrow');
   el.stroke = INK[e.color ?? 'black'];
@@ -254,9 +291,10 @@ function insideTarget(e: IRElement, ir: SketchIR): string | undefined {
   return target?.kind === 'shape' && !target.text?.trim() ? target.id : undefined;
 }
 
-export function irToElements(ir: SketchIR): ConversionResult {
+/** frame: the source image's x/y/w/h on the slide (the app); omit to fit the content into the slide (CLI). */
+export function irToElements(ir: SketchIR, frame?: Frame): ConversionResult {
   const issues: IRIssue[] = [];
-  const pl = computePlacement(ir);
+  const pl = computePlacement(ir, frame);
   const map: Record<string, string[]> = {};
   const labels = new Map<string, IRElement>(); // shape id → its label
   const absorbed = new Set<string>();

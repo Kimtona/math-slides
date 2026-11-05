@@ -6,7 +6,7 @@ import { create } from 'zustand';
 import type { ImageElement, SlideElement } from '../model/types';
 import { findSlide, useStore } from '../store/store';
 import { applyPatches, MODEL_IR_SCHEMA, parseIR, REVIEW_SCHEMA, type IRElement, type IRIssue, type ReviewResult, type SketchIR } from './ir';
-import { irToElements, type ConversionResult } from './convert';
+import { irToElements, type ConversionResult, type Frame } from './convert';
 import { validateSketch, type ValidationReport } from './validate';
 import { imageForModel, newRunId, sketchNative, type SketchImage, type SketchSettings, type SketchStatus } from './bridge';
 
@@ -45,13 +45,16 @@ interface SketchState {
   model: string;
   error: string | null;
   aiReview: boolean;
+  /** The source image's frame on the slide and the slide's other elements, captured when the run starts. */
+  frame: Frame | null;
+  others: SlideElement[];
   /** Set by the dialog: renders the current conversion, waits for layout, returns text heights + a screenshot. */
   measure: (() => Promise<{ heights: Record<string, number>; shot: SketchImage | null }>) | null;
 }
 
 export const useSketch = create<SketchState>()(() => ({
   phase: 'idle', startedAt: 0, status: null, sourceId: null, runId: '', image: null, ir: null, parseIssues: [], conv: null, report: null,
-  rounds: [], timings: {}, model: '', error: null, aiReview: true, measure: null,
+  rounds: [], timings: {}, model: '', error: null, aiReview: true, measure: null, frame: null, others: [],
 }));
 const set = useSketch.setState;
 const get = useSketch.getState;
@@ -62,12 +65,14 @@ const issueLines = (r: ValidationReport) => r.issues.filter((i) => i.severity !=
 
 /** Converts and validates `ir`, using heights measured in the rendered preview when available. */
 async function rebuild(ir: SketchIR) {
-  const conv = irToElements(ir);
-  set({ ir, conv, report: validateSketch(ir, conv) });
+  const { frame, others } = get();
+  const conv = irToElements(ir, frame ?? undefined);
+  const ctx = { frame: frame ?? undefined, others };
+  set({ ir, conv, report: validateSketch(ir, conv, undefined, ctx) });
   const m = get().measure;
   if (!m) return { conv, report: get().report!, shot: null as SketchImage | null };
   const { heights, shot } = await m();
-  const report = validateSketch(ir, conv, heights);
+  const report = validateSketch(ir, conv, heights, ctx);
   set({ report });
   return { conv, report, shot };
 }
@@ -124,6 +129,10 @@ export async function runSketch() {
   const runId = newRunId();
   const t0 = performance.now();
   const timings: Record<string, number> = {};
+  // The elements are rebuilt inside the image's frame; everything else on the slide stays as it is.
+  const st = useStore.getState();
+  const others = findSlide(st.deck, st.currentSlideId)!.elements.filter((e) => e.id !== src.el.id);
+  set({ frame: { x: src.el.x, y: src.el.y, w: src.el.w, h: src.el.h }, others: structuredClone(others) as SlideElement[] });
   set({ phase: 'recognizing', startedAt: performance.now(), runId, error: null, rounds: [], ir: null, conv: null, report: null, timings });
   try {
     const status = get().status ?? await refreshStatus();
@@ -205,8 +214,10 @@ export function applySketch(replace: boolean) {
   const slideId = st.currentSlideId;
   st.commit((d) => {
     const slide = findSlide(d, slideId)!;
-    if (replace) slide.elements = slide.elements.filter((e) => e.id !== srcId);
-    slide.elements.push(...(els as any));
+    // Same layer as the image: the other elements keep their stacking order.
+    const idx = slide.elements.findIndex((e) => e.id === srcId);
+    if (idx < 0) slide.elements.push(...(els as any));
+    else slide.elements.splice(replace ? idx : idx + 1, replace ? 1 : 0, ...(els as any));
   });
   useStore.setState({ selection: els.map((e) => e.id), focusArea: 'canvas' });
   sketchNative()?.log(runId, '30-applied.json', { replace, elements: els, validation: report });
