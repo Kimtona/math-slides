@@ -1,0 +1,137 @@
+{
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 114654,
+  "usage": {
+    "input_tokens": 3601,
+    "output_tokens": 451,
+    "load_ms": 19,
+    "prompt_ms": 37162,
+    "eval_ms": 77202
+  },
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1437,
+      "height": 559
+    },
+    "elements": [
+      {
+        "id": "t1",
+        "kind": "text",
+        "bbox": {
+          "x": 19.45024356297843,
+          "y": 98.21428571428572,
+          "w": 307.0359876727309,
+          "h": 169.6428571428571
+        },
+        "text": "[policy gradient]",
+        "role": "title",
+        "color": "blue"
+      },
+      {
+        "id": "t2",
+        "kind": "math",
+        "bbox": {
+          "x": 70.85445869370713,
+          "y": 337.5,
+          "w": 789.1241674122678,
+          "h": 185.7142857142859
+        },
+        "latex": "\\nabla_{\\theta}J(\\theta) = \\text{E}_{\\tau}[\\text{R}(\\tau) \\text{.} \\nabla_{\\theta} \\text{log} \\tau_{\\theta}(a|s)]",
+        "role": "body",
+        "color": "black",
+        "review": {
+          "needed": true,
+          "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+          "transcribed": "\\nabla_{\\theta}J(\\theta) = \\text{E}_{\\tau}[\\text{R}(\\tau) \\text{.} \\nabla_{\\theta} \\text{log} \\tau_{\\theta}(a|s)]"
+        }
+      },
+      {
+        "id": "t3",
+        "kind": "text",
+        "bbox": {
+          "x": 323.01297345660606,
+          "y": 523.2142857142859,
+          "w": 667.5601451436526,
+          "h": 476.7857142857141
+        },
+        "text": "그 action의 이 action의\n일관나중있다\n→ 행동확률의 gradient",
+        "role": "body",
+        "color": "red",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "그 action의 이 action의\n일관나중있다\n→ 행동확률의 gradient"
+        }
+      },
+      {
+        "id": "t6",
+        "kind": "text",
+        "bbox": {
+          "x": 649.4992046923154,
+          "y": 705.3571428571429,
+          "w": 304.2573814494483,
+          "h": 107.14285714285722
+        },
+        "text": "확률은 어떻게 바꿀까",
+        "role": "body",
+        "color": "red",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "확률은 어떻게 바꿀까"
+        }
+      }
+    ],
+    "notes": [
+      "Merged 3 stacked line(s) into multi-line notes."
+    ]
+  },
+  "issues": [
+    "t3: [overlap] Overlaps \"t6\" (94% of the smaller box)."
+  ],
+  "rawText": "{\n  \"ok\": false,\n  \"summary\": \"The rendering does not match the original image. The text '그 action의' and '이 action의' are missing in the rendering, and the text '확률은 어떻게 바꿀까' is not present in the original image.\",\n  \"patches\": [\n    {\n      \"op\": \"add\",\n      \"id\": \"t3\",\n      \"reason\": \"The text '그 action의' and '이 action의' is missing in the rendering.\",\n      \"element\": {\n        \"id\": \"t3\",\n        \"kind\": \"text\",\n        \"bbox\": {\"x\": 323.01297345660606, \"y\": 523.2142857142859, \"w\": 667.5601451436526, \"h\": 476.7857142857141},\n        \"text\": \"그 action의 이 action의\\n일관나중있다\\n→ 행동확률의 gradient\",\n        \"role\": \"body\",\n        \"color\": \"red\"\n      }\n    },\n    {\n      \"op\": \"add\",\n      \"id\": \"t6\",\n      \"reason\": \"The text '확률은 어떻게 바꿀까' is not present in the rendering.\",\n      \"element\": {\n        \"id\": \"t6\",\n        \"kind\": \"text\",\n        \"bbox\": {\"x\": 649.4992046923154, \"y\": 705.3571428571429, \"w\": 304.2573814494483, \"h\": 107.14285714285722},\n        \"text\": \"확률은 어떻게 바꿀까\",\n        \"role\": \"body\",\n        \"color\": \"red\"\n      }\n    }\n  ]\n}",
+  "output": {
+    "ok": false,
+    "summary": "The rendering does not match the original image. The text '그 action의' and '이 action의' are missing in the rendering, and the text '확률은 어떻게 바꿀까' is not present in the original image.",
+    "patches": [
+      {
+        "op": "add",
+        "id": "t3",
+        "reason": "The text '그 action의' and '이 action의' is missing in the rendering.",
+        "element": {
+          "id": "t3",
+          "kind": "text",
+          "bbox": {
+            "x": 323.01297345660606,
+            "y": 523.2142857142859,
+            "w": 667.5601451436526,
+            "h": 476.7857142857141
+          },
+          "text": "그 action의 이 action의\n일관나중있다\n→ 행동확률의 gradient",
+          "role": "body",
+          "color": "red"
+        }
+      },
+      {
+        "op": "add",
+        "id": "t6",
+        "reason": "The text '확률은 어떻게 바꿀까' is not present in the rendering.",
+        "element": {
+          "id": "t6",
+          "kind": "text",
+          "bbox": {
+            "x": 649.4992046923154,
+            "y": 705.3571428571429,
+            "w": 304.2573814494483,
+            "h": 107.14285714285722
+          },
+          "text": "확률은 어떻게 바꿀까",
+          "role": "body",
+          "color": "red"
+        }
+      }
+    ]
+  }
+}

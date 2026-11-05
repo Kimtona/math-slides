@@ -1,0 +1,274 @@
+{
+  "source": "model",
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 103883,
+  "usage": {
+    "input_tokens": 1495,
+    "output_tokens": 504,
+    "load_ms": 14486,
+    "prompt_ms": 16479,
+    "eval_ms": 72773
+  },
+  "sentImage": {
+    "width": 1024,
+    "height": 398
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"e1\",\n      \"type\": \"title\",\n      \"bbox_2d\": [28, 55, 470, 150],\n      \"content\": \"[policy gradient]\",\n      \"color\": \"blue\"\n    },\n    {\n      \"id\": \"e2\",\n      \"type\": \"math\",\n      \"bbox_2d\": [103, 188, 1240, 292],\n      \"content\": \"\\nabla_\\theta J(\\theta) = \\text{E}_\\text{π}[\\text{R}(τ) · \\nabla_\\theta \\text{log} \\text{π}_\\theta(a|s)]\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e3\",\n      \"type\": \"text\",\n      \"bbox_2d\": [465, 272, 580, 385],\n      \"content\": \"그 action의\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"e4\",\n      \"type\": \"text\",\n      \"bbox_2d\": [465, 390, 778, 440],\n      \"content\": \"일관나중않나\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"e5\",\n      \"type\": \"text\",\n      \"bbox_2d\": [938, 292, 1000, 390],\n      \"content\": \"이 action의\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"e6\",\n      \"type\": \"text\",\n      \"bbox_2d\": [938, 390, 1373, 440],\n      \"content\": \"확률을 어떻게 바꿀까\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"e7\",\n      \"type\": \"text\",\n      \"bbox_2d\": [868, 495, 1426, 560],\n      \"content\": \"→ 행동확률의 gradient\",\n      \"color\": \"red\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "e1",
+        "type": "title",
+        "bbox_2d": [
+          28,
+          55,
+          470,
+          150
+        ],
+        "content": "[policy gradient]",
+        "color": "blue"
+      },
+      {
+        "id": "e2",
+        "type": "math",
+        "bbox_2d": [
+          103,
+          188,
+          1240,
+          292
+        ],
+        "content": "\nabla_\theta J(\theta) = \text{E}_\text{π}[\text{R}(τ) · \nabla_\theta \text{log} \text{π}_\theta(a|s)]",
+        "color": "black"
+      },
+      {
+        "id": "e3",
+        "type": "text",
+        "bbox_2d": [
+          465,
+          272,
+          580,
+          385
+        ],
+        "content": "그 action의",
+        "color": "red"
+      },
+      {
+        "id": "e4",
+        "type": "text",
+        "bbox_2d": [
+          465,
+          390,
+          778,
+          440
+        ],
+        "content": "일관나중않나",
+        "color": "red"
+      },
+      {
+        "id": "e5",
+        "type": "text",
+        "bbox_2d": [
+          938,
+          292,
+          1000,
+          390
+        ],
+        "content": "이 action의",
+        "color": "red"
+      },
+      {
+        "id": "e6",
+        "type": "text",
+        "bbox_2d": [
+          938,
+          390,
+          1373,
+          440
+        ],
+        "content": "확률을 어떻게 바꿀까",
+        "color": "red"
+      },
+      {
+        "id": "e7",
+        "type": "text",
+        "bbox_2d": [
+          868,
+          495,
+          1426,
+          560
+        ],
+        "content": "→ 행동확률의 gradient",
+        "color": "red"
+      }
+    ]
+  },
+  "totalMs": 104618,
+  "parseIssues": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "e5",
+        "message": "Moved inside the slide (by -42, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "e6",
+        "message": "Moved inside the slide (by -20, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "e7",
+        "message": "Moved inside the slide (by -22, 0 px)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "e2",
+        "message": "Overlaps \"e3\" (17% of the smaller box)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "e5",
+        "message": "Overlaps \"e6\" (17% of the smaller box)."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 2,
+      "info": 3
+    },
+    "review": []
+  },
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1024,
+      "height": 398
+    },
+    "elements": [
+      {
+        "id": "e1",
+        "kind": "text",
+        "bbox": {
+          "x": 27.34375,
+          "y": 55,
+          "w": 431.640625,
+          "h": 95
+        },
+        "text": "[policy gradient]",
+        "role": "title",
+        "color": "blue"
+      },
+      {
+        "id": "e2",
+        "kind": "math",
+        "bbox": {
+          "x": 100.5859375,
+          "y": 188,
+          "w": 899.4140625,
+          "h": 104
+        },
+        "latex": "abla_\theta J(\theta) = \text{E}_\text{π}[\text{R}(τ) · \nabla_\theta \text{log} \text{π}_\theta(a|s)]",
+        "role": "body",
+        "color": "black"
+      },
+      {
+        "id": "e3",
+        "kind": "text",
+        "bbox": {
+          "x": 454.1015625,
+          "y": 272,
+          "w": 112.3046875,
+          "h": 113
+        },
+        "text": "그 action의",
+        "role": "body",
+        "color": "red"
+      },
+      {
+        "id": "e4",
+        "kind": "text",
+        "bbox": {
+          "x": 454.1015625,
+          "y": 390,
+          "w": 305.6640625,
+          "h": 50
+        },
+        "text": "일관나중않나",
+        "role": "body",
+        "color": "red"
+      },
+      {
+        "id": "e5",
+        "kind": "text",
+        "bbox": {
+          "x": 916.015625,
+          "y": 292,
+          "w": 60.546875,
+          "h": 98
+        },
+        "text": "이 action의",
+        "role": "body",
+        "color": "red"
+      },
+      {
+        "id": "e6",
+        "kind": "text",
+        "bbox": {
+          "x": 916.015625,
+          "y": 390,
+          "w": 83.984375,
+          "h": 50
+        },
+        "text": "확률을 어떻게 바꿀까",
+        "role": "body",
+        "color": "red"
+      },
+      {
+        "id": "e7",
+        "kind": "text",
+        "bbox": {
+          "x": 847.65625,
+          "y": 495,
+          "w": 152.34375,
+          "h": 65
+        },
+        "text": "→ 행동확률의 gradient",
+        "role": "body",
+        "color": "red"
+      }
+    ],
+    "notes": [
+      "Coordinates looked normalized (0..1000) instead of pixels; used as such."
+    ]
+  },
+  "map": {
+    "e1": [
+      "_3LUOwh16O"
+    ],
+    "e2": [
+      "KtRSRz1g0x"
+    ],
+    "e3": [
+      "0RVjhaQob8"
+    ],
+    "e4": [
+      "GQJe2eZpkY"
+    ],
+    "e5": [
+      "V1LbV2f1ev"
+    ],
+    "e6": [
+      "HAEOJ5g1t5"
+    ],
+    "e7": [
+      "QpehaTYyXi"
+    ]
+  }
+}

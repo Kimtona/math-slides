@@ -1,0 +1,230 @@
+{
+  "source": "saved IR",
+  "file": "examples/ollama-runs/gui-e2e/run-log/2026-11-05_16-26-47-ls4h/01-recognize.json",
+  "model": "ollama/qwen2.5vl:7b",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "t1",
+        "type": "title",
+        "bbox_2d": [
+          28,
+          55,
+          470,
+          150
+        ],
+        "content": "[policy gradient]",
+        "color": "blue"
+      },
+      {
+        "id": "t2",
+        "type": "math",
+        "bbox_2d": [
+          102,
+          189,
+          1238,
+          293
+        ],
+        "content": "\nabla_{\theta}J(\theta) = \text{E}_{\tau}[\text{R}(\tau) \text{.} \nabla_{\theta} \text{log} \tau_{\theta}(a|s)]",
+        "color": "black"
+      },
+      {
+        "id": "t3",
+        "type": "text",
+        "bbox_2d": [
+          465,
+          325,
+          778,
+          383
+        ],
+        "content": "그 action의",
+        "color": "red"
+      },
+      {
+        "id": "t4",
+        "type": "text",
+        "bbox_2d": [
+          465,
+          395,
+          778,
+          455
+        ],
+        "content": "일관나중있다",
+        "color": "red"
+      },
+      {
+        "id": "t5",
+        "type": "text",
+        "bbox_2d": [
+          935,
+          293,
+          1130,
+          390
+        ],
+        "content": "이 action의",
+        "color": "red"
+      },
+      {
+        "id": "t6",
+        "type": "text",
+        "bbox_2d": [
+          935,
+          395,
+          1373,
+          455
+        ],
+        "content": "확률은 어떻게 바꿀까",
+        "color": "red"
+      },
+      {
+        "id": "t7",
+        "type": "text",
+        "bbox_2d": [
+          868,
+          490,
+          1426,
+          560
+        ],
+        "content": "→ 행동확률의 gradient",
+        "color": "red"
+      }
+    ]
+  },
+  "sentImage": {
+    "width": 1437,
+    "height": 559
+  },
+  "totalMs": 338,
+  "parseIssues": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "t5",
+        "message": "Moved inside the slide (by -16, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t2",
+        "message": "Equation read by a local model: check the LaTeX against the sketch."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t3",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t5",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 4
+    },
+    "review": [
+      "t2",
+      "t3",
+      "t5"
+    ]
+  },
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1437,
+      "height": 559
+    },
+    "elements": [
+      {
+        "id": "t1",
+        "kind": "text",
+        "bbox": {
+          "x": 19.45024356297843,
+          "y": 98.21428571428572,
+          "w": 307.0359876727309,
+          "h": 169.6428571428571
+        },
+        "text": "[policy gradient]",
+        "role": "title",
+        "color": "blue"
+      },
+      {
+        "id": "t2",
+        "kind": "math",
+        "bbox": {
+          "x": 70.85445869370713,
+          "y": 337.5,
+          "w": 789.1241674122678,
+          "h": 185.7142857142859
+        },
+        "latex": "\\nabla_{\\theta}J(\\theta) = \\text{E}_{\\tau}[\\text{R}(\\tau) \\text{.} \\nabla_{\\theta} \\text{log} \\tau_{\\theta}(a|s)]",
+        "role": "body",
+        "color": "black",
+        "review": {
+          "needed": true,
+          "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+          "transcribed": "\\nabla_{\\theta}J(\\theta) = \\text{E}_{\\tau}[\\text{R}(\\tau) \\text{.} \\nabla_{\\theta} \\text{log} \\tau_{\\theta}(a|s)]"
+        }
+      },
+      {
+        "id": "t3",
+        "kind": "text",
+        "bbox": {
+          "x": 323.01297345660606,
+          "y": 580.3571428571429,
+          "w": 217.42593697186595,
+          "h": 232.14285714285722
+        },
+        "text": "그 action의\n일관나중있다",
+        "role": "body",
+        "color": "red",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "그 action의\n일관나중있다"
+        }
+      },
+      {
+        "id": "t5",
+        "kind": "text",
+        "bbox": {
+          "x": 602.9575504523312,
+          "y": 523.2142857142859,
+          "w": 387.61556814792743,
+          "h": 476.7857142857141
+        },
+        "text": "이 action의\n확률은 어떻게 바꿀까\n→ 행동확률의 gradient",
+        "role": "body",
+        "color": "red",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "이 action의\n확률은 어떻게 바꿀까\n→ 행동확률의 gradient"
+        }
+      }
+    ],
+    "notes": [
+      "Merged 3 stacked line(s) into multi-line notes."
+    ]
+  },
+  "map": {
+    "t1": [
+      "8H23M_iLVB"
+    ],
+    "t2": [
+      "iynb4N2iLu"
+    ],
+    "t3": [
+      "juTPE7Kpv9"
+    ],
+    "t5": [
+      "aYKl1-xPJk"
+    ]
+  }
+}

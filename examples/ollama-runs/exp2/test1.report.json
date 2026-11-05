@@ -1,0 +1,292 @@
+{
+  "source": "model",
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 96175,
+  "usage": {
+    "input_tokens": 1489,
+    "output_tokens": 514,
+    "load_ms": 3270,
+    "prompt_ms": 16109,
+    "eval_ms": 76518
+  },
+  "sentImage": {
+    "width": 1024,
+    "height": 480
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"e1\",\n      \"type\": \"circle\",\n      \"bbox_2d\": [132, 100, 352, 294],\n      \"content\": \"A\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e2\",\n      \"type\": \"arrow\",\n      \"bbox_2d\": [374, 148, 508, 210],\n      \"content\": \"\\u2192\",\n      \"color\": \"black\",\n      \"points\": [374, 209, 508, 210],\n      \"connects\": [\"e1\", \"e3\"]\n    },\n    {\n      \"id\": \"e3\",\n      \"type\": \"circle\",\n      \"bbox_2d\": [565, 108, 795, 294],\n      \"content\": \"B\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e4\",\n      \"type\": \"arrow\",\n      \"bbox_2d\": [799, 184, 923, 236],\n      \"content\": \"\\u2192\",\n      \"color\": \"black\",\n      \"points\": [799, 237, 923, 236],\n      \"connects\": [\"e3\", \"e5\"]\n    },\n    {\n      \"id\": \"e5\",\n      \"type\": \"circle\",\n      \"bbox_2d\": [988, 134, 1170, 294],\n      \"content\": \"C\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e6\",\n      \"type\": \"line\",\n      \"bbox_2d\": [845, 259, 868, 415],\n      \"content\": \"\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e7\",\n      \"type\": \"text\",\n      \"bbox_2d\": [726, 435, 903, 532],\n      \"content\": \"'중요'\",\n      \"color\": \"black\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "e1",
+        "type": "circle",
+        "bbox_2d": [
+          132,
+          100,
+          352,
+          294
+        ],
+        "content": "A",
+        "color": "black"
+      },
+      {
+        "id": "e2",
+        "type": "arrow",
+        "bbox_2d": [
+          374,
+          148,
+          508,
+          210
+        ],
+        "content": "→",
+        "color": "black",
+        "points": [
+          374,
+          209,
+          508,
+          210
+        ],
+        "connects": [
+          "e1",
+          "e3"
+        ]
+      },
+      {
+        "id": "e3",
+        "type": "circle",
+        "bbox_2d": [
+          565,
+          108,
+          795,
+          294
+        ],
+        "content": "B",
+        "color": "black"
+      },
+      {
+        "id": "e4",
+        "type": "arrow",
+        "bbox_2d": [
+          799,
+          184,
+          923,
+          236
+        ],
+        "content": "→",
+        "color": "black",
+        "points": [
+          799,
+          237,
+          923,
+          236
+        ],
+        "connects": [
+          "e3",
+          "e5"
+        ]
+      },
+      {
+        "id": "e5",
+        "type": "circle",
+        "bbox_2d": [
+          988,
+          134,
+          1170,
+          294
+        ],
+        "content": "C",
+        "color": "black"
+      },
+      {
+        "id": "e6",
+        "type": "line",
+        "bbox_2d": [
+          845,
+          259,
+          868,
+          415
+        ],
+        "content": "",
+        "color": "black"
+      },
+      {
+        "id": "e7",
+        "type": "text",
+        "bbox_2d": [
+          726,
+          435,
+          903,
+          532
+        ],
+        "content": "'중요'",
+        "color": "black"
+      }
+    ]
+  },
+  "totalMs": 96892,
+  "parseIssues": [
+    {
+      "severity": "warning",
+      "code": "geometry",
+      "id": "e6",
+      "message": "Arrow/line endpoints missing; derived from its bounding box."
+    }
+  ],
+  "validation": {
+    "issues": [],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "review": []
+  },
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1024,
+      "height": 480
+    },
+    "elements": [
+      {
+        "id": "e1",
+        "kind": "shape",
+        "bbox": {
+          "x": 128.90625,
+          "y": 100,
+          "w": 214.84375,
+          "h": 194
+        },
+        "text": "A",
+        "shape": "ellipse",
+        "color": "black"
+      },
+      {
+        "id": "e2",
+        "kind": "arrow",
+        "bbox": {
+          "x": 365.234375,
+          "y": 148,
+          "w": 130.859375,
+          "h": 62
+        },
+        "color": "black",
+        "from": {
+          "x": 365.234375,
+          "y": 209
+        },
+        "to": {
+          "x": 496.09375,
+          "y": 210
+        },
+        "fromId": "e1",
+        "toId": "e3"
+      },
+      {
+        "id": "e3",
+        "kind": "shape",
+        "bbox": {
+          "x": 551.7578125,
+          "y": 108,
+          "w": 224.609375,
+          "h": 186
+        },
+        "text": "B",
+        "shape": "ellipse",
+        "color": "black"
+      },
+      {
+        "id": "e4",
+        "kind": "arrow",
+        "bbox": {
+          "x": 780.2734375,
+          "y": 184,
+          "w": 121.09375,
+          "h": 52
+        },
+        "color": "black",
+        "from": {
+          "x": 780.2734375,
+          "y": 237
+        },
+        "to": {
+          "x": 901.3671875,
+          "y": 236
+        },
+        "fromId": "e3",
+        "toId": "e5"
+      },
+      {
+        "id": "e5",
+        "kind": "shape",
+        "bbox": {
+          "x": 964.84375,
+          "y": 134,
+          "w": 35.15625,
+          "h": 160
+        },
+        "text": "C",
+        "shape": "ellipse",
+        "color": "black"
+      },
+      {
+        "id": "e6",
+        "kind": "line",
+        "bbox": {
+          "x": 825.1953125,
+          "y": 259,
+          "w": 22.4609375,
+          "h": 156
+        },
+        "color": "black",
+        "from": {
+          "x": 836.42578125,
+          "y": 259
+        },
+        "to": {
+          "x": 836.42578125,
+          "y": 415
+        }
+      },
+      {
+        "id": "e7",
+        "kind": "text",
+        "bbox": {
+          "x": 708.984375,
+          "y": 435,
+          "w": 172.8515625,
+          "h": 97
+        },
+        "text": "'중요'",
+        "role": "body",
+        "color": "black"
+      }
+    ],
+    "notes": [
+      "Coordinates looked normalized (0..1000) instead of pixels; used as such."
+    ]
+  },
+  "map": {
+    "e1": [
+      "UfNbYhPpie"
+    ],
+    "e3": [
+      "iU5IH331p6"
+    ],
+    "e5": [
+      "HFJ6rw-797"
+    ],
+    "e2": [
+      "uJv6e5Jqe7"
+    ],
+    "e4": [
+      "Lh8I_8yDky"
+    ],
+    "e6": [
+      "A-QuV54ZGk"
+    ],
+    "e7": [
+      "TA3mN9inJn"
+    ]
+  }
+}

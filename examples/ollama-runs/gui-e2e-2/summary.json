@@ -1,0 +1,347 @@
+{
+  "started": "2026-11-05T16:32:38.787Z",
+  "runs": [
+    {
+      "image": "test1.jpeg",
+      "wallMs": 75211,
+      "phase": "preview",
+      "error": null,
+      "model": "ollama/qwen2.5vl:7b",
+      "timings": {
+        "recognize": 74984,
+        "total": 75200
+      },
+      "rounds": [],
+      "counts": {
+        "error": 0,
+        "warning": 0,
+        "info": 1
+      },
+      "issues": [
+        {
+          "severity": "warning",
+          "code": "geometry",
+          "id": "e6",
+          "message": "Arrow/line endpoints missing; derived from its bounding box."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "e7",
+          "message": "Korean handwriting read by a local model: check the wording."
+        }
+      ],
+      "ir": {
+        "version": 1,
+        "image": {
+          "width": 1309,
+          "height": 613
+        },
+        "elements": [
+          {
+            "id": "e1",
+            "kind": "shape",
+            "bbox": {
+              "x": 100.84033613445378,
+              "y": 163.1321370309951,
+              "w": 167.30328495034377,
+              "h": 321.37030995106034
+            },
+            "text": "A",
+            "shape": "ellipse",
+            "color": "black"
+          },
+          {
+            "id": "e2",
+            "kind": "arrow",
+            "bbox": {
+              "x": 286.4782276546983,
+              "y": 241.43556280587276,
+              "w": 100.84033613445376,
+              "h": 101.14192495921694
+            },
+            "color": "black",
+            "from": {
+              "x": 286.4782276546983,
+              "y": 339.31484502446983
+            },
+            "to": {
+              "x": 387.31856378915205,
+              "y": 339.31484502446983
+            },
+            "fromId": "e1",
+            "toId": "e3"
+          },
+          {
+            "id": "e3",
+            "kind": "shape",
+            "bbox": {
+              "x": 431.62719633307864,
+              "y": 176.1827079934747,
+              "w": 169.59511077158146,
+              "h": 303.4257748776509
+            },
+            "text": "B",
+            "shape": "ellipse",
+            "color": "black"
+          },
+          {
+            "id": "e4",
+            "kind": "arrow",
+            "bbox": {
+              "x": 611.9174942704354,
+              "y": 290.3752039151713,
+              "w": 93.20091673032846,
+              "h": 99.51060358890697
+            },
+            "color": "black",
+            "from": {
+              "x": 611.9174942704354,
+              "y": 386.6231647634584
+            },
+            "to": {
+              "x": 705.1184110007639,
+              "y": 386.6231647634584
+            },
+            "fromId": "e3",
+            "toId": "e5"
+          },
+          {
+            "id": "e5",
+            "kind": "shape",
+            "bbox": {
+              "x": 754.7746371275783,
+              "y": 215.33442088091354,
+              "w": 138.27349121466773,
+              "h": 269.1680261011419
+            },
+            "text": "C",
+            "shape": "ellipse",
+            "color": "black"
+          },
+          {
+            "id": "e6",
+            "kind": "line",
+            "bbox": {
+              "x": 645.5309396485867,
+              "y": 432.300163132137,
+              "w": 15.278838808250612,
+              "h": 244.69820554649272
+            },
+            "color": "black",
+            "from": {
+              "x": 653.170359052712,
+              "y": 432.300163132137
+            },
+            "to": {
+              "x": 653.170359052712,
+              "y": 676.9983686786297
+            }
+          },
+          {
+            "id": "e7",
+            "kind": "text",
+            "bbox": {
+              "x": 556.1497326203208,
+              "y": 714.5187601957585,
+              "w": 133.68983957219257,
+              "h": 153.34420880913547
+            },
+            "text": "'중요'",
+            "role": "body",
+            "color": "black",
+            "review": {
+              "needed": true,
+              "reason": "Korean handwriting read by a local model: check the wording.",
+              "transcribed": "'중요'"
+            }
+          }
+        ]
+      },
+      "elementTypes": [
+        "shape:ellipse",
+        "shape:ellipse",
+        "shape:ellipse",
+        "line",
+        "line",
+        "line",
+        "text"
+      ],
+      "applied": [
+        "text",
+        "text",
+        "shape:ellipse",
+        "shape:ellipse",
+        "shape:ellipse",
+        "line",
+        "line",
+        "line",
+        "text"
+      ],
+      "textEditable": true,
+      "undoRedo": "ok"
+    },
+    {
+      "image": "test2.png",
+      "wallMs": 77932,
+      "phase": "preview",
+      "error": null,
+      "model": "ollama/qwen2.5vl:7b",
+      "timings": {
+        "recognize": 77722,
+        "total": 77862
+      },
+      "rounds": [],
+      "counts": {
+        "error": 0,
+        "warning": 0,
+        "info": 4
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "code": "model-note",
+          "message": "Merged 3 stacked line(s) into multi-line notes."
+        },
+        {
+          "severity": "info",
+          "code": "bounds",
+          "id": "t5",
+          "message": "Moved inside the slide (by -16, 0 px)."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "t2",
+          "message": "Equation read by a local model: check the LaTeX against the sketch."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "t3",
+          "message": "Korean handwriting read by a local model: check the wording."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "t5",
+          "message": "Korean handwriting read by a local model: check the wording."
+        }
+      ],
+      "ir": {
+        "version": 1,
+        "image": {
+          "width": 1437,
+          "height": 559
+        },
+        "elements": [
+          {
+            "id": "t1",
+            "kind": "text",
+            "bbox": {
+              "x": 19.45024356297843,
+              "y": 98.21428571428572,
+              "w": 307.0359876727309,
+              "h": 169.6428571428571
+            },
+            "text": "[policy gradient]",
+            "role": "title",
+            "color": "blue"
+          },
+          {
+            "id": "t2",
+            "kind": "math",
+            "bbox": {
+              "x": 70.85445869370713,
+              "y": 337.5,
+              "w": 789.1241674122678,
+              "h": 185.7142857142859
+            },
+            "latex": "\\nabla_{\\theta}J(\\theta) = \\text{E}_{\\tau}[\\text{R}(\\tau) \\text{.} \\nabla_{\\theta} \\text{log} \\tau_{\\theta}(a|s)]",
+            "role": "body",
+            "color": "black",
+            "review": {
+              "needed": true,
+              "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+              "transcribed": "\\nabla_{\\theta}J(\\theta) = \\text{E}_{\\tau}[\\text{R}(\\tau) \\text{.} \\nabla_{\\theta} \\text{log} \\tau_{\\theta}(a|s)]"
+            }
+          },
+          {
+            "id": "t3",
+            "kind": "text",
+            "bbox": {
+              "x": 323.01297345660606,
+              "y": 580.3571428571429,
+              "w": 217.42593697186595,
+              "h": 232.14285714285722
+            },
+            "text": "그 action의\n일관나중있다",
+            "role": "body",
+            "color": "red",
+            "review": {
+              "needed": true,
+              "reason": "Korean handwriting read by a local model: check the wording.",
+              "transcribed": "그 action의\n일관나중있다"
+            }
+          },
+          {
+            "id": "t5",
+            "kind": "text",
+            "bbox": {
+              "x": 602.9575504523312,
+              "y": 523.2142857142859,
+              "w": 387.61556814792743,
+              "h": 476.7857142857141
+            },
+            "text": "이 action의\n확률은 어떻게 바꿀까\n→ 행동확률의 gradient",
+            "role": "body",
+            "color": "red",
+            "review": {
+              "needed": true,
+              "reason": "Korean handwriting read by a local model: check the wording.",
+              "transcribed": "이 action의\n확률은 어떻게 바꿀까\n→ 행동확률의 gradient"
+            }
+          }
+        ],
+        "notes": [
+          "Merged 3 stacked line(s) into multi-line notes."
+        ]
+      },
+      "elementTypes": [
+        "text",
+        "text",
+        "text",
+        "text"
+      ],
+      "applied": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ],
+      "textEditable": true,
+      "undoRedo": "ok"
+    }
+  ],
+  "status": {
+    "provider": "ollama",
+    "model": "ollama/qwen2.5vl:7b",
+    "ready": true
+  },
+  "saved": {
+    "slides": 3,
+    "elements": 17
+  },
+  "pdf": {
+    "file": "Untitled presentation.pdf",
+    "bytes": 36253,
+    "pages": 3
+  },
+  "pptx": {
+    "bytes": 86430,
+    "slides": 3
+  },
+  "finished": "2026-11-05T16:35:17.583Z"
+}

@@ -1,0 +1,205 @@
+{
+  "replace": true,
+  "elements": [
+    {
+      "id": "ANflxPn2OF",
+      "type": "shape",
+      "shape": "ellipse",
+      "x": 84,
+      "y": 120,
+      "w": 235,
+      "h": 211,
+      "fill": null,
+      "stroke": "#000000",
+      "strokeWidth": 3,
+      "radius": 16,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "A"
+              }
+            ]
+          }
+        ]
+      },
+      "textStyle": {
+        "fontSize": 60,
+        "color": "#000000",
+        "align": "center",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "xkLwG67wBa",
+      "type": "shape",
+      "shape": "ellipse",
+      "x": 548,
+      "y": 129,
+      "w": 238,
+      "h": 200,
+      "fill": null,
+      "stroke": "#000000",
+      "strokeWidth": 3,
+      "radius": 16,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "B"
+              }
+            ]
+          }
+        ]
+      },
+      "textStyle": {
+        "fontSize": 56,
+        "color": "#000000",
+        "align": "center",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "oob2Tlh6ec",
+      "type": "shape",
+      "shape": "ellipse",
+      "x": 1002,
+      "y": 155,
+      "w": 194,
+      "h": 177,
+      "fill": null,
+      "stroke": "#000000",
+      "strokeWidth": 3,
+      "radius": 16,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "C"
+              }
+            ]
+          }
+        ]
+      },
+      "textStyle": {
+        "fontSize": 50,
+        "color": "#000000",
+        "align": "center",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "U_DaFbJ-uX",
+      "type": "line",
+      "x1": 323,
+      "y1": 226,
+      "x2": 544,
+      "y2": 228,
+      "x": 323,
+      "y": 226,
+      "w": 221,
+      "h": 2,
+      "stroke": "#000000",
+      "strokeWidth": 3,
+      "arrowEnd": true,
+      "arrowStart": false,
+      "dashed": false
+    },
+    {
+      "id": "X4wKwU5pZf",
+      "type": "line",
+      "x1": 790,
+      "y1": 233,
+      "x2": 998,
+      "y2": 240,
+      "x": 790,
+      "y": 233,
+      "w": 208,
+      "h": 7,
+      "stroke": "#000000",
+      "strokeWidth": 3,
+      "arrowEnd": true,
+      "arrowStart": false,
+      "dashed": false
+    },
+    {
+      "id": "X1J1VFh5Ow",
+      "type": "line",
+      "x1": 859,
+      "y1": 297,
+      "x2": 859,
+      "y2": 458,
+      "x": 859,
+      "y": 297,
+      "w": 0,
+      "h": 161,
+      "stroke": "#000000",
+      "strokeWidth": 3,
+      "arrowEnd": false,
+      "arrowStart": false,
+      "dashed": false
+    },
+    {
+      "id": "OwPr7aPewF",
+      "type": "text",
+      "x": 723,
+      "y": 501,
+      "w": 188,
+      "h": 65,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "'중요'"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 48,
+        "color": "#000000",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    }
+  ],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e7",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "review": [
+      "e7"
+    ]
+  }
+}

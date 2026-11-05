@@ -42,9 +42,10 @@ See `README.md` for usage; source layout: `src/{canvas,editor,export,model,rende
 Image props bar → **Convert to Editable Slide** turns a hand-drawn slide image into ordinary elements. No model/schema change: output is `TextElement` (incl. `mathBlock`/`mathInline`), outlined `ShapeElement` with shape text, and `LineElement` arrows/connectors, so autosave, `.mslides`, undo, PDF and PPTX are untouched.
 
 - Pipeline: `src/sketch/session.ts` (dialog state + orchestration), `ir.ts` (IR, JSON Schemas, `parseIR`, `applyPatches`), `convert.ts` (layout mapping), `validate.ts` (deterministic checks), `bridge.ts` (renderer side of IPC, crop + downscale to 1600 px); UI `src/ui/SketchDialog.tsx`.
-- Main process: `electron/sketch-main.cjs` (IPC, safeStorage key `userData/ai-key.bin`, env `ANTHROPIC_API_KEY` wins, run log `MATHSLIDES_SKETCH_LOG`, test fake `MATHSLIDES_SKETCH_FAKE`), `sketch-ai.cjs` (SDK calls, shared with the CLI), `sketch-prompts.cjs`.
+- Main process: `electron/sketch-main.cjs` (IPC; provider settings `userData/ai-settings.json`, default **Ollama** `qwen2.5vl:7b` at `localhost:11434`; Claude optional with safeStorage key `userData/ai-key.bin`, env `ANTHROPIC_API_KEY` wins; run log `MATHSLIDES_SKETCH_LOG`; test fake `MATHSLIDES_SKETCH_FAKE`; test PDF folder `MATHSLIDES_TEST_PDF_DIR`), `sketch-ai.cjs` (provider dispatch, Claude SDK calls), `sketch-ollama.cjs` (streamed `/api/chat` with JSON-Schema `format`, output cap, images sized to 1024 visual tokens), `sketch-local.cjs` (local flat pixel format → IR: LaTeX escape repair, line merging, review flags), `sketch-prompts.cjs`.
+- Local-model policy (evidence in `docs/SKETCH_DEVLOG.md`): every equation and Korean text is offered for review; the AI review loop is off by default for Ollama.
 - Invariants: the renderer never receives the key; Apply is one `commit` (one undo step restores the image); the slide starts from the literal transcription (`review.inferred` is only offered); the model never writes `.mslides` JSON.
-- CLI: `scripts/sketch2slides.mjs` (`npm run sketch`). Tests: `tests/sketch-convert.mjs`, `tests/sketch-dialog.mjs`. Development log: `docs/SKETCH_DEVLOG.md`.
+- CLI: `scripts/sketch2slides.mjs` (`npm run sketch`, `--provider`, `--ir` offline re-conversion), `scripts/render-mslides.mjs` (slide → PNG). Tests: `tests/sketch-convert.mjs`, `tests/sketch-dialog.mjs`; manual real-model run `tests/sketch-ollama-e2e.mjs`. Development log: `docs/SKETCH_DEVLOG.md`.
 
 ## Desktop document lifecycle
 

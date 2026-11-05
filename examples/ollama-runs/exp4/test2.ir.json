@@ -1,0 +1,214 @@
+{
+  "source": "model",
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 103239,
+  "usage": {
+    "input_tokens": 1548,
+    "output_tokens": 564,
+    "load_ms": 14,
+    "prompt_ms": 15680,
+    "eval_ms": 87433
+  },
+  "sentImage": {
+    "width": 1437,
+    "height": 559
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"t1\",\n      \"type\": \"title\",\n      \"bbox_2d\": [30, 55, 472, 147],\n      \"content\": \"[policy gradient]\",\n      \"color\": \"blue\"\n    },\n    {\n      \"id\": \"t2\",\n      \"type\": \"math\",\n      \"bbox_2d\": [99, 189, 1240, 292],\n      \"content\": \"\\n\\\\nabla_{\\\\theta}J(\\\\theta) = \\\\mathbb{E}_{\\\\pi}[R(\\\\tau) \\\\cdot \\\\nabla_{\\\\theta} \\\\log \\\\pi_{\\\\theta}(a|s)]\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t3\",\n      \"type\": \"text\",\n      \"bbox_2d\": [465, 320, 650, 382],\n      \"content\": \"그 action의\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"t4\",\n      \"type\": \"text\",\n      \"bbox_2d\": [465, 395, 778, 457],\n      \"content\": \"일관나중있다\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"t5\",\n      \"type\": \"text\",\n      \"bbox_2d\": [965, 292, 1005, 352],\n      \"content\": \"이\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"t6\",\n      \"type\": \"text\",\n      \"bbox_2d\": [965, 320, 1130, 382],\n      \"content\": \"action의\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"t7\",\n      \"type\": \"text\",\n      \"bbox_2d\": [965, 395, 1398, 457],\n      \"content\": \"확률은 어떻게 바꿀까\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"t8\",\n      \"type\": \"text\",\n      \"bbox_2d\": [895, 495, 1426, 557],\n      \"content\": \"\\\\rightarrow 행동확률의 gradient\",\n      \"color\": \"red\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "t1",
+        "type": "title",
+        "bbox_2d": [
+          30,
+          55,
+          472,
+          147
+        ],
+        "content": "[policy gradient]",
+        "color": "blue"
+      },
+      {
+        "id": "t2",
+        "type": "math",
+        "bbox_2d": [
+          99,
+          189,
+          1240,
+          292
+        ],
+        "content": "\n\\nabla_{\\theta}J(\\theta) = \\mathbb{E}_{\\pi}[R(\\tau) \\cdot \\nabla_{\\theta} \\log \\pi_{\\theta}(a|s)]",
+        "color": "black"
+      },
+      {
+        "id": "t3",
+        "type": "text",
+        "bbox_2d": [
+          465,
+          320,
+          650,
+          382
+        ],
+        "content": "그 action의",
+        "color": "red"
+      },
+      {
+        "id": "t4",
+        "type": "text",
+        "bbox_2d": [
+          465,
+          395,
+          778,
+          457
+        ],
+        "content": "일관나중있다",
+        "color": "red"
+      },
+      {
+        "id": "t5",
+        "type": "text",
+        "bbox_2d": [
+          965,
+          292,
+          1005,
+          352
+        ],
+        "content": "이",
+        "color": "red"
+      },
+      {
+        "id": "t6",
+        "type": "text",
+        "bbox_2d": [
+          965,
+          320,
+          1130,
+          382
+        ],
+        "content": "action의",
+        "color": "red"
+      },
+      {
+        "id": "t7",
+        "type": "text",
+        "bbox_2d": [
+          965,
+          395,
+          1398,
+          457
+        ],
+        "content": "확률은 어떻게 바꿀까",
+        "color": "red"
+      },
+      {
+        "id": "t8",
+        "type": "text",
+        "bbox_2d": [
+          895,
+          495,
+          1426,
+          557
+        ],
+        "content": "\\rightarrow 행동확률의 gradient",
+        "color": "red"
+      }
+    ]
+  },
+  "image": {
+    "width": 1437,
+    "height": 559
+  },
+  "output": {
+    "elements": [
+      {
+        "id": "t1",
+        "bbox": {
+          "x": 20.876826722338205,
+          "y": 98.38998211091236,
+          "w": 307.58524704244957,
+          "h": 164.5796064400716
+        },
+        "color": "blue",
+        "kind": "text",
+        "text": "[policy gradient]",
+        "role": "title"
+      },
+      {
+        "id": "t2",
+        "bbox": {
+          "x": 68.89352818371609,
+          "y": 338.10375670840784,
+          "w": 794.0153096729297,
+          "h": 184.25760286225403
+        },
+        "color": "black",
+        "kind": "math",
+        "latex": "\\n\\nabla_{\\theta}J(\\theta) = \\mathbb{E}_{\\pi}[R(\\tau) \\cdot \\nabla_{\\theta} \\log \\pi_{\\theta}(a|s)]",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+          "transcribed": "\\n\\nabla_{\\theta}J(\\theta) = \\mathbb{E}_{\\pi}[R(\\tau) \\cdot \\nabla_{\\theta} \\log \\pi_{\\theta}(a|s)]"
+        }
+      },
+      {
+        "id": "t3",
+        "bbox": {
+          "x": 323.5908141962422,
+          "y": 572.4508050089445,
+          "w": 217.81489213639514,
+          "h": 245.08050089445442
+        },
+        "color": "red",
+        "kind": "text",
+        "text": "그 action의\n일관나중있다",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "그 action의\n일관나중있다"
+        }
+      },
+      {
+        "id": "t5",
+        "bbox": {
+          "x": 622.8253305497565,
+          "y": 522.3613595706619,
+          "w": 369.5198329853862,
+          "h": 474.06082289803214
+        },
+        "color": "red",
+        "kind": "text",
+        "text": "이\n확률은 어떻게 바꿀까\n\\rightarrow 행동확률의 gradient",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "이\n확률은 어떻게 바꿀까\n\\rightarrow 행동확률의 gradient"
+        }
+      },
+      {
+        "id": "t6",
+        "bbox": {
+          "x": 671.5379262352122,
+          "y": 572.4508050089445,
+          "w": 114.8225469728601,
+          "h": 110.91234347048305
+        },
+        "color": "red",
+        "kind": "text",
+        "text": "action의",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "action의"
+        }
+      }
+    ],
+    "notes": [
+      "Merged 3 stacked line(s) into multi-line notes."
+    ]
+  }
+}

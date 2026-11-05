@@ -1,0 +1,208 @@
+{
+  "source": "model",
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 103883,
+  "usage": {
+    "input_tokens": 1495,
+    "output_tokens": 504,
+    "load_ms": 14486,
+    "prompt_ms": 16479,
+    "eval_ms": 72773
+  },
+  "sentImage": {
+    "width": 1024,
+    "height": 398
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"e1\",\n      \"type\": \"title\",\n      \"bbox_2d\": [28, 55, 470, 150],\n      \"content\": \"[policy gradient]\",\n      \"color\": \"blue\"\n    },\n    {\n      \"id\": \"e2\",\n      \"type\": \"math\",\n      \"bbox_2d\": [103, 188, 1240, 292],\n      \"content\": \"\\nabla_\\theta J(\\theta) = \\text{E}_\\text{π}[\\text{R}(τ) · \\nabla_\\theta \\text{log} \\text{π}_\\theta(a|s)]\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"e3\",\n      \"type\": \"text\",\n      \"bbox_2d\": [465, 272, 580, 385],\n      \"content\": \"그 action의\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"e4\",\n      \"type\": \"text\",\n      \"bbox_2d\": [465, 390, 778, 440],\n      \"content\": \"일관나중않나\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"e5\",\n      \"type\": \"text\",\n      \"bbox_2d\": [938, 292, 1000, 390],\n      \"content\": \"이 action의\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"e6\",\n      \"type\": \"text\",\n      \"bbox_2d\": [938, 390, 1373, 440],\n      \"content\": \"확률을 어떻게 바꿀까\",\n      \"color\": \"red\"\n    },\n    {\n      \"id\": \"e7\",\n      \"type\": \"text\",\n      \"bbox_2d\": [868, 495, 1426, 560],\n      \"content\": \"→ 행동확률의 gradient\",\n      \"color\": \"red\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "e1",
+        "type": "title",
+        "bbox_2d": [
+          28,
+          55,
+          470,
+          150
+        ],
+        "content": "[policy gradient]",
+        "color": "blue"
+      },
+      {
+        "id": "e2",
+        "type": "math",
+        "bbox_2d": [
+          103,
+          188,
+          1240,
+          292
+        ],
+        "content": "\nabla_\theta J(\theta) = \text{E}_\text{π}[\text{R}(τ) · \nabla_\theta \text{log} \text{π}_\theta(a|s)]",
+        "color": "black"
+      },
+      {
+        "id": "e3",
+        "type": "text",
+        "bbox_2d": [
+          465,
+          272,
+          580,
+          385
+        ],
+        "content": "그 action의",
+        "color": "red"
+      },
+      {
+        "id": "e4",
+        "type": "text",
+        "bbox_2d": [
+          465,
+          390,
+          778,
+          440
+        ],
+        "content": "일관나중않나",
+        "color": "red"
+      },
+      {
+        "id": "e5",
+        "type": "text",
+        "bbox_2d": [
+          938,
+          292,
+          1000,
+          390
+        ],
+        "content": "이 action의",
+        "color": "red"
+      },
+      {
+        "id": "e6",
+        "type": "text",
+        "bbox_2d": [
+          938,
+          390,
+          1373,
+          440
+        ],
+        "content": "확률을 어떻게 바꿀까",
+        "color": "red"
+      },
+      {
+        "id": "e7",
+        "type": "text",
+        "bbox_2d": [
+          868,
+          495,
+          1426,
+          560
+        ],
+        "content": "→ 행동확률의 gradient",
+        "color": "red"
+      }
+    ]
+  },
+  "image": {
+    "width": 1024,
+    "height": 398
+  },
+  "output": {
+    "elements": [
+      {
+        "id": "e1",
+        "bbox": {
+          "x": 27.34375,
+          "y": 55,
+          "w": 431.640625,
+          "h": 95
+        },
+        "color": "blue",
+        "kind": "text",
+        "text": "[policy gradient]",
+        "role": "title"
+      },
+      {
+        "id": "e2",
+        "bbox": {
+          "x": 100.5859375,
+          "y": 188,
+          "w": 1110.3515625,
+          "h": 104
+        },
+        "color": "black",
+        "kind": "math",
+        "latex": "abla_\theta J(\theta) = \text{E}_\text{π}[\text{R}(τ) · \nabla_\theta \text{log} \text{π}_\theta(a|s)]",
+        "role": "body"
+      },
+      {
+        "id": "e3",
+        "bbox": {
+          "x": 454.1015625,
+          "y": 272,
+          "w": 112.3046875,
+          "h": 113
+        },
+        "color": "red",
+        "kind": "text",
+        "text": "그 action의",
+        "role": "body"
+      },
+      {
+        "id": "e4",
+        "bbox": {
+          "x": 454.1015625,
+          "y": 390,
+          "w": 305.6640625,
+          "h": 50
+        },
+        "color": "red",
+        "kind": "text",
+        "text": "일관나중않나",
+        "role": "body"
+      },
+      {
+        "id": "e5",
+        "bbox": {
+          "x": 916.015625,
+          "y": 292,
+          "w": 60.546875,
+          "h": 98
+        },
+        "color": "red",
+        "kind": "text",
+        "text": "이 action의",
+        "role": "body"
+      },
+      {
+        "id": "e6",
+        "bbox": {
+          "x": 916.015625,
+          "y": 390,
+          "w": 424.8046875,
+          "h": 50
+        },
+        "color": "red",
+        "kind": "text",
+        "text": "확률을 어떻게 바꿀까",
+        "role": "body"
+      },
+      {
+        "id": "e7",
+        "bbox": {
+          "x": 847.65625,
+          "y": 495,
+          "w": 544.921875,
+          "h": 65
+        },
+        "color": "red",
+        "kind": "text",
+        "text": "→ 행동확률의 gradient",
+        "role": "body"
+      }
+    ],
+    "notes": [
+      "Coordinates looked normalized (0..1000) instead of pixels; used as such."
+    ]
+  }
+}

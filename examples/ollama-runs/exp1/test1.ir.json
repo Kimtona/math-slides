@@ -1,0 +1,57 @@
+{
+  "source": "model",
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 89601,
+  "usage": {
+    "input_tokens": 3744,
+    "output_tokens": 192,
+    "load_ms": 10838,
+    "prompt_ms": 48289,
+    "eval_ms": 30045
+  },
+  "rawText": "{\"elements\": [{\"id\": \"t1\", \"kind\": \"text\", \"bbox\": {\"x\": 220, \"y\": 220, \"w\": 1900, \"h\": 200}, \"text\": \"A → B → C\"}, {\"id\": \"a1\", \"kind\": \"arrow\", \"bbox\": {\"x\": 1400, \"y\": 400, \"w\": 200, \"h\": 200}, \"fromId\": \"t1\", \"toId\": \"t2\"}, {\"id\": \"t2\", \"kind\": \"text\", \"bbox\": {\"x\": 1200, \"y\": 700, \"w\": 400, \"h\": 400}, \"text\": \"'중요'\"}], \"notes\": []}",
+  "image": {
+    "width": 2219,
+    "height": 1040
+  },
+  "output": {
+    "elements": [
+      {
+        "id": "t1",
+        "kind": "text",
+        "bbox": {
+          "x": 220,
+          "y": 220,
+          "w": 1900,
+          "h": 200
+        },
+        "text": "A → B → C"
+      },
+      {
+        "id": "a1",
+        "kind": "arrow",
+        "bbox": {
+          "x": 1400,
+          "y": 400,
+          "w": 200,
+          "h": 200
+        },
+        "fromId": "t1",
+        "toId": "t2"
+      },
+      {
+        "id": "t2",
+        "kind": "text",
+        "bbox": {
+          "x": 1200,
+          "y": 700,
+          "w": 400,
+          "h": 400
+        },
+        "text": "'중요'"
+      }
+    ],
+    "notes": []
+  }
+}

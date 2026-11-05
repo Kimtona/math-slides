@@ -1,0 +1,174 @@
+{
+  "replace": true,
+  "elements": [
+    {
+      "id": "YCPTVWUsZI",
+      "type": "text",
+      "x": 84,
+      "y": 37,
+      "w": 547,
+      "h": 81,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "[policy gradient]"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 60,
+        "color": "#1F77B4",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "PSR7CF5oHK",
+      "type": "text",
+      "x": 132,
+      "y": 147,
+      "w": 926,
+      "h": 82,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "mathBlock",
+            "attrs": {
+              "latex": "\\nabla_{\\theta}J(\\theta) = \\text{E}_{\\tau}[\\text{R}(\\tau) \\text{.} \\nabla_{\\theta} \\text{log} \\tau_{\\theta}(a|s)]"
+            }
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 58,
+        "color": "#000000",
+        "align": "center",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "9U9GkKO1PC",
+      "type": "text",
+      "x": 431,
+      "y": 239,
+      "w": 765,
+      "h": 194,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "그 action의 이 action의"
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "일관나중있다"
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "→ 행동확률의 gradient"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 48,
+        "color": "#D62728",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    },
+    {
+      "id": "2r_-8lUr2k",
+      "type": "text",
+      "x": 806,
+      "y": 308,
+      "w": 415,
+      "h": 54,
+      "doc": {
+        "type": "doc",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "text",
+                "text": "확률은 어떻게 바꿀까"
+              }
+            ]
+          }
+        ]
+      },
+      "style": {
+        "fontSize": 40,
+        "color": "#D62728",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    }
+  ],
+  "validation": {
+    "issues": [
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "t3",
+        "message": "Overlaps \"t6\" (94% of the smaller box)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t2",
+        "message": "Equation read by a local model: check the LaTeX against the sketch."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t3",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t6",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 1,
+      "info": 3
+    },
+    "review": [
+      "t2",
+      "t3",
+      "t6"
+    ]
+  }
+}

@@ -1,0 +1,176 @@
+{
+  "source": "model",
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 90657,
+  "usage": {
+    "input_tokens": 1975,
+    "output_tokens": 454,
+    "load_ms": 2626,
+    "prompt_ms": 19112,
+    "eval_ms": 68790
+  },
+  "rawText": "{\"elements\": [\n    {\"id\": \"t1\", \"kind\": \"text\", \"bbox\": {\"x\": 30, \"y\": 30, \"w\": 470, \"h\": 150}, \"text\": \"[policy gradient]\"},\n    {\"id\": \"eq1\", \"kind\": \"text\", \"bbox\": {\"x\": 100, \"y\": 190, \"w\": 1290, \"h\": 250}, \"text\": \"\\n∇θJ(θ) = Eπ [ H(τ) . ∇θ log πθ(a|s) ]\"},\n    {\"id\": \"c1\", \"kind\": \"shape\", \"bbox\": {\"x\": 520, \"y\": 310, \"w\": 100, \"h\": 100}, \"text\": \"1\"},\n    {\"id\": \"t2\", \"kind\": \"text\", \"bbox\": {\"x\": 460, \"y\": 330, \"w\": 1430, \"h\": 250}, \"text\": \"그 action이\\n일어나왔다면\\n이 action의\\n확률은 어떻게 바뀔까\"},\n    {\"id\": \"a1\", \"kind\": \"text\", \"bbox\": {\"x\": 910, \"y\": 500, \"w\": 1430, \"h\": 250}, \"text\": \"→ 행동 확률의 gradient\"},\n    {\"id\": \"notes\", \"kind\": \"text\", \"bbox\": {\"x\": 100, \"y\": 190, \"w\": 1290, \"h\": 250}, \"text\": \"math: one displayed equation, as LaTeX in \\\"latex\\\" (no surrounding $). Use standard LaTeX (\\nabla, \\theta, \\text{E}, \\text{log}, \\text{pi}, \\text{left[ ... right]}, subscripts with _{}, etc.):\"}\n], \"notes\": []}",
+  "totalMs": 91113,
+  "parseIssues": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "a1",
+        "message": "Moved inside the slide (by -373, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "notes",
+        "message": "Moved inside the slide (by -156, 0 px)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "c1",
+        "message": "Overlaps \"eq1\" (78% of the smaller box)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "c1",
+        "message": "Overlaps \"t2\" (87% of the smaller box)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "c1",
+        "message": "Overlaps \"notes\" (100% of the smaller box)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "eq1",
+        "message": "Overlaps \"t2\" (27% of the smaller box)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "eq1",
+        "message": "Overlaps \"notes\" (100% of the smaller box)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "t2",
+        "message": "Overlaps \"a1\" (23% of the smaller box)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "t2",
+        "message": "Overlaps \"notes\" (47% of the smaller box)."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 7,
+      "info": 2
+    },
+    "review": []
+  },
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1544,
+      "height": 600
+    },
+    "elements": [
+      {
+        "id": "t1",
+        "kind": "text",
+        "bbox": {
+          "x": 30,
+          "y": 30,
+          "w": 470,
+          "h": 150
+        },
+        "text": "[policy gradient]"
+      },
+      {
+        "id": "eq1",
+        "kind": "text",
+        "bbox": {
+          "x": 100,
+          "y": 190,
+          "w": 900,
+          "h": 250
+        },
+        "text": "\n∇θJ(θ) = Eπ [ H(τ) . ∇θ log πθ(a|s) ]"
+      },
+      {
+        "id": "c1",
+        "kind": "shape",
+        "bbox": {
+          "x": 520,
+          "y": 310,
+          "w": 100,
+          "h": 100
+        },
+        "text": "1",
+        "shape": "rect"
+      },
+      {
+        "id": "t2",
+        "kind": "text",
+        "bbox": {
+          "x": 460,
+          "y": 330,
+          "w": 540,
+          "h": 250
+        },
+        "text": "그 action이\n일어나왔다면\n이 action의\n확률은 어떻게 바뀔까"
+      },
+      {
+        "id": "a1",
+        "kind": "text",
+        "bbox": {
+          "x": 910,
+          "y": 500,
+          "w": 90,
+          "h": 250
+        },
+        "text": "→ 행동 확률의 gradient"
+      },
+      {
+        "id": "notes",
+        "kind": "text",
+        "bbox": {
+          "x": 100,
+          "y": 190,
+          "w": 900,
+          "h": 250
+        },
+        "text": "math: one displayed equation, as LaTeX in \"latex\" (no surrounding $). Use standard LaTeX (\nabla, \theta, \text{E}, \text{log}, \text{pi}, \text{left[ ... right]}, subscripts with _{}, etc.):"
+      }
+    ]
+  },
+  "map": {
+    "c1": [
+      "1Nkm7UA3Mh"
+    ],
+    "t1": [
+      "GHYuSzGqoc"
+    ],
+    "eq1": [
+      "UkTYGHDZWD"
+    ],
+    "t2": [
+      "Md0FBkbWV4"
+    ],
+    "a1": [
+      "ek5MoSdjvR"
+    ],
+    "notes": [
+      "jOTDAACJ-z"
+    ]
+  }
+}

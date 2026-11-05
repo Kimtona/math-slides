@@ -1,0 +1,151 @@
+{
+  "model": "ollama/qwen2.5vl:7b",
+  "timings": {
+    "recognize": 93568,
+    "review1": 114654,
+    "review2": 45180,
+    "total": 253763
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "ok": false,
+      "summary": "The rendering does not match the original image. The text '그 action의' and '이 action의' are missing in the rendering, and the text '확률은 어떻게 바꿀까' is not present in the original image.",
+      "patches": [
+        {
+          "op": "add",
+          "id": "t3",
+          "reason": "The text '그 action의' and '이 action의' is missing in the rendering.",
+          "element": {
+            "id": "t3",
+            "kind": "text",
+            "bbox": {
+              "x": 323.01297345660606,
+              "y": 523.2142857142859,
+              "w": 667.5601451436526,
+              "h": 476.7857142857141
+            },
+            "text": "그 action의 이 action의\n일관나중있다\n→ 행동확률의 gradient",
+            "role": "body",
+            "color": "red"
+          }
+        },
+        {
+          "op": "add",
+          "id": "t6",
+          "reason": "The text '확률은 어떻게 바꿀까' is not present in the rendering.",
+          "element": {
+            "id": "t6",
+            "kind": "text",
+            "bbox": {
+              "x": 649.4992046923154,
+              "y": 705.3571428571429,
+              "w": 304.2573814494483,
+              "h": 107.14285714285722
+            },
+            "text": "확률은 어떻게 바꿀까",
+            "role": "body",
+            "color": "red"
+          }
+        }
+      ],
+      "before": {
+        "error": 0,
+        "warning": 1,
+        "info": 3
+      },
+      "ms": 114654,
+      "after": {
+        "error": 0,
+        "warning": 1,
+        "info": 3
+      }
+    },
+    {
+      "round": 2,
+      "ok": false,
+      "summary": "The text '확률은 어떻게 바꿀까' in the red box overlaps with the text '그 action의 이 action의' in the red box below it.",
+      "patches": [
+        {
+          "op": "add",
+          "id": "t6",
+          "reason": "The text '확률은 어떻게 바꿀까' in the red box overlaps with the text '그 action의 이 action의' in the red box below it. This text should be moved to avoid overlap."
+        }
+      ],
+      "before": {
+        "error": 0,
+        "warning": 1,
+        "info": 3
+      },
+      "ms": 45180,
+      "after": {
+        "error": 0,
+        "warning": 1,
+        "info": 3
+      }
+    }
+  ],
+  "validation": {
+    "issues": [
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "t3",
+        "message": "Overlaps \"t6\" (94% of the smaller box)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t2",
+        "message": "Equation read by a local model: check the LaTeX against the sketch."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t3",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "t6",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 1,
+      "info": 3
+    },
+    "review": [
+      "t2",
+      "t3",
+      "t6"
+    ]
+  },
+  "parseIssues": [
+    {
+      "severity": "info",
+      "code": "model-note",
+      "message": "Merged 3 stacked line(s) into multi-line notes."
+    },
+    {
+      "severity": "warning",
+      "code": "patch",
+      "id": "t3",
+      "message": "add: id already exists"
+    },
+    {
+      "severity": "warning",
+      "code": "patch",
+      "id": "t6",
+      "message": "add: id already exists"
+    },
+    {
+      "severity": "warning",
+      "code": "patch",
+      "id": "t6",
+      "message": "add: id already exists"
+    }
+  ]
+}

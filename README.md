@@ -95,17 +95,43 @@ The macOS build is currently unsigned and not notarized, so macOS may show a sec
 
 ## Sketch-to-Slides (AI)
 
-*Think on paper. Present with MathSlides.* Draw a slide on paper or in GoodNotes, paste the photo or screenshot on a slide, select it and press **Convert to Editable Slide** (image toolbar). Claude reads the sketch and MathSlides rebuilds it from ordinary, editable elements: text boxes, LaTeX equations (`/math` blocks, never pictures), outlined shapes with their labels, arrows and connector lines, in the ink colors and the layout you drew.
+*Think on paper. Present with MathSlides.* Draw a slide on paper or in GoodNotes, paste the photo or screenshot on a slide, select it and press **Convert to Editable Slide** (image toolbar). A vision model (local via Ollama by default, or Claude) reads the sketch and MathSlides rebuilds it from ordinary, editable elements: text boxes, LaTeX equations (`/math` blocks, never pictures), outlined shapes with their labels, arrows and connector lines, in the ink colors and the layout you drew.
 
 ### Setup
 
-1. `npm install` (adds the official `@anthropic-ai/sdk`).
-2. Get an Anthropic API key (console.anthropic.com) and either
-   - start the app with it in the environment: `ANTHROPIC_API_KEY=sk-ant-... npm run app` (takes precedence), or
-   - enter it in the dialog the first time you convert (**AI key…** changes or removes it later). It is stored encrypted with the OS keychain (Electron `safeStorage`) in the app's user-data folder as `ai-key.bin`.
+By default the sketch is read by a **local vision model through [Ollama](https://ollama.com)**: free, offline after the
+download, and the image never leaves your computer. Claude (Anthropic API) can be chosen instead in **AI settings…**
+(more accurate, paid).
 
-   The key lives only in the Electron main process; the page never sees it, and nothing is hard-coded. The feature needs the desktop app (`npm run app`); in browser dev mode the button is disabled.
-3. Optional: `MATHSLIDES_SKETCH_MODEL=<model id>` (default `claude-opus-5-5`), `MATHSLIDES_SKETCH_LOG=<dir>` to keep a log of every conversion (input, model output, IR, validation, review screenshots and patches, timings).
+**Local model (default)**
+
+1. Install Ollama (macOS: download the app from ollama.com, or `brew install ollama`) and start it (the app, or `ollama serve`).
+   It listens on `http://localhost:11434`.
+2. Download the vision model (≈ 6 GB; runs on an Apple Silicon Mac with 16 GB+ RAM):
+   ```bash
+   ollama pull qwen2.5vl:7b
+   ```
+3. `npm install`, then `npm run app`. Nothing else to configure; no key.
+
+Expect about **75–105 s per sketch** on a MacBook Air M-series with 24 GB (measured; most of it is the model writing
+its answer). The first call after starting Ollama also loads the model (≈ 3–15 s).
+
+**Claude (optional)**: choose *Claude* in **AI settings…** and enter an Anthropic API key (stored encrypted with the OS
+keychain via Electron `safeStorage` as `ai-key.bin` in the app's user-data folder), or start the app with
+`ANTHROPIC_API_KEY=sk-ant-...`. The key lives only in the Electron main process; nothing is hard-coded.
+
+Environment overrides (optional): `MATHSLIDES_SKETCH_PROVIDER=ollama|anthropic`, `MATHSLIDES_OLLAMA_MODEL=<name>`,
+`OLLAMA_HOST=<host:port>`, `MATHSLIDES_SKETCH_MODEL=<Claude model id>` (default `claude-opus-5-5`),
+`MATHSLIDES_SKETCH_LOG=<dir>` to keep a log of every conversion (input image, raw model output, IR, checks, review
+screenshots and patches, timings). The feature needs the desktop app (`npm run app`); in browser dev mode the button
+is disabled.
+
+**What to expect from the local 7B model** (details and all raw outputs: `docs/SKETCH_DEVLOG.md`,
+`examples/ollama-runs/`): diagrams (circles, labels, arrows, connectors) and short text are recognized well; the
+equation comes out as editable, renderable LaTeX but with occasional symbol errors (e.g. `r`→`R`); Korean handwriting
+is partly misread. That is why every equation and every Korean text from the local model appears under **Check these**
+for a quick look before Apply. The AI review loop is off by default with the local model (it did not find real
+errors in testing and costs 1–2 minutes); the checkbox turns it on.
 
 ### Using it
 
@@ -117,7 +143,7 @@ The macOS build is currently unsigned and not notarized, so macOS may show a sec
 ### How it works
 
 ```text
-image ─► Claude vision (structured JSON) ─► IR ─► converter ─► deterministic checks ─► preview
+image ─► vision model (Ollama or Claude, JSON) ─► IR ─► converter ─► deterministic checks ─► preview
                                               ▲                                          │
                                               └──── patches ◄── AI review (≤ 2 rounds) ◄─┘ (original + screenshot)
 ```
@@ -126,21 +152,26 @@ image ─► Claude vision (structured JSON) ─► IR ─► converter ─► d
 - **Converter** (`src/sketch/convert.ts`): one uniform scale fits the sketch's content into the slide (layout and aspect ratio kept, nothing leaves the slide); equation size from MathJax's real typeset size; text inside a shape becomes the shape's text; arrows attached to shapes start and end on their outlines. No auto-beautify (alignment, spacing) yet.
 - **Checks** (`src/sketch/validate.ts`): structure, slide bounds, LaTeX that does not render, unsupported elements, unintended overlaps (labels in shapes, notes on what they annotate and connectors are allowed to touch).
 - **AI review**: a second request compares the original with a screenshot of the converted slide (+ the IR and the check results) and returns patches for real conversion errors only, never "improvements" to the writer's content.
-- Prompts: `electron/sketch-prompts.cjs`. Model calls: `electron/sketch-ai.cjs`. Key storage and IPC: `electron/sketch-main.cjs`.
+- Prompts: `electron/sketch-prompts.cjs` (Claude prompt + a shorter local-model prompt). Model calls: `electron/sketch-ai.cjs` (Claude) and `electron/sketch-ollama.cjs` (Ollama); the local model's flat pixel format is converted to the IR by `electron/sketch-local.cjs`. Settings, key storage and IPC: `electron/sketch-main.cjs`.
 
 ### Command line (no GUI)
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-... npm run sketch -- examples/sketches/policy-gradient.png --out sketch-out
-# offline, from a saved model output (no key needed):
-npm run sketch -- examples/sketches/diagram-abc.png --ir tests/fixtures/sketch/diagram-abc.ir.json
+npm run sketch -- examples/sketches/policy-gradient.png --out sketch-out             # local model (Ollama)
+ANTHROPIC_API_KEY=sk-ant-... npm run sketch -- my-sketch.png --provider anthropic     # Claude
+# offline, from a saved model output (no model call; also re-applies the local-format conversion):
+npm run sketch -- examples/sketches/diagram-abc.png --ir examples/ollama-runs/exp4/test1.ir.json
+node scripts/render-mslides.mjs sketch-out/policy-gradient.mslides out.png          # look at the result
 ```
 
-It writes `<name>.ir.json` (the model output), `<name>.mslides` (open it in MathSlides) and `<name>.report.json` (checks, timings, token usage). The AI review loop needs the rendered slide, so it runs in the app only.
+It writes `<name>.ir.json` (raw model text and output), `<name>.mslides` (open it in MathSlides) and `<name>.report.json`
+(checks, timings, token usage); a failed model call leaves `<name>.failed.json`. Like the app, it resizes the image for
+the model (macOS `sips`; metadata such as GPS is dropped). The AI review loop needs the rendered slide, so it runs in
+the app only.
 
 ### Tests
 
-`node tests/sketch-convert.mjs` (IR parsing, conversion, checks; headless) and `node tests/sketch-dialog.mjs` (the dialog end to end in Electron). The GUI test replaces the model with a fixture (`MATHSLIDES_SKETCH_FAKE=<ir.json>`, shown as "fake (test fixture)" in the dialog), so it needs no key or network. The fixtures in `tests/fixtures/sketch/` are hand-written expected recognitions, not model output.
+`node tests/sketch-convert.mjs` (IR parsing, local-model format, conversion, checks; headless) and `node tests/sketch-dialog.mjs` (the dialog end to end in Electron). With Ollama running, `node tests/sketch-ollama-e2e.mjs <out-dir> <image>...` drives the real app with the real local model (convert → Apply → edit → Undo/Redo → save, PDF, PPTX) and writes screenshots, outputs and measured times to `<out-dir>` (not part of `npm test`). The GUI test replaces the model with a fixture (`MATHSLIDES_SKETCH_FAKE=<ir.json>`, shown as "fake (test fixture)" in the dialog), so it needs no key or network. The fixtures in `tests/fixtures/sketch/` are hand-written expected recognitions, not model output.
 
 ### Measuring time saved
 

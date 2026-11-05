@@ -1,0 +1,236 @@
+{
+  "source": "saved IR",
+  "file": "examples/ollama-runs/exp4/test1.ir.json",
+  "model": "ollama/qwen2.5vl:7b",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "e1",
+        "type": "circle",
+        "bbox_2d": [
+          132,
+          100,
+          324,
+          292
+        ],
+        "content": "A",
+        "color": "black"
+      },
+      {
+        "id": "e2",
+        "type": "arrow",
+        "bbox_2d": [
+          375,
+          148,
+          478,
+          210
+        ],
+        "content": "\\rightarrow",
+        "color": "black",
+        "points": [
+          375,
+          200,
+          478,
+          200
+        ],
+        "connects": [
+          "e1",
+          "e3"
+        ]
+      },
+      {
+        "id": "e3",
+        "type": "circle",
+        "bbox_2d": [
+          565,
+          108,
+          757,
+          292
+        ],
+        "content": "B",
+        "color": "black"
+      },
+      {
+        "id": "e4",
+        "type": "arrow",
+        "bbox_2d": [
+          799,
+          188,
+          920,
+          238
+        ],
+        "content": "\\rightarrow",
+        "color": "black",
+        "points": [
+          799,
+          220,
+          920,
+          220
+        ],
+        "connects": [
+          "e3",
+          "e5"
+        ]
+      },
+      {
+        "id": "e5",
+        "type": "circle",
+        "bbox_2d": [
+          990,
+          135,
+          1168,
+          292
+        ],
+        "content": "C",
+        "color": "black"
+      },
+      {
+        "id": "e6",
+        "type": "line",
+        "bbox_2d": [
+          845,
+          264,
+          865,
+          415
+        ],
+        "content": "",
+        "color": "black"
+      },
+      {
+        "id": "e7",
+        "type": "text",
+        "bbox_2d": [
+          728,
+          438,
+          902,
+          532
+        ],
+        "content": "'중요'",
+        "color": "black"
+      }
+    ]
+  },
+  "sentImage": {
+    "width": 1309,
+    "height": 613
+  },
+  "image": {
+    "width": 1309,
+    "height": 613
+  },
+  "output": {
+    "elements": [
+      {
+        "id": "e1",
+        "bbox": {
+          "x": 100.84033613445378,
+          "y": 163.1321370309951,
+          "w": 146.67685255920554,
+          "h": 313.21370309951055
+        },
+        "color": "black",
+        "kind": "shape",
+        "shape": "ellipse",
+        "text": "A"
+      },
+      {
+        "id": "e2",
+        "bbox": {
+          "x": 286.4782276546983,
+          "y": 241.43556280587276,
+          "w": 78.68601986249041,
+          "h": 101.14192495921694
+        },
+        "color": "black",
+        "kind": "arrow",
+        "from": {
+          "x": 286.4782276546983,
+          "y": 326.2642740619902
+        },
+        "to": {
+          "x": 365.1642475171887,
+          "y": 326.2642740619902
+        },
+        "fromId": "e1",
+        "toId": "e3"
+      },
+      {
+        "id": "e3",
+        "bbox": {
+          "x": 431.62719633307864,
+          "y": 176.1827079934747,
+          "w": 146.67685255920554,
+          "h": 300.16313213703097
+        },
+        "color": "black",
+        "kind": "shape",
+        "shape": "ellipse",
+        "text": "B"
+      },
+      {
+        "id": "e4",
+        "bbox": {
+          "x": 610.3896103896104,
+          "y": 306.6884176182708,
+          "w": 92.4369747899159,
+          "h": 81.56606851549753
+        },
+        "color": "black",
+        "kind": "arrow",
+        "from": {
+          "x": 610.3896103896104,
+          "y": 358.89070146818926
+        },
+        "to": {
+          "x": 702.8265851795263,
+          "y": 358.89070146818926
+        },
+        "fromId": "e3",
+        "toId": "e5"
+      },
+      {
+        "id": "e5",
+        "bbox": {
+          "x": 756.3025210084033,
+          "y": 220.22838499184337,
+          "w": 135.98166539343015,
+          "h": 256.1174551386623
+        },
+        "color": "black",
+        "kind": "shape",
+        "shape": "ellipse",
+        "text": "C"
+      },
+      {
+        "id": "e6",
+        "bbox": {
+          "x": 645.5309396485867,
+          "y": 430.6688417618271,
+          "w": 15.278838808250612,
+          "h": 246.32952691680265
+        },
+        "color": "black",
+        "kind": "line"
+      },
+      {
+        "id": "e7",
+        "bbox": {
+          "x": 556.1497326203208,
+          "y": 714.5187601957585,
+          "w": 132.92589763178,
+          "h": 153.34420880913547
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "'중요'",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "'중요'"
+        }
+      }
+    ],
+    "notes": []
+  }
+}

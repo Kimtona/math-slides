@@ -1,0 +1,48 @@
+{
+  "model": "ollama/qwen2.5vl:7b",
+  "timings": {
+    "recognize": 93040,
+    "total": 93915
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "ok": true,
+      "summary": "Skipped: the automatic checks found no problems (saves a local model call).",
+      "patches": [],
+      "before": {
+        "error": 0,
+        "warning": 0,
+        "info": 1
+      },
+      "ms": 0,
+      "skipped": true
+    }
+  ],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e7",
+        "message": "Korean handwriting read by a local model: check the wording."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 1
+    },
+    "review": [
+      "e7"
+    ]
+  },
+  "parseIssues": [
+    {
+      "severity": "warning",
+      "code": "geometry",
+      "id": "e6",
+      "message": "Arrow/line endpoints missing; derived from its bounding box."
+    }
+  ]
+}
