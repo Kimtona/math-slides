@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { registerSketchIPC } = require('./sketch-main.cjs');
 
 // ---------- opening .mslides files from the OS (Finder double-click, "Open With", argv) ----------
 // Requests are validated here (only *.mslides files), queued until the renderer is ready, and handed to
@@ -145,6 +146,9 @@ ipcMain.handle('fetch-text', async (_event, url) => {
     return { ok: false, status: 0, text: String(e) };
   }
 });
+
+// Sketch-to-Slides: AI recognition/review, API key storage (electron/sketch-main.cjs).
+registerSketchIPC();
 
 // Undo/redo and select-all are intentionally not menu accelerators: the app handles
 // those keys itself (slide-level undo vs. text undo). Cut/copy/paste must stay as menu
