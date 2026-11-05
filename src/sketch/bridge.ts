@@ -3,7 +3,7 @@ import type { Asset, ImageElement } from '../model/types';
 import { cropOf } from '../model/imageCrop';
 
 export interface SketchImage { base64: string; mime: string; width: number; height: number }
-export interface SketchStatus { keySource: 'env' | 'stored' | null; canStore: boolean; model: string; logging: boolean }
+export interface SketchStatus { keySource: 'env' | 'stored' | 'fake' | null; canStore: boolean; model: string; logging: boolean }
 export interface AIResult<T> { ok: boolean; data?: T; error?: string; code?: string; model?: string; ms?: number; usage?: Record<string, unknown> }
 
 interface SketchNative {

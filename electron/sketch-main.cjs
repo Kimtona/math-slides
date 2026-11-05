@@ -5,10 +5,15 @@ const path = require('path');
 const fs = require('fs');
 const { recognize, review, DEFAULT_MODEL } = require('./sketch-ai.cjs');
 
+// Automated tests only: MATHSLIDES_SKETCH_FAKE=<IR json> answers recognition with that file (no network, no key)
+// and the review with "no problems". The dialog shows the model as "fake" so it can never be mistaken for a real run.
+const FAKE = process.env.MATHSLIDES_SKETCH_FAKE ? path.resolve(process.env.MATHSLIDES_SKETCH_FAKE) : null;
+
 const keyFile = () => path.join(app.getPath('userData'), 'ai-key.bin');
 
 /** Where the key comes from: the environment wins, then the encrypted key saved from the settings dialog. */
 function keySource() {
+  if (FAKE) return 'fake';
   if (process.env.ANTHROPIC_API_KEY) return 'env';
   return fs.existsSync(keyFile()) ? 'stored' : null;
 }
@@ -20,7 +25,7 @@ function readKey() {
     return null;
   }
 }
-const model = () => process.env.MATHSLIDES_SKETCH_MODEL || DEFAULT_MODEL;
+const model = () => (FAKE ? 'fake (test fixture)' : process.env.MATHSLIDES_SKETCH_MODEL || DEFAULT_MODEL);
 
 // ---------- optional run log (MATHSLIDES_SKETCH_LOG=<dir>): every request/response/report of a conversion ----------
 const logRoot = process.env.MATHSLIDES_SKETCH_LOG ? path.resolve(process.env.MATHSLIDES_SKETCH_LOG) : null;
@@ -71,10 +76,15 @@ function registerSketchIPC() {
   });
 
   ipcMain.handle('sketch:recognize', async (_e, { runId, image, schema }) => {
-    const apiKey = readKey();
-    if (!apiKey) return { ok: false, error: 'No API key configured.', code: 'no-key' };
     if (!validImage(image)) return { ok: false, error: 'Invalid image.', code: 'image' };
     log(runId, '00-input.png', png(image.base64));
+    if (FAKE) {
+      const { elements, notes } = JSON.parse(fs.readFileSync(FAKE, 'utf8'));
+      log(runId, '01-recognize.json', { model: model(), output: { elements, notes } });
+      return { ok: true, data: { elements, notes }, model: model(), ms: 0 };
+    }
+    const apiKey = readKey();
+    if (!apiKey) return { ok: false, error: 'No API key configured.', code: 'no-key' };
     try {
       const r = await recognize({ apiKey, model: model(), image, schema });
       log(runId, '01-recognize.json', { model: r.model, ms: r.ms, usage: r.usage, stopReason: r.stopReason, image: { width: image.width, height: image.height }, output: r.data });
@@ -86,6 +96,10 @@ function registerSketchIPC() {
   });
 
   ipcMain.handle('sketch:review', async (_e, { runId, round, original, rendering, ir, issues, schema }) => {
+    if (FAKE) {
+      if (validImage(rendering)) log(runId, `1${round}-rendering.png`, png(rendering.base64));
+      return { ok: true, data: { ok: true, summary: 'fake review (test fixture)', patches: [] }, model: model(), ms: 0 };
+    }
     const apiKey = readKey();
     if (!apiKey) return { ok: false, error: 'No API key configured.', code: 'no-key' };
     if (!validImage(original) || !validImage(rendering)) return { ok: false, error: 'Invalid image.', code: 'image' };

@@ -1,0 +1,186 @@
+/**
+ * Sketch-to-Slides conversion session: recognize → IR → convert → validate → (AI review → patch)×≤2 → preview → apply.
+ * Holds the dialog state; the dialog (src/ui/SketchDialog.tsx) renders it and supplies the preview screenshot.
+ */
+import { create } from 'zustand';
+import type { ImageElement, SlideElement } from '../model/types';
+import { findSlide, useStore } from '../store/store';
+import { applyPatches, MODEL_IR_SCHEMA, parseIR, REVIEW_SCHEMA, type IRElement, type IRIssue, type ReviewResult, type SketchIR } from './ir';
+import { irToElements, type ConversionResult } from './convert';
+import { validateSketch, type ValidationReport } from './validate';
+import { imageForModel, newRunId, sketchNative, type SketchImage, type SketchStatus } from './bridge';
+
+export const MAX_REVIEW_ROUNDS = 2;
+
+export interface ReviewRound {
+  round: number;
+  ok: boolean;
+  summary: string;
+  patches: ReviewResult['patches'];
+  /** Validation counts before and after this round's patches. */
+  before: ValidationReport['counts'];
+  after?: ValidationReport['counts'];
+  ms: number;
+  error?: string;
+}
+
+export type Phase = 'idle' | 'key' | 'recognizing' | 'reviewing' | 'preview' | 'error';
+
+interface SketchState {
+  phase: Phase;
+  status: SketchStatus | null;
+  sourceId: string | null;
+  runId: string;
+  image: (SketchImage & { dataUrl: string }) | null;
+  ir: SketchIR | null;
+  parseIssues: IRIssue[];
+  conv: ConversionResult | null;
+  report: ValidationReport | null;
+  rounds: ReviewRound[];
+  timings: Record<string, number>;
+  model: string;
+  error: string | null;
+  aiReview: boolean;
+  /** Set by the dialog: renders the current conversion, waits for layout, returns text heights + a screenshot. */
+  measure: (() => Promise<{ heights: Record<string, number>; shot: SketchImage | null }>) | null;
+}
+
+export const useSketch = create<SketchState>()(() => ({
+  phase: 'idle', status: null, sourceId: null, runId: '', image: null, ir: null, parseIssues: [], conv: null, report: null,
+  rounds: [], timings: {}, model: '', error: null, aiReview: true, measure: null,
+}));
+const set = useSketch.setState;
+const get = useSketch.getState;
+
+export const sketchAvailable = () => sketchNative() !== null;
+
+const issueLines = (r: ValidationReport) => r.issues.filter((i) => i.severity !== 'info').map((i) => `${i.id ?? '-'}: [${i.code}] ${i.message}`);
+
+/** Converts and validates `ir`, using heights measured in the rendered preview when available. */
+async function rebuild(ir: SketchIR) {
+  const conv = irToElements(ir);
+  set({ ir, conv, report: validateSketch(ir, conv) });
+  const m = get().measure;
+  if (!m) return { conv, report: get().report!, shot: null as SketchImage | null };
+  const { heights, shot } = await m();
+  const report = validateSketch(ir, conv, heights);
+  set({ report });
+  return { conv, report, shot };
+}
+
+export async function openSketch(el: ImageElement) {
+  const native = sketchNative();
+  if (!native) return;
+  const status = await native.status();
+  set({ phase: status.keySource ? 'idle' : 'key', status, sourceId: el.id, error: null, rounds: [], ir: null, conv: null, report: null, image: null, timings: {}, parseIssues: [] });
+  if (status.keySource) await runSketch();
+}
+
+export function closeSketch() {
+  set({ phase: 'idle', sourceId: null, image: null, ir: null, conv: null, report: null, rounds: [], error: null });
+}
+
+export async function saveKey(key: string | null) {
+  const native = sketchNative()!;
+  const r = await native.setKey(key);
+  if (!r.ok) { set({ error: r.error ?? 'Could not save the key.' }); return false; }
+  set({ status: await native.status(), error: null });
+  return true;
+}
+
+function sourceImage(): { el: ImageElement; asset: import('../model/types').Asset } | null {
+  const st = useStore.getState();
+  const slide = findSlide(st.deck, st.currentSlideId);
+  const el = slide?.elements.find((e) => e.id === get().sourceId);
+  if (!el || el.type !== 'image') return null;
+  const asset = st.assets[el.assetId];
+  return asset ? { el, asset } : null;
+}
+
+export async function runSketch() {
+  const native = sketchNative()!;
+  const src = sourceImage();
+  if (!src) { set({ phase: 'error', error: 'The image is no longer on this slide.' }); return; }
+  const runId = newRunId();
+  const t0 = performance.now();
+  const timings: Record<string, number> = {};
+  set({ phase: 'recognizing', runId, error: null, rounds: [], ir: null, conv: null, report: null, timings });
+  try {
+    const image = await imageForModel(src.el, src.asset);
+    set({ image });
+    const { dataUrl: _d, ...img } = image;
+    const res = await native.recognize({ runId, image: img, schema: MODEL_IR_SCHEMA });
+    timings.recognize = res.ms ?? 0;
+    if (!res.ok) throw new Error(res.error);
+    set({ model: res.model ?? '' });
+    const { ir, issues } = parseIR(res.data, { width: image.width, height: image.height });
+    if (!ir.elements.length) throw new Error('Nothing was recognized in this image.');
+    set({ parseIssues: issues, phase: get().aiReview ? 'reviewing' : 'preview' });
+    let cur = await rebuild(ir);
+    native.log(runId, '02-ir.json', { ir, parseIssues: issues, validation: cur.report });
+
+    // AI review: compare original vs rendering; apply its patches; at most MAX_REVIEW_ROUNDS rounds.
+    for (let round = 1; get().aiReview && round <= MAX_REVIEW_ROUNDS; round++) {
+      if (get().sourceId === null) return; // dialog closed
+      if (!cur.shot) break;
+      const rr = await native.review({
+        runId, round, original: img, rendering: cur.shot, ir: get().ir!, issues: issueLines(cur.report), schema: REVIEW_SCHEMA,
+      });
+      timings[`review${round}`] = rr.ms ?? 0;
+      const before = cur.report.counts;
+      if (!rr.ok) {
+        set({ rounds: [...get().rounds, { round, ok: false, summary: '', patches: [], before, ms: rr.ms ?? 0, error: rr.error }] });
+        break;
+      }
+      const data = rr.data as ReviewResult;
+      const entry: ReviewRound = { round, ok: data.ok, summary: data.summary, patches: data.patches ?? [], before, ms: rr.ms ?? 0 };
+      if (data.ok || !entry.patches.length) {
+        set({ rounds: [...get().rounds, entry] });
+        break;
+      }
+      const patched = applyPatches(get().ir!, entry.patches);
+      set({ parseIssues: [...get().parseIssues, ...patched.issues] });
+      cur = await rebuild(patched.ir);
+      entry.after = cur.report.counts;
+      set({ rounds: [...get().rounds, entry] });
+      native.log(runId, `1${round}-patched-ir.json`, { ir: patched.ir, patchIssues: patched.issues, validation: cur.report });
+    }
+    timings.total = Math.round(performance.now() - t0);
+    set({ phase: 'preview', timings: { ...timings } });
+    native.log(runId, '20-summary.json', { model: get().model, timings, rounds: get().rounds, validation: get().report, parseIssues: get().parseIssues });
+  } catch (e) {
+    set({ phase: 'error', error: String((e as Error)?.message || e) });
+    native.log(runId, '99-error.json', { error: String((e as Error)?.message || e) });
+  }
+}
+
+/** User edit in the preview (text/LaTeX or choosing the inferred reading). Re-converts and re-validates. */
+export async function editElement(id: string, patch: Partial<IRElement>) {
+  const ir = get().ir;
+  if (!ir) return;
+  const next = applyPatches(ir, [{ op: 'update', id, element: patch, reason: 'user edit' }]);
+  await rebuild(next.ir);
+}
+
+/**
+ * Puts the converted elements on the current slide in ONE commit (one undo step).
+ * replace = the source image is removed in the same step, so a single Undo restores it.
+ */
+export function applySketch(replace: boolean) {
+  const { conv, report, runId } = get();
+  const st = useStore.getState();
+  const srcId = get().sourceId;
+  if (!conv || !srcId) return;
+  if (st.editingId) st.stopEditing();
+  if (st.cropEditId) st.exitCrop();
+  const els: SlideElement[] = structuredClone(conv.elements);
+  const slideId = st.currentSlideId;
+  st.commit((d) => {
+    const slide = findSlide(d, slideId)!;
+    if (replace) slide.elements = slide.elements.filter((e) => e.id !== srcId);
+    slide.elements.push(...(els as any));
+  });
+  useStore.setState({ selection: els.map((e) => e.id), focusArea: 'canvas' });
+  sketchNative()?.log(runId, '30-applied.json', { replace, elements: els, validation: report });
+  closeSketch();
+}

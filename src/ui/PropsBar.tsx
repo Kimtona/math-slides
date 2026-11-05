@@ -12,6 +12,7 @@ import { SLIDE_FONTS, deckFont, type SlideFont } from '../model/fonts';
 import { HighlightButton, PaletteColorButton, ShapeFillButton, TextColorButton, ThemeColorButton } from './TextColorPalette';
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
+import { openSketch, sketchAvailable } from '../sketch/session';
 
 /** Re-render on every transaction of the active editor (for B/I/U state). */
 function useEditorTick() {
@@ -193,6 +194,8 @@ function ImageProps({ el }: { el: ImageElement }) {
         ? <Btn wide title="이미지 캡션 추가" onClick={() => st.updateElements([el.id], (d) => { (d as ImageElement).caption = ''; })}>Caption</Btn>
         : <Btn wide className="active" title="이미지 캡션 삭제" onClick={() => st.updateElements([el.id], (d) => { delete (d as ImageElement).caption; })}>Remove Caption</Btn>}
       <BorderButton el={el} />
+      <Btn wide title={sketchAvailable() ? '손그림을 편집 가능한 슬라이드 요소로 변환 (AI)' : '데스크톱 앱에서만 사용할 수 있습니다'}
+        disabled={!sketchAvailable()} onClick={() => openSketch(el)}>Convert to Editable Slide</Btn>
       <span className="hint">드래그 = 비율 유지 · ⌥ Option = 자유 변형 · ⇧ Shift = 크롭 · 더블클릭 = 크롭 편집</span>
     </>
   );

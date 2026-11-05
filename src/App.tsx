@@ -9,6 +9,7 @@ import { MathPopover } from './editor/MathPopover';
 import { EmojiPickerHost } from './editor/EmojiPicker';
 import { Presenter } from './ui/Presenter';
 import { PrintRoot } from './export/PrintRoot';
+import { SketchDialog } from './ui/SketchDialog';
 import { useShortcuts } from './ui/useShortcuts';
 
 function NotesPanel() {
@@ -66,6 +67,7 @@ export default function App() {
         </div>
         <MathPopover />
         <EmojiPickerHost />
+        <SketchDialog />
       </div>
       <PrintRoot />
       {presenting && <Presenter />}
