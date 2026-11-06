@@ -84,12 +84,14 @@ image ─► preprocess (crop, resize to ≈1024 visual tokens, metadata strippe
 
 - **Mac with Apple Silicon, macOS 13+** (the supported platform; release builds are Apple Silicon DMGs). Windows packaging is configured but not validated.
 - **Node.js 22 (LTS)** and Git (to run from source).
-- **[Ollama](https://ollama.com)** and the model `qwen2.5vl:7b` (≈ 6 GB download). Measurements were taken on an Apple Silicon MacBook with 24 GB of memory; a Mac with 16 GB+ is expected to be enough but was not measured.
+- **[Ollama](https://ollama.com)** and the model `qwen2.5vl:7b` (≈ 6 GB download) — **only for Sketch-to-Slides, and installed separately**: neither the MathSlides app (DMG) nor `npm install` includes Ollama or the model. The rest of MathSlides works without them. Measurements were taken on an Apple Silicon MacBook with 24 GB of memory; a Mac with 16 GB+ is expected to be enough but was not measured.
 - Optional: an Anthropic API key (only for the Claude provider).
 
 ## Installation
 
-**Use the app (no build):** follow [Installing the app](#installing-the-app) below.
+**Use the app (no build):** follow [Installing the app](#installing-the-app) below. This installs MathSlides only; to use Sketch-to-Slides also do [Local VLM Setup](#local-vlm-setup) once.
+
+*Two separate installs:* (1) **MathSlides** (the DMG, or the source below) and (2) **the local vision model for Sketch-to-Slides** (Ollama + `qwen2.5vl:7b`, next section).
 
 **Run from source (needed to reproduce Sketch-to-Slides):**
 
@@ -101,11 +103,20 @@ npm install
 
 ## Local VLM Setup
 
-```bash
-brew install ollama          # or download the app from https://ollama.com
-ollama serve                 # skip if the Ollama app is already running (listens on http://localhost:11434)
-ollama pull qwen2.5vl:7b
-```
+Sketch-to-Slides needs a local vision-language model, which is **not bundled** with MathSlides. The model the code uses by default is **`qwen2.5vl:7b`** (Qwen2.5-VL, 7B tag; Ollama reports it as 8.3B parameters, Q4_K_M quantization) — see `DEFAULT_OLLAMA_MODEL` in `electron/sketch-ollama.cjs`.
+
+1. **Install Ollama** (once): `brew install ollama`, or download the app from https://ollama.com.
+2. **Start the Ollama server**: open the Ollama app, or run `ollama serve` in a terminal and keep it open. It listens on `http://localhost:11434`.
+3. **Download the model** (once, ≈ 6 GB):
+   ```bash
+   ollama pull qwen2.5vl:7b
+   ```
+4. **Check that it works:**
+   ```bash
+   ollama list                                   # the list must contain qwen2.5vl:7b
+   curl http://localhost:11434/api/tags          # the server answers with JSON that mentions "qwen2.5vl:7b"
+   ```
+   If the server is not running or the model is missing, MathSlides opens its **AI settings** when you press *Convert to Editable Slide* instead of converting, and shows the Ollama status there.
 
 No key or other configuration is needed: Ollama and `qwen2.5vl:7b` are the defaults. Optional overrides:
 
@@ -120,7 +131,7 @@ The first conversion after Ollama has been idle also loads the model (≈ 7–9 
 ## Quick Start and Reproduction
 
 1. Make sure Ollama is running and the model is pulled (above).
-2. Start the desktop app (the feature needs Electron; the browser dev mode disables the button):
+2. Start MathSlides: open the installed **MathSlides** app (v2.0.0 or newer), or run it from source (the feature needs Electron; the browser dev mode disables the button):
    ```bash
    npm run app
    ```
