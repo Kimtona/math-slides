@@ -415,3 +415,26 @@ Input: `~/Downloads/test_composite.png` (copy: `examples/composite/test_composit
 ### Speed (problem D) — measured, NOT solved
 - Cost model: ~18 s fixed prompt evaluation (+ up to 9 s cold model load) + 6.6 tok/s. The JSON answer (26 elements with ids and four box numbers each) is 1481 tokens = 225 s. 60 s ⇒ ≤ ~290 generated tokens.
 - One real experiment, short Markdown-only prompt (no boxes, no JSON): 176 output tokens, prompt 21.4 s, eval 24.3 s, load 9.3 s (cold), wall **55.3 s**; the transcription is exact incl. headings, table, both lists, `$…$`/`$$…$$` and the `>` quote. But it carries no positions, so it needs a new "document mode" (stack blocks vertically in the image frame). That is an architectural addition and was NOT made without approval. Output saved in the scratchpad only.
+
+## Stage 11 — Document Mode (Markdown transcription) next to Layout Mode (2026-11-06)
+
+Approved after the Stage 10 measurement (JSON with boxes: 1481 tokens = 225 s; Markdown: 176 tokens).
+
+### Design
+- Two modes coexist; **Document (fast)** is the default, **Layout (positions)** is unchanged. The dialog footer has the two buttons (`aria-pressed`, tooltips say what each does); switching re-converts. The choice is kept for the session. Claude provider: Layout only (Document Mode needs the local model path).
+- Main: `recognizeDocument` (`electron/sketch-ai.cjs`) calls Ollama WITHOUT a JSON schema (`plain` option of `chatJSON`, `num_predict` 1200, same `num_ctx` as Layout Mode so switching does not reload the model) with the short Markdown prompt. `parseMarkdownDocument` (`sketch-markup.cjs`) → blocks (heading, paragraph, quote, bullet/ordered list, table, math; `$$` display and `\[ \]`, code fence stripped, consecutive duplicate blocks from a looping model dropped, ragged tables padded, nothing invented) → `documentToModelIR` → the same Structured IR (`layout: 'document'`, nominal boxes) → the same validation, preview, review list and Apply.
+- Renderer (`src/sketch/document.ts`): one column (as wide as the image frame, at least 560 px) from the frame's top. All blocks are rendered once in the preview to MEASURE their real heights (the existing `measure` hook), then flowed top to bottom with gaps; a heading is never left alone at a slide's end; a table taller than a slide is split between rows (header repeats); **content that does not fit continues on new slides inserted after the current one in the same commit (one Undo removes them)**; a block taller than a whole slide is kept and warned about, never cut.
+- Real model path measured, not the fixture only.
+
+### Measurements — real GUI (Electron + Ollama qwen2.5vl:7b, `~/Downloads/test_composite.png`)
+| Run | Total (click → preview) | Ollama | Notes |
+|---|---|---|---|
+| Document, same image ×3 | 42.2 / 23.6 / 23.9 s | run 1: load 6.9 s + prompt 11.5 s + eval 23.5 s (1127 in, 176 out tokens); runs 2–3: prompt 0.07 s | runs 2–3 hit Ollama's prompt cache (identical image+prompt) → NOT representative |
+| Document, 3 distinct-pixel variants (resized 830/850/820 px wide), model warm | **35.2 / 35.3 / 35.1 s** | prompt 10.6–11.4 s + eval 23.5–24.4 s, 176 tokens each | identical Markdown (same hash) in all three; parse+IR+render ≈ 0.2 s; 0 warnings |
+| Layout, original image | 215.0 s | (≈ 1400 generated tokens) | 12 elements; native table, bullet, ordered list, display + inline equation, 7 warnings |
+Cold model start adds ≈ 7–9 s (observed 42.2 s). Layout Mode earlier: 244.9 s (CLI), 202+ s (user's GUI run).
+
+### Accuracy on the composite screenshot
+- Document: exact text everywhere; table 5×2 (header recognised from the `---` row), bullet ×3, ordered ×3, headings, `Inline: $E = mc^2$`, display equation, **blockquote** — all native. Layout positions are NOT kept (reading order only).
+- Layout: everything except the blockquote (no marker from the model; plain line); table header assumed; bullets inferred from indentation (flagged).
+- Limits: the one image is the only real-model sample for Document Mode (deterministic, 4 identical outputs); handwriting/diagrams/arrows are not Document Mode's job (use Layout); no bold/italic detection (7B).

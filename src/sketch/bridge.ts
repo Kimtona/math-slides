@@ -18,13 +18,13 @@ export interface SketchStatus {
   logging: boolean;
 }
 export interface SketchSettings { provider?: 'ollama' | 'anthropic'; ollamaModel?: string; ollamaHost?: string }
-export interface AIResult<T> { ok: boolean; data?: T; error?: string; code?: string; model?: string; ms?: number; usage?: Record<string, unknown> }
+export interface AIResult<T> { ok: boolean; data?: T; error?: string; code?: string; model?: string; ms?: number; usage?: Record<string, unknown>; layout?: 'document' }
 
 interface SketchNative {
   status(): Promise<SketchStatus>;
   setKey(key: string | null): Promise<{ ok: boolean; error?: string }>;
   setSettings(s: SketchSettings): Promise<{ ok: boolean; error?: string }>;
-  recognize(req: { runId: string; image: SketchImage; schema: object }): Promise<AIResult<unknown>>;
+  recognize(req: { runId: string; image: SketchImage; schema: object; mode?: 'document' | 'layout' }): Promise<AIResult<unknown>>;
   review(req: { runId: string; round: number; original: SketchImage; rendering: SketchImage; ir: object; issues: string[]; schema: object }): Promise<AIResult<unknown>>;
   capture(rect: { x: number; y: number; width: number; height: number }): Promise<SketchImage | null>;
   log(runId: string, name: string, data: unknown): Promise<boolean>;

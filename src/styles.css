@@ -454,3 +454,10 @@ kbd { font-family: var(--ui-font); font-size: 11px; background: #f1f3f5; border:
 .sk-frame { position: absolute; border: 1.5px dashed #2f6feb; pointer-events: none; }
 
 .quick-draw-preview { position: absolute; pointer-events: none; box-sizing: border-box; }
+
+/* Sketch-to-Slides: Document / Layout mode switch */
+.sk-modes { display: inline-flex; gap: 0; margin-right: 6px; }
+.sk-modes .sk-mode { border-radius: 0; }
+.sk-modes .sk-mode:first-child { border-radius: 6px 0 0 6px; }
+.sk-modes .sk-mode:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
+.sk-modes .sk-mode.on { background: var(--accent, #2563eb); color: #fff; border-color: var(--accent, #2563eb); }

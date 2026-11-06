@@ -5,8 +5,10 @@
 import { create } from 'zustand';
 import type { ImageElement, SlideElement } from '../model/types';
 import { findSlide, useStore } from '../store/store';
+import { newSlide } from '../model/defaults';
 import { applyPatches, MODEL_IR_SCHEMA, parseIR, REVIEW_SCHEMA, type IRElement, type IRIssue, type ReviewResult, type SketchIR } from './ir';
 import { irToElements, type ConversionResult, type Frame } from './convert';
+import { buildDocumentElements, reflowDocument } from './document';
 import { validateSketch, type ValidationReport } from './validate';
 import { applyInkMeasurements } from './ink';
 import { imageForModel, newRunId, rasterOf, sketchNative, type SketchImage, type SketchSettings, type SketchStatus } from './bridge';
@@ -27,6 +29,8 @@ export interface ReviewRound {
   skipped?: boolean;
 }
 
+/** Document Mode (Markdown transcription, placed top to bottom; default) or Layout Mode (coordinates, keeps the drawn positions). */
+export type SketchMode = 'document' | 'layout';
 export type Phase = 'idle' | 'settings' | 'recognizing' | 'reviewing' | 'preview' | 'error';
 
 interface SketchState {
@@ -46,6 +50,7 @@ interface SketchState {
   model: string;
   error: string | null;
   aiReview: boolean;
+  mode: SketchMode;
   /** The source image's frame on the slide and the slide's other elements, captured when the run starts. */
   frame: Frame | null;
   others: SlideElement[];
@@ -55,7 +60,7 @@ interface SketchState {
 
 export const useSketch = create<SketchState>()(() => ({
   phase: 'idle', startedAt: 0, status: null, sourceId: null, runId: '', image: null, ir: null, parseIssues: [], conv: null, report: null,
-  rounds: [], timings: {}, model: '', error: null, aiReview: true, measure: null, frame: null, others: [],
+  rounds: [], timings: {}, model: '', error: null, aiReview: true, mode: 'document', measure: null, frame: null, others: [],
 }));
 const set = useSketch.setState;
 const get = useSketch.getState;
@@ -67,12 +72,18 @@ const issueLines = (r: ValidationReport) => r.issues.filter((i) => i.severity !=
 /** Converts and validates `ir`, using heights measured in the rendered preview when available. */
 async function rebuild(ir: SketchIR) {
   const { frame, others } = get();
-  const conv = irToElements(ir, frame ?? undefined);
-  const ctx = { frame: frame ?? undefined, others };
-  set({ ir, conv, report: validateSketch(ir, conv, undefined, ctx) });
+  const doc = ir.layout === 'document';
+  // Document Mode: all blocks are rendered once to measure their real heights, then flowed top to bottom (further slides if needed).
+  const raw = doc ? buildDocumentElements(ir, frame ?? undefined) : null;
+  let conv = raw ? reflowDocument(raw, undefined, frame ?? undefined) : irToElements(ir, frame ?? undefined);
+  // Document Mode flows in its own column (and over further slides): the image-frame check does not apply to it.
+  const ctx = { frame: doc ? undefined : frame ?? undefined, others };
   const m = get().measure;
+  if (raw && m) set({ ir, conv: { ...raw, elements: raw.elements }, report: null });
+  else set({ ir, conv, report: validateSketch(ir, conv, undefined, ctx) });
   if (!m) return { conv, report: get().report!, shot: null as SketchImage | null };
   const { heights, shot } = await m();
+  if (raw) { conv = reflowDocument(raw, heights, frame ?? undefined); set({ conv }); }
   const report = validateSketch(ir, conv, heights, ctx);
   set({ report });
   return { conv, report, shot };
@@ -84,7 +95,7 @@ export async function openSketch(el: ImageElement) {
   const status = await native.status();
   // AI review default: on for Claude; off for the local model (it did not find real errors and cost ~2-3 min in the
   // GUI test, docs/SKETCH_DEVLOG.md). The checkbox still turns it on.
-  set({ aiReview: status.provider !== 'ollama' });
+  set({ aiReview: status.provider !== 'ollama' }); // the mode keeps the user's last choice; the initial default is Document Mode
   set({ phase: status.ready ? 'idle' : 'settings', status, sourceId: el.id, error: null, rounds: [], ir: null, conv: null, report: null, image: null, timings: {}, parseIssues: [] });
   if (status.ready) await runSketch();
 }
@@ -100,6 +111,13 @@ export async function saveSettings(next: SketchSettings) {
   if (!r.ok) { set({ error: r.error ?? 'Could not save the settings.' }); return null; }
   set({ error: null });
   return refreshStatus();
+}
+
+/** Switches between Document Mode and Layout Mode and converts the image again with the other one. */
+export async function setSketchMode(mode: SketchMode) {
+  if (get().mode === mode || get().phase === 'recognizing' || get().phase === 'reviewing') return;
+  set({ mode });
+  if (get().sourceId) await runSketch();
 }
 
 export function closeSketch() {
@@ -146,11 +164,11 @@ export async function runSketch() {
     const image = await step('prepare', () => imageForModel(src.el, src.asset, status.image));
     set({ image });
     const { dataUrl: _d, ...img } = image;
-    const res = await step('recognizeWall', () => native.recognize({ runId, image: img, schema: MODEL_IR_SCHEMA }));
+    const res = await step('recognizeWall', () => native.recognize({ runId, image: img, schema: MODEL_IR_SCHEMA, mode: status.provider !== 'anthropic' ? get().mode : 'layout' }));
     timings.recognize = res.ms ?? 0;
     if (!res.ok) throw new Error(res.error);
     set({ model: res.model ?? '' });
-    const parsed = parseIR(res.data, { width: image.width, height: image.height });
+    const parsed = parseIR(res.layout === 'document' ? { ...(res.data as object), layout: 'document' } : res.data, { width: image.width, height: image.height });
     if (!parsed.ir.elements.length) throw new Error('Nothing was recognized in this image.');
     // Pixel measurements on the image the model saw: real ink colors/thickness, bends of strokes the model called straight.
     const measured = await step('ink', async () => applyInkMeasurements(parsed.ir, await rasterOf(image.dataUrl)));
@@ -225,6 +243,7 @@ export function applySketch(replace: boolean) {
   if (st.editingId) st.stopEditing();
   if (st.cropEditId) st.exitCrop();
   const els: SlideElement[] = structuredClone(conv.elements);
+  const morePages: SlideElement[][] = structuredClone(conv.pages ?? []);
   const slideId = st.currentSlideId;
   st.commit((d) => {
     const slide = findSlide(d, slideId)!;
@@ -232,6 +251,11 @@ export function applySketch(replace: boolean) {
     const idx = slide.elements.findIndex((e) => e.id === srcId);
     if (idx < 0) slide.elements.push(...(els as any));
     else slide.elements.splice(replace ? idx : idx + 1, replace ? 1 : 0, ...(els as any));
+    // Document Mode overflow: the rest continues on new slides right after this one (same commit = one Undo step).
+    if (morePages.length) {
+      const at = d.slides.findIndex((x) => x.id === slideId) + 1;
+      d.slides.splice(at, 0, ...(morePages.map((p) => ({ ...newSlide(), background: slide.background, elements: p })) as any));
+    }
   });
   useStore.setState({ selection: els.map((e) => e.id), focusArea: 'canvas' });
   sketchNative()?.log(runId, '30-applied.json', { replace, elements: els, validation: report });

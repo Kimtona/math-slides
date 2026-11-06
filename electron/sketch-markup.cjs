@@ -208,4 +208,77 @@ function inferBulletLists(elements, width, height) {
   return { elements: out, inferred };
 }
 
-module.exports = { inferBulletLists, mergeListItems, parseInline, markupToBlocks, blocksPlain, parseMarkdownTable, detectGridTable, plain, styled };
+
+/**
+ * Document Mode: a whole screenshot transcribed as Markdown (no coordinates) → ordered blocks, top to bottom:
+ *   { type:'heading', level, spans } · { type:'paragraph', spans } · { type:'quote', spans } · { type:'bullet'|'ordered', start?, items }
+ *   · { type:'table', header, rows: string[][] } · { type:'math', latex }
+ * Pure; never invents content. A looping model's consecutive duplicate blocks are dropped. Unknown syntax stays a paragraph.
+ */
+function parseMarkdownDocument(md) {
+  const text = String(md).replace(/\r/g, '').replace(/^\s*```[a-z]*\s*\n/i, '').replace(/\n\s*```\s*$/, '');
+  const lines = text.split('\n');
+  const out = [];
+  const push = (b) => { const last = out[out.length - 1]; if (!last || JSON.stringify(last) !== JSON.stringify(b)) out.push(b); };
+  const isTableLine = (l) => /^\s*\|.*\|\s*$/.test(l) || (l.split('|').length >= 3 && l.trim().startsWith('|'));
+  const itemRe = /^\s*(?:[-•·*]|(\d{1,3})[.)])\s+(.*)$/;
+  let para = [];
+  const flushPara = () => {
+    if (!para.length) return;
+    const t = para.join(' ').trim(); para = [];
+    if (!t) return;
+    const m = /^\$([^$]+)\$$/.exec(t);
+    if (m) push({ type: 'math', latex: m[1].trim() });
+    else push({ type: 'paragraph', spans: parseInline(t) });
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].replace(/\s+$/, '');
+    if (!line.trim()) { flushPara(); continue; }
+    let m;
+    // display math: $$ … $$ (one or several lines) or \[ … \]
+    if ((m = /^\s*(?:\$\$|\\\[)(.*)$/.exec(line))) {
+      flushPara();
+      let body = m[1]; const close = /(?:\$\$|\\\])\s*$/;
+      if (!close.test(body)) { while (++i < lines.length && !close.test(lines[i])) body += ' ' + lines[i]; if (i < lines.length) body += ' ' + lines[i]; }
+      const latex = body.replace(close, '').replace(/\s+/g, ' ').trim();
+      if (latex) push({ type: 'math', latex });
+      continue;
+    }
+    if (isTableLine(line)) {
+      flushPara();
+      const block = [line];
+      while (i + 1 < lines.length && isTableLine(lines[i + 1])) block.push(lines[++i]);
+      const hasSep = block.some((l) => /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$/.test(l.trim()));
+      const rows = parseMarkdownTable(block.join('\n'));
+      if (rows) {
+        const n = Math.max(...rows.map((r) => r.length));
+        push({ type: 'table', header: hasSep, rows: rows.map((r) => Array.from({ length: n }, (_, c) => r[c] ?? '')) });
+      } else for (const l of block) push({ type: 'paragraph', spans: parseInline(l.trim()) });
+      continue;
+    }
+    if ((m = /^\s{0,3}(#{1,4})\s+(.*)$/.exec(line))) { flushPara(); push({ type: 'heading', level: m[1].length, spans: parseInline(m[2]) }); continue; }
+    if ((m = /^\s*>\s?(.*)$/.exec(line))) {
+      flushPara();
+      const parts = [m[1]];
+      while (i + 1 < lines.length && /^\s*>/.test(lines[i + 1])) parts.push(lines[++i].replace(/^\s*>\s?/, ''));
+      push({ type: 'quote', spans: parseInline(parts.join(' ').trim()) });
+      continue;
+    }
+    if ((m = itemRe.exec(line))) {
+      flushPara();
+      const ordered = m[1] !== undefined, items = [parseInline(m[2])], start = ordered ? Number(m[1]) || 1 : undefined;
+      while (i + 1 < lines.length) {
+        const n = itemRe.exec(lines[i + 1].replace(/\s+$/, ''));
+        if (!n || (n[1] !== undefined) !== ordered) break;
+        items.push(parseInline(n[2])); i++;
+      }
+      push(ordered ? { type: 'ordered', start, items } : { type: 'bullet', items });
+      continue;
+    }
+    para.push(line.trim());
+  }
+  flushPara();
+  return out;
+}
+
+module.exports = { parseMarkdownDocument, inferBulletLists, mergeListItems, parseInline, markupToBlocks, blocksPlain, parseMarkdownTable, detectGridTable, plain, styled };

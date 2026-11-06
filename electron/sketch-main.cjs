@@ -4,7 +4,7 @@
 const { app, ipcMain, safeStorage, BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { recognize, review, DEFAULT_MODEL } = require('./sketch-ai.cjs');
+const { recognize, recognizeDocument, review, DEFAULT_MODEL } = require('./sketch-ai.cjs');
 const { ollamaStatus, LOCAL_IMAGE_PIXELS, DEFAULT_OLLAMA_HOST, DEFAULT_OLLAMA_MODEL } = require('./sketch-ollama.cjs');
 
 // Automated tests only: MATHSLIDES_SKETCH_FAKE=<IR json> answers recognition with that file (no network, no key)
@@ -128,12 +128,17 @@ function registerSketchIPC() {
     }
   });
 
-  ipcMain.handle('sketch:recognize', async (_e, { runId, image, schema }) => {
+  ipcMain.handle('sketch:recognize', async (_e, { runId, image, schema, mode }) => {
     if (!validImage(image)) return { ok: false, error: 'Invalid image.', code: 'image' };
     log(runId, '00-input.png', png(image.base64));
     if (FAKE) {
       const fake = JSON.parse(fs.readFileSync(FAKE, 'utf8'));
       // A recorded local-model output is replayed through the real local-format conversion.
+      if (mode === 'document' && typeof fake.markdown === 'string') {
+        const data = require('./sketch-local.cjs').documentToModelIR(fake.markdown);
+        log(runId, '01-recognize.json', { model: model(), mode: 'document', markdown: fake.markdown, output: data });
+        return { ok: true, data, layout: 'document', model: model(), ms: 0 };
+      }
       const { elements, notes } = fake.localOutput
         ? require('./sketch-local.cjs').localToModelIR(fake.localOutput, fake.sentImage.width, fake.sentImage.height)
         : fake;
@@ -142,6 +147,16 @@ function registerSketchIPC() {
     }
     const args = providerArgs();
     if (args.error) return args.error;
+    if (mode === 'document' && args.provider === 'ollama') {
+      try {
+        const r = await recognizeDocument({ ...args, image });
+        log(runId, '01-recognize.json', { provider: 'ollama', mode: 'document', model: r.model, ms: r.ms, usage: r.usage, stopReason: r.stopReason, image: { width: image.width, height: image.height }, markdown: r.markdown, output: r.data });
+        return { ok: true, data: r.data, layout: 'document', model: r.model, ms: r.ms, usage: r.usage };
+      } catch (e) {
+        log(runId, '01-recognize-error.json', { ...errorResult(e), mode: 'document', rawText: e?.raw, usage: e?.usage });
+        return errorResult(e);
+      }
+    }
     try {
       const r = await recognize({ ...args, image, schema });
       log(runId, '01-recognize.json', { provider: args.provider, model: r.model, ms: r.ms, usage: r.usage, stopReason: r.stopReason, image: { width: image.width, height: image.height }, ...(r.raw !== undefined ? { rawText: r.raw } : {}), ...(r.local ? { localOutput: r.local } : {}), output: r.data });

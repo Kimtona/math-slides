@@ -2,7 +2,7 @@
 // conversion to the shared model IR ({ elements, notes } with 0..1000 coordinates) that src/sketch/ir.ts validates.
 // Nothing is invented here: unreadable or inconsistent items are kept and flagged for review, or dropped with a note.
 
-const { parseInline, markupToBlocks, blocksPlain, parseMarkdownTable, detectGridTable, mergeListItems, inferBulletLists } = require('./sketch-markup.cjs');
+const { parseInline, markupToBlocks, blocksPlain, parseMarkdownTable, detectGridTable, mergeListItems, inferBulletLists, parseMarkdownDocument } = require('./sketch-markup.cjs');
 
 const TYPES = ['title', 'text', 'math', 'circle', 'rectangle', 'arrow', 'line', 'curved_arrow', 'curve', 'heading', 'list', 'quote', 'table'];
 const BENDS = ['up', 'down', 'left', 'right'];
@@ -321,4 +321,31 @@ function localToModelIR(data, width, height) {
   return { elements: merged, notes: [...notes, ...warnings] };
 }
 
-module.exports = { LOCAL_SCHEMA, localToModelIR, repairLatex, wrapInlineCommands, mergeStackedLines };
+
+/**
+ * Document Mode: Markdown (see parseMarkdownDocument) → the shared IR, one element per block in reading order. The boxes are
+ * nominal (a full-width stack in 0..1000: the real placement is done from measured heights, src/sketch/document.ts);
+ * `layout: 'document'` tells the app so.
+ */
+function documentToModelIR(markdown) {
+  const blocks = parseMarkdownDocument(markdown);
+  const n = Math.max(1, blocks.length), step = 1000 / n;
+  const elements = [];
+  blocks.forEach((b, i) => {
+    const out = { id: `d${i + 1}`, bbox: { x: 0, y: i * step, w: 1000, h: step * 0.8 }, role: 'body' };
+    if (b.type === 'table') Object.assign(out, { kind: 'table', table: { header: b.header, rows: b.rows.map((r) => r.map((c) => parseInline(c))) } });
+    else if (b.type === 'math') Object.assign(out, { kind: 'math', latex: repairLatex(b.latex).replace(/^\$+|\$+$/g, '').trim() });
+    else {
+      const wrapped = wrapBlocks([b]);
+      Object.assign(out, { kind: 'text', blocks: wrapped, text: blocksPlain(wrapped), role: b.type === 'heading' && b.level === 1 ? 'title' : 'body' });
+    }
+    if ((out.kind === 'text' && !out.text) || (out.kind === 'math' && !out.latex)) return;
+    if (out.kind === 'table' && b.header === false) out.review = { needed: true, reason: 'Table without a header separator: check whether the first row is a header.', transcribed: '' };
+    const reason = localReviewReason(out);
+    if (reason && !out.review) out.review = { needed: true, reason, transcribed: out.kind === 'math' ? out.latex : out.text ?? '' };
+    elements.push(out);
+  });
+  return { elements, notes: [], layout: 'document' };
+}
+
+module.exports = { documentToModelIR, LOCAL_SCHEMA, localToModelIR, repairLatex, wrapInlineCommands, mergeStackedLines };

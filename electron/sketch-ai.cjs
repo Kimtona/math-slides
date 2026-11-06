@@ -2,8 +2,8 @@
 // (electron/sketch-main.cjs) and by the command-line tool (scripts/sketch2slides.mjs). No Electron imports here.
 // The API key is passed in by the caller; it never reaches the renderer and is never logged.
 const Anthropic = require('@anthropic-ai/sdk');
-const { RECOGNIZE_SYSTEM, RECOGNIZE_USER, REVIEW_SYSTEM, LOCAL_RECOGNIZE_SYSTEM, localRecognizeUser } = require('./sketch-prompts.cjs');
-const { LOCAL_SCHEMA, localToModelIR } = require('./sketch-local.cjs');
+const { RECOGNIZE_SYSTEM, RECOGNIZE_USER, REVIEW_SYSTEM, LOCAL_RECOGNIZE_SYSTEM, localRecognizeUser, DOCUMENT_USER } = require('./sketch-prompts.cjs');
+const { LOCAL_SCHEMA, localToModelIR, documentToModelIR } = require('./sketch-local.cjs');
 const ollama = require('./sketch-ollama.cjs');
 
 const DEFAULT_MODEL = 'claude-opus-5-5';
@@ -74,6 +74,12 @@ async function recognize({ provider = 'ollama', apiKey, model, host, image, sche
   });
 }
 
+/** Document Mode (local model only): the screenshot as Markdown, no coordinates → ordered IR elements. */
+async function recognizeDocument({ host, model, image, onProgress }) {
+  const r = await ollama.chatJSON({ host, model, plain: true, maxTokens: 1200, images: [image.base64], text: DOCUMENT_USER, onProgress });
+  return { ...r, markdown: r.text, data: documentToModelIR(r.text) };
+}
+
 /** original/rendering: images; ir: the IR the rendering was built from. Returns { ok, summary, patches }. */
 async function review({ provider = 'ollama', apiKey, model, host, original, rendering, ir, issues, schema }) {
   const checks = Array.isArray(issues) && issues.length
@@ -98,4 +104,4 @@ async function review({ provider = 'ollama', apiKey, model, host, original, rend
   });
 }
 
-module.exports = { recognize, review, SketchAIError, DEFAULT_MODEL, ollama };
+module.exports = { recognizeDocument, recognize, review, SketchAIError, DEFAULT_MODEL, ollama };

@@ -110,6 +110,8 @@ export interface SketchIR {
   /** Pixel size of the source image (set by the app). */
   image: { width: number; height: number };
   elements: IRElement[];
+  /** 'document': Markdown transcription (reading order only; placed from measured heights, src/sketch/document.ts). Absent: coordinates (Layout Mode). */
+  layout?: 'document';
   /** Free-form remarks from the model (things it saw but could not represent). */
   notes?: string[];
 }
@@ -464,7 +466,7 @@ export function parseIR(raw: unknown, image: { width: number; height: number }):
     }
   }
   const notes = isObj(raw) && Array.isArray(raw.notes) ? raw.notes.filter((n: unknown) => typeof n === 'string') : undefined;
-  return { ir: { version: 1, image: { width: image.width, height: image.height }, elements: out, ...(notes?.length ? { notes } : {}) }, issues };
+  return { ir: { version: 1, image: { width: image.width, height: image.height }, elements: out, ...(isObj(raw) && raw.layout === 'document' ? { layout: 'document' as const } : {}), ...(notes?.length ? { notes } : {}) }, issues };
 }
 
 /** Applies review patches to an IR (returns a new, re-validated IR). Unknown ids are ignored with an issue. */
@@ -484,6 +486,6 @@ export function applyPatches(ir: SketchIR, patches: ReviewPatch[]): { ir: Sketch
       else els.push({ ...(p.element ?? {}), id: p.id });
     }
   }
-  const res = parseIR({ elements: els, notes: ir.notes }, ir.image);
+  const res = parseIR({ elements: els, notes: ir.notes, layout: ir.layout }, ir.image);
   return { ir: res.ir, issues: [...issues, ...res.issues] };
 }

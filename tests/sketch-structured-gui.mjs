@@ -231,6 +231,77 @@ try {
   assert.ok(/<a:buChar/.test(ex.xml) && /<a:buAutoNum/.test(ex.xml), 'PPTX: bullet + numbered lists');
   assert.ok(ex.pdf.length > 3000, 'PDF written');
   console.log('PASS C3 save → reopen, PDF, PPTX (5 rows × 10 cells, bullet + numbered lists)');
+
+  // ================= D) Document Mode (default): real Markdown transcription replayed =================
+  const docFx = await fixtureJson('test-composite.document.real.json');
+  await writeFile(fakeFile, JSON.stringify({ localOutput: comp.localOutput, markdown: docFx.markdown, sentImage: comp.sentImage }));
+  const slidesBefore = await evaluate(`store.getState().deck.slides.length`);
+  const imgFrame = { x: 360, y: 150, w: 340, h: Math.round(340 * 1229 / 653) };
+  await evaluate(`store.getState().addSlide()`);
+  const dSlideId = await evaluate(`store.getState().currentSlideId`);
+  await evaluate(`(async () => { const b = await (await fetch('/examples/composite/test_composite.png')).blob(); await insert.insertImageFiles([new File([b], 'x.png', { type: 'image/png' })]); })()`);
+  const dImg = await until(async () => (await slideEls()).find((e) => e.type === 'image'), 'image inserted');
+  const placeholderIds = (await slideEls()).filter((e) => e.type !== 'image').map((e) => e.id);
+  await evaluate(`store.getState().updateElements([${JSON.stringify(dImg.id)}], (d) => Object.assign(d, ${JSON.stringify(imgFrame)})); store.getState().select([${JSON.stringify(dImg.id)}])`);
+  await pause(250);
+  await clickButton('Convert to Editable Slide');
+  await until(() => evaluate(`[...document.querySelectorAll('.sk-footer button')].some((b) => b.textContent.trim() === 'Apply' && !b.disabled)`), 'document preview ready');
+  await pause(500);
+  const modeUi = await evaluate(`({ mode: sketch.useSketch.getState().mode, layout: sketch.useSketch.getState().ir.layout, pressed: [...document.querySelectorAll('.sk-mode')].map((b) => [b.dataset.mode, b.getAttribute('aria-pressed')]) })`);
+  assert.equal(modeUi.mode, 'document'); assert.equal(modeUi.layout, 'document');
+  assert.deepEqual(modeUi.pressed, [['document', 'true'], ['layout', 'false']], 'Document is the default and the two modes are clearly separate: ' + JSON.stringify(modeUi));
+  await shot('document-dialog.png');
+  const pages = await evaluate(`sketch.useSketch.getState().conv.pages.length`);
+  await clickButton('Apply');
+  await until(() => evaluate(`!document.querySelector('.sk-dialog')`), 'applied');
+  await evaluate(`store.getState().select([])`); await pause(600);
+  const slideIds = await evaluate(`store.getState().deck.slides.map((x) => x.id)`);
+  assert.equal(slideIds.length, slidesBefore + 1 + pages, 'content that did not fit continues on ' + pages + ' new slide(s)');
+  const dIdx = slideIds.indexOf(dSlideId);
+  const slidesDoc = await evaluate(`JSON.parse(JSON.stringify(store.getState().deck.slides.slice(${dIdx}, ${dIdx + 1 + pages}).map((x) => x.elements)))`);
+  const dEls = slidesDoc.flat().filter((e) => e.type !== 'image' && !placeholderIds.includes(e.id));
+  assert.ok(!slidesDoc[0].some((e) => e.id === dImg.id), 'image replaced');
+  assert.equal(dEls.filter((e) => e.type === 'table').length, 1); assert.deepEqual(cellTexts(dEls.find((e) => e.type === 'table')), COMP_CELLS, 'document: 10 cell texts exact');
+  const dTop = dEls.filter((e) => e.type === 'text').flatMap((e) => e.doc.content.map((n) => n.type));
+  for (const t of ['bulletList', 'orderedList', 'blockquote', 'mathBlock']) assert.ok(dTop.includes(t), 'native ' + t + ': ' + dTop);
+  const dLists = (type) => dEls.filter((e) => e.type === 'text').flatMap((e) => e.doc.content.filter((n) => n.type === type).map((n) => n.content.map((li) => flat(li))));
+  assert.deepEqual(dLists('bulletList'), [['Extract text and equations', 'Reconstruct native tables', 'Preserve editable elements']]);
+  assert.deepEqual(dLists('orderedList'), [['Upload screenshot', 'Run vision model', 'Edit generated slide']]);
+  const dMath = []; const wd = (n) => { if (/^math/.test(n.type)) dMath.push([n.type, n.attrs.latex]); n.content?.forEach(wd); }; dEls.filter((e) => e.type === 'text').forEach((e) => wd(e.doc));
+  assert.deepEqual(dMath, [['mathInline', 'E = mc^2'], ['mathBlock', 'L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2']]);
+  const headingTexts = dEls.filter((e) => e.type === 'text').flatMap((e) => e.doc.content.filter((n) => n.type === 'paragraph' && n.attrs?.fontSize).map((n) => flat(n)));
+  assert.deepEqual(headingTexts, ['AI Research Notes', '1. Model Configuration', '2. Research Tasks', '3. Workflow', '4. Equations', '5. Conclusion']);
+  // real rendered geometry on every slide: nothing overlaps, nothing leaves the slide
+  for (let k = 0; k <= pages; k++) {
+    await evaluate(`store.getState().goToSlide(${JSON.stringify(slideIds[dIdx + k])})`); await pause(700);
+    const boxes = await evaluate(`(() => { const s = document.querySelector('.stage .slide').getBoundingClientRect(); const sc = s.width / 1280; return [...document.querySelectorAll('.stage .slide [data-el-id]')].map((n) => { const r = n.getBoundingClientRect(); return { id: n.dataset.elId, x: (r.left - s.left) / sc, y: (r.top - s.top) / sc, w: r.width / sc, h: r.height / sc }; }); })()`);
+    const added = boxes.filter((b) => dEls.some((e) => e.id === b.id)).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < added.length; i++) assert.ok(added[i].y >= added[i - 1].y + added[i - 1].h - 1.5, `slide ${k + 1}: no overlap (${JSON.stringify(added[i - 1])} / ${JSON.stringify(added[i])})`);
+    assert.ok(added.every((b) => b.y + b.h <= 720 + 1 && b.x >= 0 && b.x + b.w <= 1280 + 1), `slide ${k + 1}: inside the slide`);
+    if (k === 0) await shot('document-applied.png'); else await shot('document-applied-p' + (k + 1) + '.png');
+  }
+  console.log('PASS D1 Document Mode (default, separate from Layout): real Markdown → native table 5×2, bullet ×3, ordered ×3, quote, inline + display equation, headings; no overlap on ' + (pages + 1) + ' slide(s), nothing cut');
+  // one Undo removes the extra slides and brings the image back
+  await evaluate('store.getState().undo()'); await pause(400);
+  assert.equal(await evaluate(`store.getState().deck.slides.length`), slidesBefore + 1, 'one Undo removes the continuation slides');
+  await evaluate(`store.getState().goToSlide(${JSON.stringify(dSlideId)})`); await pause(300);
+  assert.ok((await slideEls()).some((e) => e.id === dImg.id), 'image restored'); assert.ok(!(await slideEls()).some((e) => e.type === 'table'));
+  await evaluate('store.getState().redo()'); await pause(400);
+  assert.equal(await evaluate(`store.getState().deck.slides.length`), slidesBefore + 1 + pages, 'redo brings them back');
+  console.log('PASS D2 Undo / Redo of the whole conversion (slides included)');
+  const snapD = async () => JSON.stringify(await evaluate(`store.getState().deck.slides.slice(${dIdx}, ${dIdx + 1 + pages}).map((x) => x.elements.map((e) => e.doc ?? e.rows))`));
+  const beforeD = await snapD();
+  await evaluate(`persist.saveProject(true)`);
+  const nameD = await until(() => evaluate(`Object.keys(testFiles).filter((k) => k.endsWith('.mslides')).pop()`), 'saved');
+  const textD = Buffer.from(await evaluate(`testFiles[${JSON.stringify(nameD)}]`)).toString('utf8');
+  await evaluate(`store.getState().loadDeck(JSON.parse(JSON.stringify({ version: 1, title: 'blank', slides: [{ id: 'x', background: '#fff', elements: [], notes: '' }] })), {})`);
+  await evaluate(`persist.openFromText(${JSON.stringify(textD)}, null)`); await pause(600);
+  assert.equal(await snapD(), beforeD, 'identical after save + reopen');
+  slideIdx = dIdx;
+  const exD = await exportBoth();
+  assert.ok(exD.pdf.length > 3000);
+  assert.equal((exD.xml.match(/<a:tr[ >]/g) ?? []).length, 5, 'PPTX: 5 table rows (on the slide holding the table)');
+  console.log('PASS D3 save → reopen, PDF, PPTX');
   console.log('ALL PASS');
 } finally {
   socket?.close();

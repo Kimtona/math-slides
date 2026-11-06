@@ -492,6 +492,42 @@ try {
     assert.deepEqual(rowsOf([tx('a', 50, 100, 100, 'x1'), tx('b', 500, 100, 100, 'y1'), tx('c', 50, 130, 100, 'x2'), tx('d', 500, 130, 100, 'y2'), tx('e', 50, 160, 100, 'x3'), tx('f', 500, 160, 100, 'y3')]).includes('table'), true, 'three aligned rows of two cells are a table');
     assert.deepEqual(rowsOf([tx('a', 50, 100, 300, 'Intro line'), tx('b', 150, 140, 200, 'single indented line')]), ['text', 'text'], 'one indented line is not a list');
     assert.deepEqual(rowsOf([tx('a', 50, 100, 300, 'Intro line'), tx('b', 150, 140, 200, 'item one'), tx('c', 150, 200, 200, 'item two'), tx('d', 150, 330, 200, 'far away')]).filter((k) => k === 'text').length, 3, 'irregular spacing is not a list');
+    // -- Document Mode: the REAL Markdown transcription of the same screenshot (model call not repeated)
+    const docFx = await fixture('test-composite.document.real.json');
+    const di = localToModelIR === undefined ? null : req(path.join(root, 'electron/sketch-local.cjs')).documentToModelIR(docFx.markdown);
+    assert.equal(di.layout, 'document');
+    assert.deepEqual(di.elements.map((e) => (e.kind === 'text' ? e.blocks[0].type : e.kind)),
+      ['heading', 'heading', 'table', 'heading', 'bullet', 'heading', 'ordered', 'heading', 'paragraph', 'math', 'heading', 'quote'], 'document: reading order and block kinds');
+    const dt = di.elements.find((e) => e.kind === 'table');
+    assert.equal(dt.table.header, true);
+    assert.deepEqual(dt.table.rows.map((r) => r.map((c) => c.map((sp) => sp.text).join(''))), [['Component', 'Value'], ['Model', 'Qwen2.5-VL 7B'], ['Framework', 'Ollama'], ['Learning Rate', '0.001'], ['Batch Size', '32']], 'document: 5×2 table exact');
+    assert.deepEqual(di.elements.filter((e) => e.blocks?.[0]?.items).map((e) => e.blocks[0].items.map((it) => it.map((sp) => sp.text).join(''))), [['Extract text and equations', 'Reconstruct native tables', 'Preserve editable elements'], ['Upload screenshot', 'Run vision model', 'Edit generated slide']]);
+    assert.equal(di.elements.find((e) => e.kind === 'math').latex, 'L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2');
+    assert.ok(di.elements.some((e) => e.text === 'Inline: $E = mc^2$'), 'inline equation stays in its sentence');
+    assert.equal(di.elements.at(-1).blocks[0].type, 'quote');
+    // parser edge cases (hand-written): looping duplicates, code fences, one-line $$, no separator row, ragged rows, nothing invented
+    const pd = req(path.join(root, 'electron/sketch-markup.cjs')).parseMarkdownDocument;
+    assert.deepEqual(pd('a\n\na\n\na').length, 1, 'consecutive duplicate blocks (a looping model) are kept once');
+    assert.deepEqual(pd('```markdown\n# T\n```').map((b) => b.type), ['heading'], 'a code fence around the answer is dropped');
+    assert.deepEqual(pd('$$x^2$$').map((b) => [b.type, b.latex]), [['math', 'x^2']]);
+    assert.equal(pd('| a | b | c |\n| d | e |').at(0).rows[1].length, 3, 'ragged table rows are padded, not dropped');
+    assert.equal(pd('| a | b |\n| c | d |').at(0).header, false, 'no separator row → not claimed as header');
+    assert.deepEqual(pd('').length, 0);
+    // placement from heights: no overlap, reading order, overflow → more slides, nothing cut
+    const { documentToElements, reflowDocument } = await server.ssrLoadModule('/src/sketch/document.ts');
+    const dIR = { version: 1, image: { width: 653, height: 1229 }, layout: 'document', elements: di.elements };
+    const flow = documentToElements(dIR, { x: 100, y: 40, w: 340, h: 640 });
+    const allEls = [flow.elements, ...(flow.pages ?? [])];
+    assert.equal(allEls.flat().length, 12, 'document: every block becomes an element (none dropped)');
+    for (const page of allEls) {
+      for (let i = 1; i < page.length; i++) assert.ok(page[i].y >= page[i - 1].y + page[i - 1].h - 0.5, 'no overlap in reading order');
+      assert.ok(page.every((e) => e.y + e.h <= 720 - 39), 'inside the slide');
+    }
+    const types = allEls.flat().map((e) => e.type === 'text' ? (e.doc.content[0].type) : e.type);
+    assert.deepEqual(types.filter((t) => t === 'table').length, 1);
+    const tall = reflowDocument({ ...flow, elements: allEls.flat(), pages: [] }, Object.fromEntries(allEls.flat().map((e) => [e.id, e.h * 3])), { x: 100, y: 40, w: 340, h: 640 });
+    assert.ok(tall.pages.length >= 2, 'very tall content continues on more slides');
+    assert.equal([tall.elements, ...tall.pages].flat().filter((e) => e.type === 'text').length, allEls.flat().filter((e) => e.type === 'text').length, 'nothing is cut off');
     // -- list items listed one element each (the real model's habit) become ONE list; look-alikes stay separate
     const real2 = await fixture('formatted-notes.real-run2.json');
     const r2 = localToModelIR(real2.localOutput, real2.sentImage.width, real2.sentImage.height);

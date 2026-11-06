@@ -101,3 +101,6 @@ Rules:
 
 module.exports.LOCAL_RECOGNIZE_SYSTEM = LOCAL_RECOGNIZE_SYSTEM;
 module.exports.localRecognizeUser = localRecognizeUser;
+
+/** Document Mode (Markdown transcription, no coordinates): measured at 176 output tokens for the composite screenshot (docs/SKETCH_DEVLOG.md, Stage 10). */
+module.exports.DOCUMENT_USER = 'Transcribe this screenshot into Markdown. Use # headings, | tables with a --- separator row, - bullets, 1. numbered lists, > quotes, and $...$ for math ($$...$$ for display math). Output only the Markdown.';

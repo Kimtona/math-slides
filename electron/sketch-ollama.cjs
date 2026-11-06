@@ -93,7 +93,7 @@ const LOCAL_IMAGE_PIXELS = 1024 * 28 * 28;
 const MAX_OUTPUT_TOKENS = 2048;
 
 /** One structured-output chat request, streamed (avoids HTTP header timeouts on slow local generation). */
-async function chatJSON({ host = DEFAULT_OLLAMA_HOST, model = DEFAULT_OLLAMA_MODEL, system, text, images, schema, numCtx = 16384, timeoutMs = 10 * 60 * 1000, onProgress }) {
+async function chatJSON({ host = DEFAULT_OLLAMA_HOST, model = DEFAULT_OLLAMA_MODEL, system, text, images, schema, numCtx = 16384, timeoutMs = 10 * 60 * 1000, onProgress, plain = false, maxTokens = MAX_OUTPUT_TOKENS }) {
   const t0 = Date.now();
   const ac = new AbortController(); // lets us stop a looping answer instead of waiting for the token limit
   let res;
@@ -105,11 +105,11 @@ async function chatJSON({ host = DEFAULT_OLLAMA_HOST, model = DEFAULT_OLLAMA_MOD
       body: JSON.stringify({
         model,
         stream: true,
-        format: schema,
+        ...(plain ? {} : { format: schema }),
         // Deterministic decoding: transcription, not creativity.
-        options: { temperature: 0, num_ctx: numCtx, num_predict: MAX_OUTPUT_TOKENS },
+        options: { temperature: 0, num_ctx: numCtx, num_predict: maxTokens },
         messages: [
-          { role: 'system', content: system },
+          ...(system ? [{ role: 'system', content: system }] : []),
           { role: 'user', content: text, images },
         ],
       }),
@@ -155,6 +155,11 @@ async function chatJSON({ host = DEFAULT_OLLAMA_HOST, model = DEFAULT_OLLAMA_MOD
     ? { input_tokens: last.prompt_eval_count, output_tokens: last.eval_count, load_ms: Math.round((last.load_duration ?? 0) / 1e6), prompt_ms: Math.round((last.prompt_eval_duration ?? 0) / 1e6), eval_ms: Math.round((last.eval_duration ?? 0) / 1e6) }
     : { output_tokens: tokens };
   const modelName = `ollama/${last?.model ?? model}`;
+  if (plain) {
+    // Free text (Document Mode): a loop is cut at the repeating tail by the caller's parser (consecutive duplicates are dropped);
+    // a long answer that hit the token limit keeps what it wrote.
+    return { text: content, raw: content, model: modelName, ms: Date.now() - t0, usage, stopReason: looped ? 'repeat' : last?.done_reason };
+  }
   if (looped || last.done_reason === 'length') {
     // The answer was cut off (token limit) or stopped because it looped: keep the elements it finished, drop the rest.
     const kept = salvageElements(content);

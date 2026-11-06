@@ -71,6 +71,7 @@ try {
     window.testFiles = {};
     window.showSaveFilePicker = async ({suggestedName}) => ({name:suggestedName,createWritable:async()=>({write:async(blob)=>{testFiles[suggestedName]=[...new Uint8Array(typeof blob === 'string' ? new TextEncoder().encode(blob) : await blob.arrayBuffer())]},close:async()=>{}})});
   })()`);
+  if (process.env.SKETCH_MODE === 'layout') await evaluate(`sketch.useSketch.setState({ mode: 'layout' })`);
   const status = await evaluate(`window.native.sketch.status()`);
   summary.status = { provider: status.provider, model: status.model, ready: status.ready };
   assert.equal(status.provider, 'ollama', 'default provider is Ollama');

@@ -54,6 +54,8 @@ export interface Frame { x: number; y: number; w: number; h: number }
 
 export interface ConversionResult {
   elements: SlideElement[];
+  /** Document Mode: content that did not fit on the slide continues here, one array per further slide (never cut off). */
+  pages?: SlideElement[][];
   /** IR element id → ids of the slide elements created from it (merged labels map to their shape). */
   map: Record<string, string[]>;
   placement: Placement;
@@ -184,7 +186,7 @@ export function blocksToDoc(blocks: IRBlock[], baseFont: number): PMNode {
 }
 
 /** Width of one line in em, measuring inline math with MathJax. */
-function lineWidthEm(line: string): number {
+export function lineWidthEm(line: string): number {
   let w = 0;
   for (const n of inlineNodes(line)) {
     if (n.type === 'text') w += textWidthEm(n.text ?? '');

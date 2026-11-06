@@ -1,0 +1,16 @@
+{
+ "_note": "REAL qwen2.5vl:7b Markdown transcription (Document Mode prompt, 2026-11-06) of the user's ~/Downloads/test_composite.png; unedited. 176 output tokens.",
+ "sentImage": {
+  "width": 653,
+  "height": 1229
+ },
+ "usage": {
+  "wall_s": 55.266,
+  "load_s": 9.257223917,
+  "prompt_s": 21.403679,
+  "eval_s": 24.333816,
+  "prompt_tokens": 1751,
+  "out_tokens": 176
+ },
+ "markdown": "# AI Research Notes\n\n## 1. Model Configuration\n\n| Component | Value |\n| --- | --- |\n| Model | Qwen2.5-VL 7B |\n| Framework | Ollama |\n| Learning Rate | 0.001 |\n| Batch Size | 32 |\n\n## 2. Research Tasks\n\n- Extract text and equations\n- Reconstruct native tables\n- Preserve editable elements\n\n## 3. Workflow\n\n1. Upload screenshot\n2. Run vision model\n3. Edit generated slide\n\n## 4. Equations\n\nInline: $E = mc^2$\n\n$$\nL = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2\n$$\n\n## 5. Conclusion\n\n> Structure matters more than plain text."
+}

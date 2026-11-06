@@ -7,7 +7,7 @@ import type { Slide } from '../model/types';
 import { SLIDE_W } from '../model/types';
 import { useStore } from '../store/store';
 import { SlideView } from '../render/ElementView';
-import { applySketch, closeSketch, editElement, MAX_REVIEW_ROUNDS, refreshStatus, runSketch, saveKey, saveSettings, useSketch } from '../sketch/session';
+import { applySketch, setSketchMode, closeSketch, editElement, MAX_REVIEW_ROUNDS, refreshStatus, runSketch, saveKey, saveSettings, useSketch } from '../sketch/session';
 import { sketchNative } from '../sketch/bridge';
 import type { IRElement, IRIssue } from '../sketch/ir';
 
@@ -227,6 +227,14 @@ export function SketchDialog() {
 
         {phase !== 'settings' && (
           <footer className="sk-footer">
+            {s.status?.provider !== 'anthropic' ? (
+              <span className="sk-modes" role="group" aria-label="Conversion mode">
+                <button className={'sk-btn sk-mode' + (s.mode === 'document' ? ' on' : '')} aria-pressed={s.mode === 'document'} disabled={busy} data-mode="document"
+                  title="Document Mode: reads the screenshot as Markdown (fast) and sets headings, tables, lists, equations and quotes top to bottom in reading order. Positions of the original are not kept." onClick={() => setSketchMode('document')}>Document (fast)</button>
+                <button className={'sk-btn sk-mode' + (s.mode === 'layout' ? ' on' : '')} aria-pressed={s.mode === 'layout'} disabled={busy} data-mode="layout"
+                  title="Layout Mode: reads every element with its position and keeps the layout of the original (slower, best for sketches and diagrams)." onClick={() => setSketchMode('layout')}>Layout (positions)</button>
+              </span>
+            ) : <span className="sk-muted" title="Document Mode needs the local model">Layout mode</span>}
             <label className="sk-check"><input type="checkbox" checked={s.aiReview} disabled={busy} onChange={(e) => useSketch.setState({ aiReview: e.target.checked })} /> AI review</label>
             <button className="sk-btn" disabled={busy} onClick={runSketch}>{phase === 'error' ? 'Try again' : 'Run again'}</button>
             <span className="sk-spacer" />
