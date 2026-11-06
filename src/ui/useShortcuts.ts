@@ -12,6 +12,7 @@ import { exportPdf, exportPptx } from '../export/run';
 import { plainText } from '../editor/docUtils';
 import { toggleMark } from './textFormat';
 import { plainSlideCopy } from '../model/structure';
+import { configShortcut, runConfigCommand } from '../store/configFile';
 
 let slideClip: Slide | null = null;
 
@@ -31,6 +32,8 @@ export function useShortcuts() {
       const go = (fn: () => void) => { e.preventDefault(); fn(); };
 
       // Global (also while typing)
+      const config = configShortcut(e);
+      if (config) return go(() => runConfigCommand(config)); // Cmd+, / Cmd+Shift+, (fallback for the menu accelerators)
       if (mod && k === 's') return go(() => saveProject(e.shiftKey));
       if (mod && k === 'o') return go(openProject);
       if (mod && k === 'p') return go(exportPdf);
@@ -64,10 +67,12 @@ export function useShortcuts() {
       if (mod && k === 'a') return go(() => st.select(currentSlide().elements.map((x) => x.id)));
       if (mod && (k === 'b' || k === 'i' || k === 'u') && sel.length) return go(() => toggleMark(k === 'b' ? 'bold' : k === 'i' ? 'italic' : 'underline'));
       if (st.cropEditId && (e.key === 'Escape' || e.key === 'Enter')) return go(st.exitCrop);
+      if (e.key === 'Escape' && st.activeCell && sel.length === 1 && sel[0] === st.activeCell.id) return go(() => useStore.setState({ activeCell: null })); // table: back to "whole table" before deselecting
       if (e.key === 'Escape') return go(() => st.select([]));
       if (e.key === 'Enter' && sel.length === 1) {
         const el = currentSlide().elements.find((x) => x.id === sel[0]);
         if (el?.type === 'text') return go(() => st.startEditing(el.id, 'end'));
+        if (el?.type === 'table') return go(() => st.startCellEditing(el.id, 0, 0, 'end'));
         if (el?.type === 'image') return go(() => st.enterCrop(el.id));
       }
       if (e.code === 'BracketRight' && mod) return go(() => st.reorderSelection(e.shiftKey ? 'front' : 'forward'));

@@ -3,13 +3,16 @@ import { useStore } from '../store/store';
 import type { Asset, Citation, LineElement, ShapeElement, Slide, SlideElement, TextElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { StaticText } from './StaticText';
+import { TableView } from './TableView';
 import { isDocEmpty } from '../editor/docUtils';
 import { themeLayout, themedTextColor, todoAccent } from '../model/theme';
 import { EMOJI_GLYPH_SCALE, shapeTextInset, shapeTextStyle } from '../model/defaults';
-import { slideFontVars } from '../model/fonts';
+import { fontStack, slideFontVars } from '../model/fonts';
+import { imageRadius } from '../model/imageCrop';
 import { blockArrowOutline } from '../model/blockArrow';
 import { endTangent, isCurved, quadSegment, tAtDistance } from '../model/curve';
 import { displayCitation } from '../citations/format';
+import { captionBox } from '../model/caption';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, FOOTER_MARGIN_X, FOOTER_MARGIN_Y, FOOTER_NUMBER_RESERVE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 
 export function textBoxStyle(el: TextElement): CSSProperties {
@@ -19,6 +22,7 @@ export function textBoxStyle(el: TextElement): CSSProperties {
     textAlign: el.style.align,
     lineHeight: el.style.lineHeight,
     background: el.style.fill ?? undefined,
+    fontFamily: el.style.fontFamily ? fontStack(el.style.fontFamily) : undefined,
   };
 }
 
@@ -48,7 +52,7 @@ export function ShapeView({ el, editor }: { el: ShapeElement; editor?: ReactNode
     <>
       <ShapeSvg el={el} />
       {(editor || hasText) && (
-        <div className="shape-text" style={{ padding: `${inset.y}px ${inset.x}px`, fontSize: st.fontSize, color: st.color, textAlign: st.align, lineHeight: st.lineHeight }}>
+        <div className="shape-text" style={{ padding: `${inset.y}px ${inset.x}px`, fontSize: st.fontSize, color: st.color, textAlign: st.align, lineHeight: st.lineHeight, fontFamily: st.fontFamily ? fontStack(st.fontFamily) : undefined }}>
           {editor ?? <StaticText doc={el.doc!} />}
         </div>
       )}
@@ -124,29 +128,29 @@ function CurveSvg({ el, hit }: { el: LineElement & { cx: number; cy: number }; h
 
 /** The visual content of an element, without positioning. */
 /** Shared by the static caption and the editor's caption input so both lay out identically. */
-export const captionStyle: CSSProperties = { marginTop: CAPTION_GAP, fontSize: TYPOGRAPHY.caption, color: CAPTION_COLOR };
+export const captionStyle = (el: SlideElement): CSSProperties => ({ marginTop: CAPTION_GAP, fontSize: TYPOGRAPHY.caption, color: CAPTION_COLOR, ...captionBox(el) });
 
-export function ElementBody({ el, assets, caption }: { el: SlideElement; assets: Record<string, Asset>; caption?: ReactNode }) {
+/** The static caption of any element: hangs below the element box (its geometry stays the element's); empty = none. */
+export const staticCaption = (el: SlideElement) => (el.caption?.trim() ? <div className="img-caption" style={captionStyle(el)}>{el.caption}</div> : null);
+
+export function ElementBody({ el, assets }: { el: SlideElement; assets: Record<string, Asset> }) {
   switch (el.type) {
     case 'text': return <StaticText doc={el.doc} />;
     case 'image': {
       const a = assets[el.assetId];
       if (!a) return <div className="el-img missing">image</div>;
-      // The caption hangs below the element box (its geometry stays the image's); empty = none.
-      const cap = caption ?? (el.caption?.trim() ? <div className="img-caption" style={captionStyle}>{el.caption}</div> : null);
-      if (!el.crop) return <><img className="el-img" src={a.dataUrl} draggable={false} alt="" />{cap}</>;
+      const br = imageRadius(el) || undefined;
+      if (!el.crop) return <img className="el-img" src={a.dataUrl} draggable={false} alt="" style={br ? { borderRadius: br } : undefined} />;
       // Cropped: the full image is drawn larger and offset; the element box clips it.
       const c = el.crop;
       return (
-        <>
-          <div className="el-img-crop">
-            <img className="el-img-src" src={a.dataUrl} draggable={false} alt=""
-              style={{ left: `${(-c.x / c.w) * 100}%`, top: `${(-c.y / c.h) * 100}%`, width: `${100 / c.w}%`, height: `${100 / c.h}%` }} />
-          </div>
-          {cap}
-        </>
+        <div className="el-img-crop" style={br ? { borderRadius: br } : undefined}>
+          <img className="el-img-src" src={a.dataUrl} draggable={false} alt=""
+            style={{ left: `${(-c.x / c.w) * 100}%`, top: `${(-c.y / c.h) * 100}%`, width: `${100 / c.w}%`, height: `${100 / c.h}%` }} />
+        </div>
       );
     }
+    case 'table': return <TableView el={el} />;
     case 'shape': return <ShapeView el={el} />;
     case 'line': return <LineSvg el={el} />;
     // Real text at the element's size (re-rasterized by the font renderer at every size, never a scaled bitmap).
@@ -180,8 +184,9 @@ export function instanceBorderStyle(el: SlideElement): CSSProperties {
 }
 
 export function elementBoxStyle(el: SlideElement, fg?: string | null): CSSProperties {
-  const base: CSSProperties = { left: el.x, top: el.y, width: el.w, ...instanceBorderStyle(el) };
+  const base: CSSProperties = { left: el.x, top: el.y, width: el.w, ...instanceBorderStyle(el), ...(el.type === 'image' && imageRadius(el) ? { borderRadius: imageRadius(el) } : {}) };
   if (el.type === 'text') return { ...base, ...textBoxStyle(el), ...(fg ? { color: fg } : {}), minHeight: el.style.fontSize * el.style.lineHeight };
+  if (el.type === 'table') return base; // rows grow with their content; the stored h is the measured height
   return { ...base, height: el.h };
 }
 
@@ -239,6 +244,7 @@ function StaticElement({ slide, el, assets }: { slide: Slide; el: SlideElement; 
   return (
     <div className={`el el-${el.type}`} style={elementBoxStyle(el, fg)} data-el-id={el.id}>
       <ElementBody el={el} assets={assets} />
+      {staticCaption(el)}
     </div>
   );
 }

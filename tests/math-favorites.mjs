@@ -2,8 +2,7 @@
  * Real Electron windows on a disposable profile. Run: node tests/emoji-tool.mjs (needs a graphical session).
  */
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -12,10 +11,11 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import { testElectronEnv } from './electron-env.mjs';
 import { launchElectron, startViteServer, stopElectron } from './test-ports.mjs';
+import { makeTempDir } from './tmp-utils.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-mathfav-profile-'));
+const profile = makeTempDir('mathslides-mathfav-profile-');
 let debugPort; // assigned by launchElectron (Chromium binds a free port itself)
 const { server, url: devUrl } = await startViteServer(createServer, { root, configLoader: 'runner', cacheDir: path.join(profile, 'vite') }); // OS-assigned port
 const wrapper = path.join(profile, 'main.cjs');

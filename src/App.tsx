@@ -6,6 +6,7 @@ import { PropsBar } from './ui/PropsBar';
 import { Navigator } from './ui/Navigator';
 import { Canvas } from './canvas/Canvas';
 import { MathPopover } from './editor/MathPopover';
+import { LinkPopover } from './editor/LinkPopover';
 import { EmojiPickerHost } from './editor/EmojiPicker';
 import { Presenter } from './ui/Presenter';
 import { PrintRoot } from './export/PrintRoot';
@@ -66,6 +67,7 @@ export default function App() {
           </main>
         </div>
         <MathPopover />
+        <LinkPopover />
         <EmojiPickerHost />
         <SketchDialog />
       </div>

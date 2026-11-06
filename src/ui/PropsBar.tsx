@@ -1,12 +1,13 @@
-import { useEffect, useReducer } from 'react';
+import { useEffect, useReducer, useSyncExternalStore } from 'react';
 import { bendControl, isCurved } from '../model/curve';
 import type { ImageElement, LineElement, ShapeElement, SlideElement, TextElement } from '../model/types';
 import { useStore } from '../store/store';
 import { getActiveEditor, onActiveEditorChange } from '../editor/active';
-import { Btn, ColorButton, Icons, NumberField, Popover, Sep, WidthButton } from './controls';
+import { Btn, Icons, NumberField, Popover, Sep, WidthButton } from './controls';
 import { themeColorOf } from '../model/theme';
 import { DEFAULT_TEXT_COLOR, emptyDoc, lineBox, shapeTextStyle } from '../model/defaults';
-import { cropOf, isCropped, sourceRect } from '../model/imageCrop';
+import { getConfig, subscribeConfig } from '../model/config';
+import { cropOf, imageRadius, isCropped, sourceRect } from '../model/imageCrop';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { activeTextColor, activeTextFont, markActive, setDeckFont, setSelectionFont, setTextStyle, toggleList, toggleMark } from './textFormat';
 import { SLIDE_FONTS, deckFont, type SlideFont } from '../model/fonts';
@@ -14,6 +15,10 @@ import { HighlightButton, PaletteColorButton, ShapeFillButton, TextColorButton, 
 import { alignSelection, distributeSelection } from '../canvas/arrange';
 import { duplicateSelection } from '../canvas/insert';
 import { openSketch, sketchAvailable } from '../sketch/session';
+import { CaptionButton } from './CaptionButton';
+import { TableProps } from './TableProps';
+import { openLinkPopover } from '../editor/linkMark';
+import { charSizeAt, inLineSelection, inSizedBlock, selectionLineSize, setSelectionCharSize, setSelectionLineSize } from '../editor/extensions';
 
 /** Re-render on every transaction of the active editor (for B/I/U state). */
 function useEditorTick() {
@@ -45,6 +50,29 @@ function BorderButton({ el }: { el: TextElement | ImageElement }) {
     onChange={set} onNone={() => set(null)} />;
 }
 
+/** Corner radius of an image: slider (one undo step per drag) + numeric field, 0 = square, max = half the shorter side. */
+function RadiusControl({ el }: { el: ImageElement }) {
+  const max = Math.max(1, Math.floor(Math.min(el.w, el.h) / 2));
+  const value = Math.round(imageRadius(el));
+  const preset = useSyncExternalStore(subscribeConfig, () => getConfig().imageRadiusPreset); // `image-radius-preset` in config.txt
+  const set = (v: number, live = false) => useStore.getState().updateElements([el.id], (d) => {
+    const i = d as ImageElement;
+    if (v > 0) i.radius = Math.min(v, max); else delete i.radius;
+  }, live);
+  return (
+    <>
+      <span className="small-label">모서리</span>
+      <input type="range" className="radius-slider" title="모서리 둥글기 (Corner Radius)" aria-label="Corner Radius" min={0} max={max} step={1} value={value}
+        onPointerDown={() => useStore.getState().beginGesture()}
+        onPointerUp={() => useStore.getState().endGesture()}
+        onChange={(e) => set(Number(e.target.value), !!useStore.getState().gestureBase)} />
+      <NumberField value={value} min={0} max={max} title="모서리 반경 (px)" onChange={(v) => set(v)} />
+      <button type="button" className={'radius-preset' + (value === Math.round(preset) ? ' active' : '')} title={`모서리 ${preset}px`} aria-label={`Corner radius ${preset}px`}
+        disabled={preset > max} onMouseDown={(e) => e.preventDefault()} onClick={() => set(preset)}>{preset}</button>
+    </>
+  );
+}
+
 /** Compact font dropdown. `value` null = mixed fonts in the selection. */
 function FontButton({ title, value, onChange }: { title: string; value: SlideFont | null; onChange: (f: SlideFont) => void }) {
   return (
@@ -67,17 +95,25 @@ function TextProps({ el, editing, box = true }: { el: TextElement; editing: bool
   const inCode = !!ed?.isActive('codeBlock');
   // Inside a Code Block the field shows/edits that block's own size (older blocks without one render at .85em of the box size).
   const codeSize = inCode ? (ed!.getAttributes('codeBlock').fontSize as number | null) ?? Math.round(el.style.fontSize * 0.85 * 2) / 2 : undefined;
-  const lineSize = inCode ? codeSize : (ed?.getAttributes('paragraph').fontSize as number | undefined);
-  const size = lineSize ?? el.style.fontSize;
+  // Inside a Callout / Quote the field sizes just the selected lines (same per-line `fontSize` as #/##/###).
+  const inBlock = !!ed && !inCode && inSizedBlock(ed);
+  // In a plain text box: a selection inside one line sizes just those characters; otherwise the selected lines
+  // (the caret's line when nothing is selected). Table cells / shapes (no per-line size) keep sizing the whole box.
+  const inLine = !!ed && !inCode && !inBlock && ed.schema.nodes.paragraph.spec.attrs?.fontSize !== undefined;
+  const inChars = inLine && inLineSelection(ed!.state);
+  const lineSize = inCode ? codeSize : inBlock || inLine ? selectionLineSize(ed!) ?? undefined : (ed?.getAttributes('paragraph').fontSize as number | undefined);
+  const size = (inChars ? charSizeAt(ed!.state) ?? undefined : undefined) ?? lineSize ?? el.style.fontSize;
   const setSize = (v: number) => {
-    if (ed && inCode) ed.chain().focus().updateAttributes('codeBlock', { fontSize: v }).run();
+    if (ed && inChars) setSelectionCharSize(ed, v === (lineSize ?? el.style.fontSize) ? null : v);
+    else if (ed && (inBlock || inLine)) setSelectionLineSize(ed, v === el.style.fontSize ? null : v);
+    else if (ed && inCode) ed.chain().focus().updateAttributes('codeBlock', { fontSize: v }).run();
     else if (ed && lineSize) ed.chain().focus().updateAttributes('paragraph', { fontSize: v }).run();
     else setTextStyle({ fontSize: v });
   };
   return (
     <>
       <Btn title="글자 작게" onClick={() => setSize(Math.max(6, size - 2))}>−</Btn>
-      <NumberField value={size} min={6} max={300} title={inCode ? '코드 블록 글자 크기 (px)' : lineSize ? '이 줄의 글자 크기 (px)' : '글자 크기 (px)'} onChange={setSize} />
+      <NumberField value={size} min={6} max={300} title={inCode ? '코드 블록 글자 크기 (px)' : inChars ? '선택한 글자 크기 (px)' : inBlock || inLine ? '선택한 줄의 글자 크기 (px)' : lineSize ? '이 줄의 글자 크기 (px)' : '글자 크기 (px)'} onChange={setSize} />
       <Btn title="글자 크게" onClick={() => setSize(size + 2)}>+</Btn>
       <Sep />
       <FontButton title="선택한 텍스트 글꼴 (전체 글꼴은 슬라이드 빈 곳 선택 후 상단 '글꼴')" value={activeTextFont(el, editing)} onChange={setSelectionFont} />
@@ -88,6 +124,7 @@ function TextProps({ el, editing, box = true }: { el: TextElement; editing: bool
       <Btn title="취소선" active={markActive('strike', el, editing)} onClick={() => toggleMark('strike')}><s>S</s></Btn>
       <TextColorButton value={activeTextColor(el, editing)} />
       <HighlightButton value={activeTextColor(el, editing, 'highlight')} />
+      <Btn title="링크 ⌘K (⌘+클릭으로 열기)" active={!!ed?.isActive('userLink')} disabled={!ed} onClick={() => ed && openLinkPopover(ed)}>🔗</Btn>
       <Btn title="인라인 코드 (Inline Code)" active={markActive('code', el, editing)} onClick={() => toggleMark('code')}>{Icons.code}</Btn>
       <Sep />
       <Btn title="왼쪽 정렬" active={el.style.align === 'left'} onClick={() => setTextStyle({ align: 'left' })}>{Icons.tAlignL}</Btn>
@@ -146,7 +183,7 @@ function LineProps({ el }: { el: LineElement }) {
   const upd = (fn: (d: LineElement) => void) => useStore.getState().updateElements([el.id], (d) => fn(d as LineElement));
   return (
     <>
-      <ColorButton title="선 색" label={<span className="small-label">선</span>} value={el.stroke} onChange={(c) => c && upd((d) => { d.stroke = c; })} />
+      <PaletteColorButton title="선 색" label={<span className="small-label">선</span>} value={el.stroke} onChange={(c) => upd((d) => { d.stroke = c; })} />
       <WidthButton title="선 두께" value={el.strokeWidth} onChange={(w) => w && upd((d) => { d.strokeWidth = w; })} />
       <Btn title="점선" active={el.dashed} onClick={() => upd((d) => { d.dashed = !d.dashed; })}>┄</Btn>
       <Btn title="시작 화살표" active={el.arrowStart} onClick={() => upd((d) => { d.arrowStart = !d.arrowStart; })}>←</Btn>
@@ -196,10 +233,9 @@ function ImageProps({ el }: { el: ImageElement }) {
         if (!asset) return;
         st.updateElements([el.id], (d) => { d.h = Math.round(d.w * (c.h * asset.height) / (c.w * asset.width)); });
       }}>원본 비율</Btn>
-      {el.caption === undefined
-        ? <Btn wide title="이미지 캡션 추가" onClick={() => st.updateElements([el.id], (d) => { (d as ImageElement).caption = ''; })}>Caption</Btn>
-        : <Btn wide className="active" title="이미지 캡션 삭제" onClick={() => st.updateElements([el.id], (d) => { delete (d as ImageElement).caption; })}>Remove Caption</Btn>}
+      <CaptionButton el={el} />
       <BorderButton el={el} />
+      <RadiusControl el={el} />
       <Btn wide title={sketchAvailable() ? '손그림을 편집 가능한 슬라이드 요소로 변환 (AI)' : '데스크톱 앱에서만 사용할 수 있습니다'}
         disabled={!sketchAvailable()} onClick={() => openSketch(el)}>Convert to Editable Slide</Btn>
       <span className="hint">드래그 = 비율 유지 · ⌥ Option = 자유 변형 · ⇧ Shift = 크롭 · 더블클릭 = 크롭 편집</span>
@@ -263,8 +299,10 @@ export function PropsBar() {
       {one?.type === 'text' && <TextProps el={one} editing={editingId === one.id} />}
       {one?.type === 'shape' && editingId === one.id && <><TextProps el={shapeAsText(one)} editing box={false} /><Sep /></>}
       {one?.type === 'shape' && <ShapeProps el={one} />}
+      {one?.type === 'table' && <TableProps el={one} editing={editingId === one.id} />}
       {one?.type === 'line' && <LineProps el={one} />}
       {one?.type === 'image' && <ImageProps el={one} />}
+      {one && one.type !== 'image' && one.type !== 'table' && <CaptionButton el={one} />}
       {els.length > 1 && els.every((e) => e.type === 'text') && (
         <>
           <Btn title="굵게" onClick={() => toggleMark('bold')}><b>B</b></Btn>

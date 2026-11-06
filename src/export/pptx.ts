@@ -1,7 +1,9 @@
 import PptxGenJS from 'pptxgenjs';
 import JSZip from 'jszip';
-import type { Asset, Deck, EmojiElement, ImageElement, LineElement, ShapeElement, TextElement } from '../model/types';
-import { sourceRect } from '../model/imageCrop';
+import type { Asset, Deck, EmojiElement, ImageElement, LineElement, ShapeElement, SlideElement, TableElement, TextElement } from '../model/types';
+import { cellBorders, cellFill, cellPlainText, estimateTableHeight, repairTable, tablePad, type Edge } from '../model/table';
+import { imageRadius, roundRectAdj, sourceRect } from '../model/imageCrop';
+import { captionBox } from '../model/caption';
 import { CAPTION_COLOR, CAPTION_GAP, FOOTER_COLOR, FOOTER_FONT_SIZE, INSTANCE_BORDER_WIDTH, TYPOGRAPHY } from '../model/typography';
 import { themeLayout } from '../model/theme';
 import { EMOJI_GLYPH_SCALE, shapeTextInset, shapeTextStyle } from '../model/defaults';
@@ -81,18 +83,21 @@ function linkOf(node: Node): TextPropsOptions['hyperlink'] | undefined {
   return /^https?:\/\//.test(href) ? { url: href, tooltip: href } : undefined;
 }
 
+/** Font of a text box: its own (configured at creation) else the presentation font. */
+const boxFont = (base: Pick<TextElement, 'style'>): string => (base.style.fontFamily ? deckFont(base.style.fontFamily) : PPT_FONT);
+
 function runOptions(textNode: Node, base: TextElement, text: string): TextPropsOptions {
   const parent = textNode.parentElement!;
   const cs = getComputedStyle(parent);
   const o: TextPropsOptions = {
-    fontFace: parent.closest('code') ? INLINE_CODE_FONT : fontFromCss(cs.fontFamily) ?? PPT_FONT,
+    fontFace: parent.closest('code') ? INLINE_CODE_FONT : fontFromCss(cs.fontFamily) ?? boxFont(base),
     fontSize: PT(parseFloat(cs.fontSize) || base.style.fontSize),
     color: hex(cs.color),
     bold: parseInt(cs.fontWeight) >= 600,
     italic: cs.fontStyle === 'italic',
     lang: /[ㄱ-힝]/.test(text) ? 'ko-KR' : 'en-US',
   };
-  if (parent.closest('u')) o.underline = { style: 'sng' };
+  if (parent.closest('u') || parent.closest('a.user-link')) o.underline = { style: 'sng' };
   if (parent.closest('s') || parent.closest('.todo[data-checked="true"]')) o.strike = 'sngStrike';
   const highlight = parent.closest('mark');
   if (highlight) o.highlight = hex(getComputedStyle(highlight).backgroundColor);
@@ -120,10 +125,12 @@ function listInfo(p: Element, content: Element, base: TextElement) {
 function paragraphRuns(p: Element, content: Element, base: TextElement, last: boolean): TextProps[] {
   const runs: TextProps[] = [];
   let soft = false;
+  let maxPx = parseFloat(getComputedStyle(p).fontSize) || 0; // largest text in the line (sets its line spacing)
   const walk = (n: Node) => {
     if (n.nodeType === Node.TEXT_NODE) {
       const text = n.textContent ?? '';
       if (!text) return;
+      maxPx = Math.max(maxPx, parseFloat(getComputedStyle(n.parentElement!).fontSize) || 0);
       runs.push({ text, options: { ...runOptions(n, base, text), ...(soft ? { softBreakBefore: true } : {}) } });
       soft = false;
     } else if (n instanceof HTMLBRElement) {
@@ -132,7 +139,7 @@ function paragraphRuns(p: Element, content: Element, base: TextElement, last: bo
   };
   walk(p);
   if (soft) runs.push({ text: '', options: { softBreakBefore: true, fontSize: PT(base.style.fontSize) } });
-  if (!runs.length) runs.push({ text: '', options: { fontSize: PT(base.style.fontSize), fontFace: PPT_FONT } });
+  if (!runs.length) runs.push({ text: '', options: { fontSize: PT(base.style.fontSize), fontFace: boxFont(base) } });
 
   const li = listInfo(p, content, base);
   if (li) {
@@ -141,10 +148,9 @@ function paragraphRuns(p: Element, content: Element, base: TextElement, last: bo
       ? li.ordered ? { type: 'number', indent: li.indent, numberStartAt: li.start } : { indent: li.indent }
       : false;
   }
-  // Lines sized with #/##/### get their own exact line spacing (font size × line height).
-  const pSize = parseFloat(getComputedStyle(p).fontSize);
-  if (pSize && Math.abs(pSize - base.style.fontSize) > 0.01) {
-    const spacing = PT(pSize * base.style.lineHeight);
+  // Lines sized with #/##/### (or holding bigger/smaller characters) get their own exact line spacing (font size × line height).
+  if (maxPx && Math.abs(maxPx - base.style.fontSize) > 0.01) {
+    const spacing = PT(maxPx * base.style.lineHeight);
     runs.forEach((r) => { r.options!.lineSpacing = spacing; });
   }
   if (!last) runs[runs.length - 1].options!.breakLine = true;
@@ -161,7 +167,7 @@ function boxOptions(base: TextElement, r: Rect): PptxGenJS.TextPropsOptions {
   return {
     x: IN(x), y: IN(r.y), w: IN(w), h: IN(r.h),
     margin: 0, valign: 'top', wrap: true, fit: 'none',
-    fontFace: PPT_FONT, fontSize: PT(base.style.fontSize), color: hex(base.style.color),
+    fontFace: boxFont(base), fontSize: PT(base.style.fontSize), color: hex(base.style.color),
     align: base.style.align, lineSpacing: PT(base.style.fontSize * base.style.lineHeight),
     paraSpaceBefore: 0, paraSpaceAfter: 0,
   };
@@ -189,7 +195,7 @@ function addFragments(s: Slide, base: TextElement, p: Element, content: Element,
     const fs = base.style.fontSize;
     s.addText(marker, {
       x: IN(pr.x - fs * 1.3), y: IN(pr.y), w: IN(fs * 1.3), h: IN(fs * base.style.lineHeight),
-      margin: 0, valign: 'top', wrap: false, fontFace: PPT_FONT, fontSize: PT(fs), color: hex(base.style.color),
+      margin: 0, valign: 'top', wrap: false, fontFace: boxFont(base), fontSize: PT(fs), color: hex(base.style.color),
     });
   }
   const range = document.createRange();
@@ -201,7 +207,7 @@ function addFragments(s: Slide, base: TextElement, p: Element, content: Element,
     const o = runOptions(node, base, text);
     s.addText([{ text, options: o }], {
       x: IN(left - origin.left), y: IN(top - origin.top), w: IN(right - left + Math.max(3, (right - left) * 0.03)), h: IN(bottom - top),
-      margin: 0, valign: 'top', wrap: false, fit: 'none', fontFace: PPT_FONT, fontSize: o.fontSize, color: o.color,
+      margin: 0, valign: 'top', wrap: false, fit: 'none', fontFace: o.fontFace ?? boxFont(base), fontSize: o.fontSize, color: o.color,
     });
   };
   const walk = (n: Node) => {
@@ -402,6 +408,54 @@ function addTextElement(s: Slide, el: TextElement, dom: Element, origin: DOMRect
   flush();
 }
 
+// ---------- tables ----------
+
+/**
+ * A table as a native, editable PowerPoint table (<a:tbl>): column widths from the model, row heights from the rendered
+ * rows, one run per styled text piece (same run builder as text boxes). Borders, the Header style's fill, custom cell fills and
+ * the custom line color come from the same model helpers as the on-screen CSS (cellBorders / cellFill), so the file matches the editor.
+ */
+function addTable(s: Slide, el: TableElement, dom: Element | null, origin: DOMRect, slideDom: Element) {
+  const t = repairTable(el);
+  const trs = dom ? [...dom.querySelectorAll('tr')] : [];
+  const base = { ...el, style: t.textStyle } as unknown as TextElement;
+  const none = { type: 'none' as const };
+  const edge = (e: Edge | null) => (e ? { type: 'solid' as const, pt: PT(e.px), color: hex(e.color) } : none);
+  const pad = tablePad(t);
+  const rows = t.rows.map((row, r) => {
+    const head = t.headerRow && r === 0;
+    let domIndex = 0; // covered (merged-away) cells have no <td>, and PowerPoint takes no cell for them either
+    return row.flatMap((cell, c) => {
+      if (cell.covered) return [];
+      const border = cellBorders(t, r + (cell.rowSpan ?? 1) - 1).map(edge) as [typeof none, typeof none, typeof none, typeof none];
+      const content = trs[r]?.children[domIndex++]?.querySelector('.tb-content') ?? null;
+      const paras = content ? [...content.querySelectorAll('p')] : [];
+      const runs: TextProps[] = paras.length
+        ? paras.flatMap((p, i) => paragraphRuns(p, content!, base, i === paras.length - 1))
+        : [{ text: cellPlainText(cell.doc), options: { fontSize: PT(t.textStyle.fontSize), fontFace: PPT_FONT, color: hex(t.textStyle.color), bold: head } }];
+      const fill = cellFill(t, r, cell);
+      return [{
+        text: runs,
+        options: {
+          valign: 'top' as const, align: t.textStyle.align,
+          margin: [IN(pad.y), IN(pad.x), IN(pad.y), IN(pad.x)] as [number, number, number, number],
+          border,
+          ...(cell.colSpan ? { colspan: cell.colSpan } : {}), ...(cell.rowSpan ? { rowspan: cell.rowSpan } : {}),
+          ...(fill ? { fill: { color: hex(fill) } } : {}),
+          lineSpacing: PT(t.textStyle.fontSize * t.textStyle.lineHeight),
+        },
+      }];
+    });
+  });
+  const natural = estimateTableHeight(1, t.textStyle.fontSize, t.textStyle.lineHeight, t.padScale);
+  s.addTable(rows as unknown as PptxGenJS.TableRow[], {
+    x: IN(el.x), y: IN(el.y), w: IN(t.w),
+    colW: t.cols.map(IN),
+    rowH: t.rows.map((_, r) => IN(trs[r] ? relRect(trs[r], origin).h : natural)),
+    objectName: 'Table',
+  });
+}
+
 // ---------- shapes, lines, images ----------
 
 /** Block Arrow outline in inches, relative to the (stroke-inset) shape box. */
@@ -441,7 +495,7 @@ function addShape(pptx: PptxGenJS, s: Slide, el: ShapeElement, slideDom: Element
   s.addText(runs, {
     ...geometry, shape: type, align: base.style.align, valign: 'middle', wrap: true, fit: 'none',
     margin: [PT(inset.y), PT(inset.x), PT(inset.y), PT(inset.x)],
-    fontFace: PPT_FONT, fontSize: PT(base.style.fontSize), color: hex(base.style.color),
+    fontFace: boxFont(base), fontSize: PT(base.style.fontSize), color: hex(base.style.color),
     lineSpacing: PT(base.style.fontSize * base.style.lineHeight), paraSpaceBefore: 0, paraSpaceAfter: 0, objectName: 'Shape Text',
   });
 }
@@ -497,17 +551,18 @@ async function imageData(a: Asset): Promise<string> {
   return png;
 }
 
-/** Image caption → native editable text derived from the image's geometry (below it, same left edge and width). */
-function addCaption(s: Slide, el: ImageElement, slideDom: Element, origin: DOMRect) {
+/** Image / table caption → native editable text derived from the element's geometry (below it, same left edge and width). */
+function addCaption(s: Slide, el: SlideElement, slideDom: Element, origin: DOMRect) {
   if (!el.caption?.trim()) return;
   const dom = slideDom.querySelector(`[data-el-id="${el.id}"] .img-caption`);
-  const r = dom ? relRect(dom, origin) : { x: el.x, y: el.y + el.h + CAPTION_GAP, w: el.w, h: TYPOGRAPHY.caption * 1.5 };
+  const fb = captionBox(el) as { left?: number; width?: number; marginTop?: number };
+  const r = dom ? relRect(dom, origin) : { x: el.x + (fb.left ?? 0), y: el.y + el.h + (fb.marginTop ?? CAPTION_GAP), w: fb.width ?? el.w, h: TYPOGRAPHY.caption * 1.5 };
   const lh = dom ? parseFloat(getComputedStyle(dom).lineHeight) || TYPOGRAPHY.caption * 1.35 : TYPOGRAPHY.caption * 1.35;
   const lines = el.caption.replace(/\s+$/, '').split('\n');
   const runs: TextProps[] = lines.map((text, i) => ({ text, options: { fontFace: PPT_FONT, fontSize: PT(TYPOGRAPHY.caption), color: hex(CAPTION_COLOR), bold: false, ...(i < lines.length - 1 ? { breakLine: true } : {}) } }));
   s.addText(runs, {
-    x: IN(el.x), y: IN(r.y), w: IN(el.w), h: IN(Math.max(r.h, lh)), margin: 0, valign: 'top', wrap: true, fit: 'none', align: 'left',
-    fontFace: PPT_FONT, fontSize: PT(TYPOGRAPHY.caption), color: hex(CAPTION_COLOR), lineSpacing: PT(lh), paraSpaceBefore: 0, paraSpaceAfter: 0, objectName: 'Image Caption',
+    x: IN(r.x), y: IN(r.y), w: IN(r.w), h: IN(Math.max(r.h, lh)), margin: 0, valign: 'top', wrap: true, fit: 'none', align: 'left',
+    fontFace: PPT_FONT, fontSize: PT(TYPOGRAPHY.caption), color: hex(CAPTION_COLOR), lineSpacing: PT(lh), paraSpaceBefore: 0, paraSpaceAfter: 0, objectName: el.type === 'table' ? 'Table Caption' : el.type === 'image' ? 'Image Caption' : 'Caption',
   });
 }
 
@@ -541,18 +596,28 @@ function addEmoji(s: Slide, el: EmojiElement) {
   s.addImage({ data: emojiPng(el.emoji, Math.min(el.w, el.h)), x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h), altText: el.emoji, objectName: 'Emoji' });
 }
 
+/** Picture name → roundRect `adj`; pptxgenjs always writes `rect` geometry, so fixXml swaps it for exactly these pictures. */
+let roundedPics = new Map<string, number>();
+
 async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset>, slideDom: Element, origin: DOMRect) {
   const a = assets[el.assetId];
   if (!a) return;
   const data = await imageData(a);
-  addCaption(s, el, slideDom, origin);
   // Instance border: a native outline-only rectangle over the picture's frame.
-  const border = () => el.borderColor && s.addShape('rect', {
+  const radius = imageRadius(el);
+  const border = () => el.borderColor && s.addShape(radius ? 'roundRect' : 'rect', {
     x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h), fill: { type: 'none' },
     line: { color: hex(el.borderColor), width: PT(INSTANCE_BORDER_WIDTH) }, objectName: 'Instance Border',
+    ...(radius ? { rectRadius: IN(radius) } : {}),
   });
+  // Rounded corners: a native picture with roundRect geometry (original bytes and crop untouched; patched in fixXml).
+  const rounded: { objectName?: string } = {};
+  if (radius) {
+    rounded.objectName = `Rounded Image ${roundedPics.size + 1}`;
+    roundedPics.set(rounded.objectName, roundRectAdj(el));
+  }
   if (!el.crop) {
-    s.addImage({ data, x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h) });
+    s.addImage({ data, x: IN(el.x), y: IN(el.y), w: IN(el.w), h: IN(el.h), ...rounded });
     border();
     return;
   }
@@ -563,6 +628,7 @@ async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset
   s.addImage({
     data, x: IN(el.x), y: IN(el.y), w: IN(R.w), h: IN(R.h),
     sizing: { type: 'crop', x: IN(el.x - R.x), y: IN(el.y - R.y), w: IN(el.w), h: IN(el.h) },
+    ...rounded,
   });
   border();
 }
@@ -573,7 +639,7 @@ async function addImage(s: Slide, el: ImageElement, assets: Record<string, Asset
  * pptxgenjs writes one <a:pPr> per run; PowerPoint only allows one per paragraph (first child).
  * Also fix the East-Asian charset (Hangul = 129).
  */
-async function fixXml(blob: Blob): Promise<Blob> {
+async function fixXml(blob: Blob, rounded: Map<string, number>): Promise<Blob> {
   const zip = await JSZip.loadAsync(blob);
   const files = Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f));
   for (const f of files) {
@@ -586,6 +652,15 @@ async function fixXml(blob: Blob): Promise<Blob> {
       });
       return `<a:p>${inner}</a:p>`;
     });
+    // Rounded pictures only: <p:pic> blocks whose name we assigned get roundRect geometry (rect → roundRect with the adj).
+    if (rounded.size) {
+      xml = xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, (pic) => {
+        const name = /<p:cNvPr id="\d+" name="([^"]*)"/.exec(pic)?.[1];
+        const adj = name === undefined ? undefined : rounded.get(name);
+        if (adj === undefined) return pic;
+        return pic.replace('<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>', `<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val ${adj}"/></a:avLst></a:prstGeom>`);
+      });
+    }
     xml = xml.replace(/(<a:ea typeface="[^"]*" pitchFamily="\d+" charset=")-122"/g, '$1-127"');
     zip.file(f, xml);
   }
@@ -626,6 +701,7 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
   pptx.title = deck.title;
   pptx.theme = { headFontFace: PPT_FONT, bodyFontFace: PPT_FONT };
 
+  roundedPics = new Map();
   slideNumbers = Object.fromEntries(deck.slides.map((x, i) => [x.id, i + 1]));
   for (const slide of deck.slides) {
     const s = pptx.addSlide();
@@ -641,14 +717,16 @@ export async function buildPptx(deck: Deck, assets: Record<string, Asset>, root:
       else if (el.type === 'line') addLine(pptx, s, el);
       else if (el.type === 'image') await addImage(s, el, assets, slideDom, origin);
       else if (el.type === 'emoji') addEmoji(s, el);
+      else if (el.type === 'table') addTable(s, el, slideDom.querySelector(`[data-el-id="${el.id}"]`), origin, slideDom);
       else {
         const dom = slideDom.querySelector(`[data-el-id="${el.id}"]`);
         if (dom) addTextElement(s, el, dom, origin);
       }
+      addCaption(s, el, slideDom, origin);
     }
     addFooter(s, slideDom, origin);
     if (slide.notes.trim()) s.addNotes(slide.notes);
   }
   const blob = (await pptx.write({ outputType: 'blob' })) as Blob;
-  return fixXml(blob);
+  return fixXml(blob, roundedPics);
 }

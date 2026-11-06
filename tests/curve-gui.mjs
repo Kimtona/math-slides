@@ -98,8 +98,8 @@ try {
   // ---- menu ----
   await click('.tb-center button[title="도형"]');
   const menu = await evaluate("[...document.querySelectorAll('.pop .menu-item')].map((e) => e.textContent.trim())");
-  assert.equal(menu.length, 8, menu.join('|'));
-  assert.ok(menu[6].endsWith('곡선') && menu[7].endsWith('곡선 화살표'), 'new items at the end: ' + menu.join('|'));
+  assert.equal(menu.length, 9, menu.join('|')); // 5 shapes/lines + 아래쪽 화살표 + 두꺼운 화살표 + 곡선 + 곡선 화살표
+  assert.ok(menu[7].endsWith('곡선') && menu[8].endsWith('곡선 화살표'), 'curve items at the end: ' + menu.join('|'));
   await click('.tb-center button[title="도형"]'); // close
 
   // ---- insert a curved arrow ----
@@ -155,14 +155,14 @@ try {
 
   // ---- style through the props bar: color, width, start arrowhead, dashed ----
   await click('.propsbar button[title^="선 색"]');
-  await click('.pop .pal[data-color="Red"]');
+  await click('.text-palette .standard-colors .text-swatch:nth-child(1)'); // Red of the shared palette (#DC2626)
   await click('.propsbar button[title="선 두께"]');
   await click('.pop [data-width="6"]');
   await click('.propsbar button[title="시작 화살표"]');
   a = await one(A.id);
-  assert.deepEqual([a.stroke, a.strokeWidth, a.arrowStart, a.arrowEnd], ['#D62728', 6, true, true]);
-  assert.equal(await evaluate(`document.querySelector('.slide.editable [data-el-id="${A.id}"] path.curve-path').getAttribute('stroke')`), '#D62728');
-  assert.equal(await evaluate(`[...document.querySelectorAll('.slide.editable [data-el-id="${A.id}"] polygon')].filter((p) => p.getAttribute('fill') === '#D62728').length`), 2, 'both heads in the line color');
+  assert.deepEqual([a.stroke, a.strokeWidth, a.arrowStart, a.arrowEnd], ['#DC2626', 6, true, true]);
+  assert.equal(await evaluate(`document.querySelector('.slide.editable [data-el-id="${A.id}"] path.curve-path').getAttribute('stroke')`), '#DC2626');
+  assert.equal(await evaluate(`[...document.querySelectorAll('.slide.editable [data-el-id="${A.id}"] polygon')].filter((p) => p.getAttribute('fill') === '#DC2626').length`), 2, 'both heads in the line color');
   await click('.propsbar button[title="시작 화살표"]'); // back to one head
   await shot('curve-2-styled');
 
@@ -240,9 +240,9 @@ try {
     if (end < 0) break;
     try { streams.push(zlib.inflateSync(pdf.subarray(start, end)).toString('latin1')); } catch {}
   }
-  // Chromium writes the curve as cubic Bézier segments ("x y x y x y c") stroked in the line's red (0.839 0.153 0.157).
+  // Chromium writes the curve as cubic Bézier segments ("x y x y x y c") stroked in the line's red (#DC2626 = 0.863 0.149 0.149).
   assert.ok(streams.some((s) => /[\d.]+ [\d.]+ [\d.]+ [\d.]+ [\d.]+ [\d.]+ c\b/.test(s)), 'PDF has a vector curve');
-  assert.ok(streams.some((s) => /0?\.83\d* 0?\.15\d* 0?\.15\d* (RG|SC|SCN)/.test(s)), 'PDF stroke color is the line color');
+  assert.ok(streams.some((s) => /0?\.86\d* 0?\.14\d* 0?\.14\d* (RG|SC|SCN)/.test(s)), 'PDF stroke color is the line color');
 
   // ---- PPTX: open freeform with a quadratic Bézier and native arrowhead ----
   await evaluate("import('/src/export/run.ts').then((m) => m.exportPptx())");
@@ -258,7 +258,7 @@ try {
   const arrowSp = curved.find((s) => s.includes('name="Curved Arrow"'));
   assert.ok(arrowSp, 'named Curved Arrow');
   assert.match(arrowSp, /<a:tailEnd type="triangle"\/>/); assert.doesNotMatch(arrowSp, /<a:headEnd/);
-  assert.match(arrowSp, /<a:noFill\/>/); assert.match(arrowSp, /val="D62728"/); assert.match(arrowSp, /<a:ln w="57150">/, '6px = 4.5pt');
+  assert.match(arrowSp, /<a:noFill\/>/); assert.match(arrowSp, /val="DC2626"/); assert.match(arrowSp, /<a:ln w="57150">/, '6px = 4.5pt');
   assert.doesNotMatch(arrowSp, /<a:close/, 'open path');
   // The path in the file is the on-screen curve: moveTo = start, quadBezTo = (control, end), relative to the curve's box.
   const emu = (v) => Math.round((v / 96) * 914400);

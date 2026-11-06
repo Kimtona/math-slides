@@ -3,8 +3,7 @@
  * Set MATHSLIDES_TEST_OUTPUT to retain screenshots, PDF, PPTX and .mslides fixtures.
  */
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -14,12 +13,13 @@ import { createServer } from 'vite';
 import JSZip from 'jszip';
 import { testElectronEnv } from './electron-env.mjs';
 import { launchElectron, startViteServer, stopElectron } from './test-ports.mjs';
+import { makeTempDir, printOutput } from './tmp-utils.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const output = process.env.MATHSLIDES_TEST_OUTPUT || await mkdtemp(path.join(tmpdir(), 'mathslides-rich-text-'));
+const output = process.env.MATHSLIDES_TEST_OUTPUT || makeTempDir('mathslides-rich-text-');
 await mkdir(output, { recursive: true });
-const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-profile-'));
+const profile = makeTempDir('mathslides-profile-');
 // Never connect to an existing user browser/session: Electron gets its own DevTools port (assigned by launchElectron),
 // and the dev server listens on an OS-assigned port, so concurrent test runs cannot collide.
 let debugPort;
@@ -121,6 +121,14 @@ const highlight = '.propsbar button[title^="강조 (Highlight)"]';
 const code = '.propsbar button[title="인라인 코드 (Inline Code)"]';
 const swatch = (label) => `button[aria-label="${label}"]`;
 async function choose(button, label) { await click(button); await click(swatch(label)); }
+// Highlight / Fill use the full shared palette now; light tints are entered through Other Colors (HEX).
+async function chooseHex(button, hex) {
+  await click(button);
+  await evaluate("[...document.querySelectorAll('.text-palette .palette-other')].find((b) => b.textContent === 'Other Colors...').click()"); await pause(100);
+  await evaluate(`(() => { const t = document.querySelector('.custom-color input[aria-label="HEX color"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(t, '${hex}'); t.dispatchEvent(new Event('input', { bubbles: true })); })()`); await pause(100);
+  await click('.custom-color button');
+}
+const clickNone = (label) => evaluate(`[...document.querySelectorAll('.text-palette .palette-other')].find((b) => b.textContent === '${label}').click()`);
 async function historyCheck(before, after, name) {
   assert.notDeepEqual(after, before, name + ' changed document');
   assert.equal(await evaluate('active().commands.undo()'), true, name + ' undo available');
@@ -140,6 +148,28 @@ function marksAt(d, offset) {
   return [];
 }
 const attrAt = (d, offset, type, attr) => marksAt(d, offset).find((m) => m.type === type)?.attrs?.[attr];
+/**
+ * Whole-deck comparison for a deck that was just (re)loaded by a freshly started app. The stored `h` of a TEXT box is not user
+ * data: it is measured from the rendered text (auto height) and re-measured after a restart, so it may differ by 1 px while fonts and
+ * layout settle (seen on CI: 41 vs 42 for a 30 px title box that settles to the saved 42). Only that one number gets a ±1 px tolerance;
+ * everything else (ids, order, positions, widths, styles, documents, every non-text element incl. its `h`) must be identical.
+ */
+function assertDeckEqualMeasured(actual, expected, message) {
+  const a = structuredClone(actual), e = structuredClone(expected);
+  assert.equal(a.slides.length, e.slides.length, `${message}: slide count`);
+  a.slides.forEach((sa, i) => {
+    const se = e.slides[i];
+    assert.deepEqual(sa.elements.map((x) => x.id), se.elements.map((x) => x.id), `${message}: element ids/order on slide ${i + 1}`);
+    sa.elements.forEach((ea, j) => {
+      const ee = se.elements[j];
+      if (ea.type === 'text' && ee.type === 'text' && typeof ea.h === 'number' && typeof ee.h === 'number') {
+        assert.ok(Math.abs(ea.h - ee.h) <= 1, `${message}: text box ${ea.id} (slide ${i + 1}) height ${ea.h} differs from the saved ${ee.h} by more than 1 px`);
+        ea.h = ee.h;
+      }
+    });
+  });
+  assert.deepEqual(a, e, message);
+}
 try {
   await launch();
   if (process.argv.includes('--interactive')) {
@@ -175,17 +205,17 @@ try {
   assert.equal(attrAt(await doc(), 7, 'textStyle', 'color'), '#3B82F6');
   assert.equal(attrAt(await doc(), 0, 'textStyle', 'color'), '#DC2626');
   await select(1, 16);
-  await step('yellow highlight', () => choose(highlight, 'Highlight Yellow'));
+  await step('yellow highlight', () => chooseHex(highlight, '#FEF08A'));
   await step('bold with color and highlight', () => click('.propsbar button[title="굵게 ⌘B"]'));
   await step('italic with color and highlight', () => click('.propsbar button[title="기울임 ⌘I"]'));
   await step('underline', () => click('.propsbar button[title="밑줄 ⌘U"]'));
   await step('strike', () => click('.propsbar button[title="취소선"]'));
   await select(8, 16);
-  await step('change highlight color', () => choose(highlight, 'Highlight Light Green'));
+  await step('change highlight color', () => chooseHex(highlight, '#D9F99D'));
   assert.equal(attrAt(await doc(), 0, 'highlight', 'color'), '#FEF08A');
   assert.equal(attrAt(await doc(), 7, 'highlight', 'color'), '#D9F99D');
-  for (const name of ['Light Cyan', 'Light Pink', 'Light Purple', 'Light Gray']) await step('highlight ' + name, () => choose(highlight, 'Highlight ' + name));
-  await step('remove highlight', async () => { await click(highlight); await click('.highlight-palette .palette-other'); });
+  for (const hex of ['#BAE6FD', '#FBCFE8', '#DDD6FE', '#E2E8F0']) await step('highlight ' + hex, () => chooseHex(highlight, hex));
+  await step('remove highlight', async () => { await click(highlight); await clickNone('None / Remove Highlight'); });
   assert.ok(marksAt(await doc(), 7).some(m => m.type === 'bold'));
   assert.equal(attrAt(await doc(), 7, 'textStyle', 'color'), '#3B82F6');
   await evaluate(`const text = active().state.doc.textContent; const from=text.indexOf('torch.nn.Module')+1; active().commands.setTextSelection({from,to:from+'torch.nn.Module'.length})`); await pause();
@@ -194,7 +224,7 @@ try {
   assert.equal(marksAt(await doc(), 0).some(m=>m.type === 'code'), false);
   await step('remove inline code', () => click(code));
   await step('restore inline code', () => click(code));
-  await step('highlight plus inline code', () => choose(highlight, 'Highlight Light Cyan'));
+  await step('highlight plus inline code', () => chooseHex(highlight, '#BAE6FD'));
   await step('color plus inline code', () => choose(textColor, 'Standard Purple'));
   await select(46);
   assert.equal(await evaluate(`document.querySelector(${JSON.stringify(code)}).classList.contains('active')`), true);
@@ -327,20 +357,20 @@ try {
       visible: ar.top >= lr.top - 1 && ar.bottom <= lr.bottom + 1, inViewport: mr.top >= 0 && mr.bottom <= innerHeight, menuH: mr.height, pageScroll: [document.scrollingElement.scrollTop, document.querySelector('.stage, .canvas-area, main')?.scrollTop ?? 0] }; })()`);
   await until(menuInfo, 'slash menu open');
   let mi = await menuInfo();
-  assert.equal(mi.n, 9, 'all commands listed');
+  assert.equal(mi.n, 11, 'all commands listed (incl. /table and Divider)');
   assert.ok(mi.menuH <= 340 + 1, 'menu height bounded');
   assert.ok(mi.scrollable, 'list scrolls when it exceeds the maximum height'); assert.equal(mi.overflowX, 'hidden'); assert.ok(mi.inViewport, 'menu inside the viewport');
   assert.equal(mi.active, 'Block equation');
   const names = [];
-  for (let i = 0; i < 8; i++) { await key('ArrowDown'); await pause(60); mi = await menuInfo(); names.push(mi.active); assert.ok(mi.visible, 'active item visible going down: ' + mi.active); }
+  for (let i = 0; i < 10; i++) { await key('ArrowDown'); await pause(60); mi = await menuInfo(); names.push(mi.active); assert.ok(mi.visible, 'active item visible going down: ' + mi.active); }
   assert.equal(names.at(-1), 'Numbered list'); assert.ok(mi.scrollTop > 0, 'list scrolled down');
   assert.deepEqual(mi.pageScroll, [0, 0], 'keyboard navigation does not scroll the page');
-  for (let i = 0; i < 8; i++) { await key('ArrowUp'); await pause(60); mi = await menuInfo(); assert.ok(mi.visible, 'active item visible going up: ' + mi.active); }
+  for (let i = 0; i < 10; i++) { await key('ArrowUp'); await pause(60); mi = await menuInfo(); assert.ok(mi.visible, 'active item visible going up: ' + mi.active); }
   assert.equal(mi.active, 'Block equation'); assert.equal(mi.scrollTop, 0, 'scrolled back to the top');
   await key('ArrowUp'); await pause(60); mi = await menuInfo(); // wraps to the last command
   assert.equal(mi.active, 'Numbered list'); assert.ok(mi.visible, 'wrap-around keeps the last item visible');
   // Wheel over the list scrolls the list and keeps the menu open.
-  await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await pause(60);
+  await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await key('ArrowUp'); await pause(60);
   const lr = await evaluate(`(() => { const r = document.querySelector('.slash-list').getBoundingClientRect(); return {x: r.x + r.width / 2, y: r.y + r.height / 2}; })()`);
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', ...lr, deltaX: 0, deltaY: 120 }); await pause(200);
   mi = await menuInfo();
@@ -352,7 +382,7 @@ try {
   // Enter runs the active command; Escape closes without running anything.
   await evaluate('active().commands.clearContent()'); await pause();
   await send('Input.insertText', {text:'/'}); await pause(); await until(menuInfo, 'slash menu reopened');
-  for (let i = 0; i < 8; i++) await key('ArrowDown');
+  for (let i = 0; i < 10; i++) await key('ArrowDown');
   await pause(60); await key('Enter'); await pause();
   assert.deepEqual((await doc()).content.map((n) => n.type), ['orderedList'], 'Enter runs the active (scrolled-to) command');
   await evaluate('active().commands.clearContent()'); await pause();
@@ -468,7 +498,7 @@ try {
   assert.deepEqual(quoteNode.content.map((p) => p.content?.[0]?.text), ['Clipping keeps updates small.', 'Schulman et al.'], 'Enter continues the quote');
   // Formatting inside a quote: bold + highlight on "Clipping"
   await evaluate(`(() => { let at = 0; active().state.doc.descendants((n, p) => { if (n.isText && n.text.startsWith('Clipping')) at = p; }); active().commands.setTextSelection({from: at, to: at + 8}); })()`); await pause();
-  await click('.propsbar button[title="굵게 ⌘B"]'); await choose(highlight, 'Highlight Yellow');
+  await click('.propsbar button[title="굵게 ⌘B"]'); await chooseHex(highlight, '#FEF08A');
   assert.deepEqual(marksAt({content:[(await doc()).content.at(-1).content[0]]}, 0).map((m) => m.type).sort(), ['bold', 'highlight']);
   await evaluate('store.getState().stopEditing()'); await pause();
   assert.equal(await evaluate("!!document.querySelector('.slide.editable pre code') && !!document.querySelector('.slide.editable blockquote')"), true, 'static render');
@@ -508,7 +538,7 @@ try {
   assert.deepEqual((await callouts())[0].content.map((p) => p.content[0].text), ['Key idea', 'second line'], 'multi-line content stays inside the callout');
   assert.ok(!JSON.stringify((await callouts())[0].content).includes('💡'), 'icon is not text content');
   await evaluate(`(() => { let at = 0; active().state.doc.descendants((n, p) => { if (n.isText && n.text.startsWith('Key')) at = p; }); active().commands.setTextSelection({from: at, to: at + 3}); })()`); await pause();
-  await click('.propsbar button[title="굵게 ⌘B"]'); await choose(highlight, 'Highlight Yellow'); await choose(textColor, 'Standard Purple');
+  await click('.propsbar button[title="굵게 ⌘B"]'); await chooseHex(highlight, '#FEF08A'); await choose(textColor, 'Standard Purple');
   assert.deepEqual(marksAt({content:[(await callouts())[0].content[0]]}, 0).map((m) => m.type).sort(), ['bold', 'highlight', 'textStyle'], 'rich marks inside a callout');
   await pause(600); await pickIcon(0, 2);
   assert.equal((await callouts())[0].attrs.icon, '⚠️', 'icon changed');
@@ -560,7 +590,7 @@ try {
   assert.equal((await blocks())[0].content.length, 2, 'multiple paragraphs');
   assert.ok(JSON.stringify((await blocks())[0]).includes('"mathInline"'), 'math in the body');
   await evaluate(`(() => { let at = 0; active().state.doc.descendants((n, p) => { if (n.isText && n.text.startsWith('Statement')) at = p; }); active().commands.setTextSelection({from: at, to: at + 9}); })()`); await pause();
-  await click('.propsbar button[title="굵게 ⌘B"]'); await choose(highlight, 'Highlight Yellow');
+  await click('.propsbar button[title="굵게 ⌘B"]'); await chooseHex(highlight, '#FEF08A');
   assert.deepEqual(marksAt({content:[(await blocks())[0].content[0]]}, 0).map((m) => m.type).sort(), ['bold', 'highlight'], 'rich marks in the body');
   const colors = {};
   for (const [label, id] of [['Theorem', 'theorem'], ['Definition', 'definition'], ['Example', 'example'], ['Remark', 'remark'], ['Lemma', 'lemma'], ['Proposition', 'proposition'], ['Block', 'block']]) {
@@ -818,37 +848,40 @@ try {
     assert.equal(await evaluate(`document.querySelectorAll('${where} .shape-text .ProseMirror, ${where} .shape-text textarea').length`), 0, 'no editor UI in ' + where);
   }
   console.log('PASS shape text (double-click editing, multiline, bold, centered, wrap, move/resize, Escape/outside, empty shape, undo/redo, static/thumbnail)');
-  // Shape Fill reuses the Highlight palette; new shapes default to its light yellow.
+  // Shape Fill uses the full shared palette; new shapes default to no fill with a thin (1px) black outline.
   const HL = ['#FEF08A', '#D9F99D', '#BAE6FD', '#FBCFE8', '#DDD6FE', '#E2E8F0'];
-  assert.equal((await shapeNow(sB)).fill, HL[0], 'new shapes default to the Highlight light yellow');
-  assert.equal((await shapeNow(sA)).fill, HL[0]);
+  for (const id of [sA, sB]) {
+    const sh = await shapeNow(id);
+    assert.deepEqual([sh.fill, sh.stroke, sh.strokeWidth], [null, '#000000', 1], 'new rect/ellipse default: no fill, black 1px stroke');
+  }
+  assert.deepEqual(await evaluate("['rect', 'roundRect', 'ellipse', 'blockArrow'].map((k) => { const e = defaults.newShape(k, 0, 0); return [e.fill, e.stroke, e.strokeWidth].join(); })"),
+    Array(4).fill(',#000000,1'), 'every inserted shape kind uses the same default style');
   await evaluate(`store.getState().addElements([{id: 'legacy-shape', type: 'shape', shape: 'roundRect', x: 900, y: 250, w: 200, h: 120, fill: '#BFBFBF', stroke: null, strokeWidth: 2, radius: 16}]); store.getState().select(['${sB}'])`); await pause();
   const fillButton = '.propsbar button[title^="채우기 (Fill)"]';
-  const swatchColors = (sel) => evaluate(`[...document.querySelectorAll('${sel}')].map(b => b.style.backgroundColor)`);
-  const rgb = (h) => `rgb(${[1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).join(', ')})`;
+  assert.deepEqual(await evaluate(`(() => { const b = document.querySelector('.propsbar button[title^="채우기 (Fill)"]'); return [b.title, b.querySelector('.swatch').classList.contains('none')]; })()`),
+    ['채우기 (Fill): None', true], 'Fill indicator shows None for a newly inserted shape');
   const textBefore = JSON.stringify(await evaluate("store.getState().deck.slides.map(s => s.elements.filter(e => e.type === 'text').map(e => e.doc))"));
   await click(fillButton); await pause();
-  assert.deepEqual(await swatchColors('.highlight-palette .highlight-colors button'), HL.map(rgb), 'Fill offers exactly the Highlight palette');
-  const fillLabels = await evaluate("[...document.querySelectorAll('.highlight-palette .highlight-colors button')].map(b => b.getAttribute('aria-label')).join()");
-  assert.equal(fillLabels, 'Fill Yellow,Fill Light Green,Fill Light Cyan,Fill Light Pink,Fill Light Purple,Fill Light Gray');
-  await click('button[aria-label="Fill Light Green"]'); await pause();
-  assert.equal((await shapeNow(sB)).fill, HL[1], 'palette color applied to the shape');
-  for (const [name, i] of [['Light Cyan', 2], ['Light Pink', 3], ['Light Purple', 4], ['Light Gray', 5], ['Yellow', 0], ['Light Pink', 3]]) {
-    await pause(150); await click(fillButton); await click(`button[aria-label="Fill ${name}"]`); await pause();
-    assert.equal((await shapeNow(sB)).fill, HL[i], 'fill ' + name);
+  assert.deepEqual(await evaluate("({full: !!document.querySelector('.text-palette'), label: document.querySelector('.text-palette').getAttribute('aria-label'), old: !!document.querySelector('.highlight-palette'), themes: document.querySelectorAll('.text-palette .theme-column').length, standard: document.querySelectorAll('.text-palette .standard-colors .text-swatch').length})"),
+    {full: true, label: 'Fill', old: false, themes: 10, standard: 9}, 'Fill uses the full shared palette');
+  await click('button[aria-label="Standard Purple"]'); await pause();
+  assert.equal((await shapeNow(sB)).fill, '#9333EA', 'standard palette color applied to the shape');
+  for (const i of [1, 2, 3, 4, 5, 0, 3]) {
+    await pause(150); await chooseHex(fillButton, HL[i]); await pause();
+    assert.equal((await shapeNow(sB)).fill, HL[i], 'fill ' + HL[i]);
   }
-  await click(fillButton); await click('.highlight-palette .palette-other'); await pause();
-  assert.equal((await shapeNow(sB)).fill, null, 'None / Remove Fill → no fill'); assert.equal((await shapeNow(sB)).stroke, null, 'border untouched');
+  await click(fillButton); await clickNone('None / Remove Fill'); await pause();
+  assert.equal((await shapeNow(sB)).fill, null, 'None / Remove Fill → no fill'); assert.equal((await shapeNow(sB)).stroke, '#000000', 'border untouched');
   await evaluate('store.getState().undo()'); await pause();
   assert.equal((await shapeNow(sB)).fill, HL[3], 'undo no-fill'); await evaluate('store.getState().redo()'); await pause();
   assert.equal((await shapeNow(sB)).fill, null, 'redo no-fill');
   await evaluate('store.getState().undo()'); await pause();
   assert.equal(JSON.stringify(await evaluate("store.getState().deck.slides.map(s => s.elements.filter(e => e.type === 'text').map(e => e.doc))")), textBefore, 'changing a shape fill never touches text highlights');
-  assert.equal((await shapeNow('legacy-shape')).fill, '#BFBFBF', 'existing shapes keep their saved fill');
+  { const lg = await shapeNow('legacy-shape'); assert.deepEqual([lg.fill, lg.stroke, lg.strokeWidth], ['#BFBFBF', null, 2], 'existing shapes keep their saved fill/stroke/width'); }
   await evaluate('store.getState().select([])'); await pause();
   const fills = await evaluate(`[...document.querySelectorAll('.slide.editable .shape-svg')].map(s => s.querySelector('rect, ellipse').getAttribute('fill'))`);
-  assert.deepEqual(fills, [HL[0], HL[3], '#BFBFBF'], 'editor/static render of the fills');
-  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.thumb.current .shape-svg')].map(s => s.querySelector('rect, ellipse').getAttribute('fill'))`), [HL[0], HL[3], '#BFBFBF'], 'thumbnail fills');
+  assert.deepEqual(fills, ['none', HL[3], '#BFBFBF'], 'editor/static render of the fills');
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('.thumb.current .shape-svg')].map(s => s.querySelector('rect, ellipse').getAttribute('fill'))`), ['none', HL[3], '#BFBFBF'], 'thumbnail fills');
   console.log('PASS shape fill (Highlight palette, light-yellow default, no fill, undo/redo, legacy fill kept, static/thumbnail)');
   // TOC entered in the real editor; generated sections retain their IDs through formatting.
   await evaluate('store.getState().addTocSlide()');
@@ -858,7 +891,7 @@ try {
   await pause();
   assert.equal(await evaluate('store.getState().deck.sections.length'), 2);
   const sections = await evaluate('store.getState().deck.sections');
-  await select(3, 8); await choose(highlight, 'Highlight Light Purple');
+  await select(3, 8); await chooseHex(highlight, '#DDD6FE');
   assert.deepEqual(await evaluate('store.getState().deck.sections'), sections);
   await evaluate('store.getState().stopEditing()'); await pause();
   await click('.slide.editable .toc-link');
@@ -1158,18 +1191,18 @@ try {
   const arrowSlideId = await evaluate('store.getState().currentSlideId');
   await click('.tb-center button[title="도형"]');
   const shapeMenu = await evaluate("[...document.querySelectorAll('.pop .menu-item')].map((e) => e.textContent)");
-  assert.equal(shapeMenu.length, 8, 'block arrow + curve + curved arrow'); assert.ok(shapeMenu[4].includes('화살표') && !shapeMenu[4].includes('두꺼운') && shapeMenu[5].includes('두꺼운 화살표'), 'directly below 화살표: ' + shapeMenu.join('|'));
+  assert.equal(shapeMenu.length, 9, 'down arrow + block arrow (origin) + curve + curved arrow'); assert.ok(shapeMenu[4].includes('화살표') && !shapeMenu[4].includes('두꺼운') && !shapeMenu[4].includes('아래쪽') && shapeMenu[5].includes('아래쪽 화살표') && shapeMenu[6].includes('두꺼운 화살표') && /곡선/.test(shapeMenu[7]) && !shapeMenu[7].includes('화살표') && shapeMenu[8].includes('곡선 화살표'), 'directly below 화살표, curves last: ' + shapeMenu.join('|'));
   assert.deepEqual(shapeMenu.slice(0, 4).map((t) => t.replace(/[^가-힣]/g, '')), ['사각형', '둥근사각형', '타원', '선'], 'existing items unchanged');
   await evaluate("[...document.querySelectorAll('.pop .menu-item')].find((e) => e.textContent.includes('두꺼운 화살표')).click()"); await pause(400);
   const arrowEls = () => evaluate("store.getState().deck.slides.find((s) => s.id === store.getState().currentSlideId).elements.filter((e) => e.shape === 'blockArrow')");
   let [A] = await arrowEls();
   assert.ok(A, 'inserted'); assert.deepEqual([A.shaft, A.head, A.w, A.h], [0.5, 0.4, 280, 160], 'defaults');
-  assert.equal(A.fill, await evaluate("defaults.newShape('rect', 0, 0).fill"), 'same default fill as other shapes'); assert.equal(A.stroke, null);
+  assert.equal(A.fill, await evaluate("defaults.newShape('rect', 0, 0).fill"), 'same default fill as other shapes'); assert.equal(A.stroke, '#000000');
   assert.equal(await evaluate("document.querySelectorAll('.slide.editable .handle.adjust').length"), 2, 'two adjustment handles while selected');
   assert.equal(await evaluate("document.querySelectorAll('.slide.editable .handle:not(.adjust)').length"), 8, 'normal resize handles stay');
   const arrowPts = (root) => evaluate(`[...document.querySelectorAll(${JSON.stringify(root + ' [data-el-id="' + A.id + '"] polygon')})].map((p) => p.getAttribute('points'))`);
-  assert.equal((await arrowPts('.slide.editable')).length, 1, 'filled polygon');
-  assert.equal(await evaluate("document.querySelectorAll('.slide.editable [data-el-id=\"" + A.id + "\"] polygon[fill=\"none\"]').length"), 0);
+  assert.equal((await arrowPts('.slide.editable')).length, 1, 'one polygon');
+  assert.equal(await evaluate("document.querySelectorAll('.slide.editable [data-el-id=\"" + A.id + "\"] polygon[fill=\"none\"]').length"), 1, 'default block arrow is an unfilled outline');
   // Direct manipulation with real pointer events.
   const scale = await evaluate("document.querySelector('.slide.editable').getBoundingClientRect().width / 1280");
   const dragHandle = async (sel, dx, dy) => {
@@ -1564,7 +1597,7 @@ try {
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.slide.editable .todo[data-checked=true] .todo-box')).backgroundColor"), 'rgb(47, 111, 235)', 'White theme: visible fallback accent');
   await evaluate("store.getState().commit((d) => { d.themeColor = '#881337'; })"); await pause();
   console.log('PASS todo block (/todo, checkbox, checked look, Theme Color accent, Enter/exit, undo/redo, static/thumbnail)');
-  // Shared PowerPoint-style palette for Background / Border; Fill and Highlight keep their Quick Colors.
+  // Shared PowerPoint-style palette for Background / Border; Fill and Highlight use it too.
   await evaluate('store.getState().select([])'); await pause();
   const bgBefore = await evaluate('store.getState().deck.slides.find(s => s.id === store.getState().currentSlideId).background');
   const themeBefore = await evaluate('store.getState().deck.themeColor');
@@ -1595,8 +1628,8 @@ try {
   await evaluate('store.getState().undo()'); await pause();
   assert.equal((await shapeNow(sB)).stroke, strokeBefore, 'undo border color');
   await click('.propsbar button[title^="채우기 (Fill)"]');
-  assert.deepEqual(await fullPalette(), {full: false, sections: '', quick: true}, 'Shape Fill keeps its Quick Colors'); await key('Escape'); await pause();
-  console.log('PASS shared palette (Theme/Background/Border use the full palette; Fill keeps Quick Colors; independence, no border, undo)');
+  assert.deepEqual(await fullPalette(), {full: true, sections: 'Theme Colors,Standard Colors,My Colors', quick: false}, 'Shape Fill uses the full palette'); await key('Escape'); await pause();
+  console.log('PASS shared palette (Theme/Background/Border/Fill use the full palette; independence, no border, undo)');
   // Test .mslides download and the real openProject path with its file-picker boundary supplied.
   await evaluate('store.getState().stopEditing(); persist.saveProject()');
   const projectPath = path.join(output,'Formatting validation.mslides');
@@ -1609,7 +1642,7 @@ try {
   const shapeSlide = saved.deck.slides.find((x) => x.elements.some((e) => e.type === 'shape' && e.doc));
   const shapeSaved = shapeSlide.elements.filter((e) => e.type === 'shape');
   assert.deepEqual(shapeSaved.map((e) => !!e.doc), [true, false, false], '.mslides keeps shape text (empty shapes have none)');
-  assert.deepEqual(shapeSaved.map((e) => e.fill), ['#FEF08A', '#FBCFE8', '#BFBFBF'], '.mslides keeps shape fills (default yellow, chosen pink, legacy gray)');
+  assert.deepEqual(shapeSaved.map((e) => e.fill), [null, '#FBCFE8', '#BFBFBF'], '.mslides keeps shape fills (default none, chosen pink, legacy gray)');
   assert.ok(JSON.stringify(shapeSaved[0].doc).includes('Policy') && JSON.stringify(shapeSaved[0].doc).includes(' Gradient') && JSON.stringify(shapeSaved[0].doc).includes('"bold"'));
   const todoSlide = saved.deck.slides.find((x) => JSON.stringify(x.elements).includes('todoItem'));
   assert.ok(JSON.stringify(todoSlide.elements).includes('"checked":true') && JSON.stringify(todoSlide.elements).includes('"checked":false'), '.mslides keeps todo checked states');
@@ -1634,7 +1667,7 @@ try {
   const archiveBeforeRestart = await evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())");
   socket.close(); await stopElectron(electron);
   await launch();
-  assert.deepEqual(await evaluate('store.getState().deck'), saved.deck, 'restart restores the working presentation (same Deck.id and content)');
+  assertDeckEqualMeasured(await evaluate('store.getState().deck'), saved.deck, 'restart restores the working presentation (same Deck.id and content)');
   assert.equal(await evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())"), archiveBeforeRestart, 'restart does not displace anything');
   console.log('PASS autosave, desktop restart, recovery swap, .mslides save/open');
   // Exercise both existing export actions from the fixed toolbar.
@@ -1683,7 +1716,7 @@ try {
   const spChunks = shapeXml.split('<p:sp>');
   const textShape = spChunks.find((c) => c.includes('name="Shape Text"'));
   assert.ok(textShape, 'shape with text is ONE native shape');
-  assert.ok(textShape.includes('prst="rect"') && textShape.includes('val="FEF08A"'), 'native shape geometry and the default yellow fill');
+  assert.ok(textShape.includes('prst="rect"') && textShape.includes('<a:noFill/>') && textShape.includes('<a:ln w="9525"'), 'native shape geometry, the default no fill and the thin outline');
   assert.ok(spChunks.find((c) => c.includes('prst="ellipse"')).includes('val="FBCFE8"') && spChunks.find((c) => c.includes('prst="roundRect"') && c.includes('BFBFBF')), 'palette fill and legacy gray fill are native shape fills');
   assert.match(textShape, /anchor="ctr"/); assert.match(textShape, /algn="ctr"/);
   assert.match(textShape, /b="1"[\s\S]{0,700}<a:t>Policy<\/a:t>/); assert.match(textShape, /<a:t>second line<\/a:t>/);
@@ -1737,6 +1770,23 @@ try {
   const archiveSig = () => evaluate("persist.loadRecovery().then(a => a.map(x => x.savedAt + ':' + x.deck.id).join())");
   const setTitle2 = async (t) => { await evaluate(`store.getState().commit(d => { d.title = ${JSON.stringify(t)}; })`); await pause(); };
   const settled = () => until(() => evaluate("store.getState().saveState === 'saved'"), 'autosave settled');
+  // Opens the ∑ file menu once the app is really ready: loaded, fonts done, autosave idle and the logo not moving. A click that
+  // lands while the page is still settling right after a reload can be lost, so a click that left the menu closed is repeated
+  // (at most 3 attempts, only while no menu is open). A menu that never opens still fails, with what was under the pointer.
+  const openFileMenu = async () => {
+    const logoRect = () => evaluate("(() => { const r = document.querySelector('.logo')?.getBoundingClientRect(); return r ? [r.x, r.y, r.width, r.height].join() : null; })()");
+    await until(() => evaluate("document.readyState === 'complete' && store.getState().saveState === 'saved'").then((ready) => ready && evaluate('document.fonts.ready.then(() => true)')), 'the app did not become ready before opening the ∑ menu');
+    let before = null;
+    await until(async () => { const now = await logoRect(); const stable = now !== null && now === before; before = now; return stable; }, 'the ∑ logo position never settled');
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (await evaluate("!!document.querySelector('.menu')")) return;
+      await click('.logo');
+      try { await until(() => evaluate("!!document.querySelector('.menu')"), 'menu closed', 3000); return; } catch {}
+      console.log(`  ∑ menu did not open on click attempt ${attempt}`);
+    }
+    const why = await evaluate("(() => { const l = document.querySelector('.logo'); const r = l.getBoundingClientRect(); const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return JSON.stringify({ expanded: l.closest('button')?.getAttribute('aria-expanded'), top: top && (top.tagName + '.' + top.className), rect: [r.x, r.y, r.width, r.height], focus: document.hasFocus(), size: [innerWidth, innerHeight] }); })()");
+    throw new Error('the ∑ menu did not open after clicking the logo (3 attempts): ' + why);
+  };
   const restart = async (opts) => { await settled(); await pause(300); socket.close(); await stopElectron(electron); await launch(opts); };
   const assoc = () => evaluate(`new Promise((res) => { const o = indexedDB.open('keyval-store'); o.onsuccess = () => { const g = o.result.transaction('keyval').objectStore('keyval').get('file:v1'); g.onsuccess = () => res(g.result ? {name: g.result.name, deckId: g.result.deckId, hasHandle: !!g.result.handle} : null); }; })`);
   const stubSavePicker = (name) => evaluate(`window.__picks = 0; window.showSaveFilePicker = async () => { __picks++; return await (await __opfsDir()).getFileHandle(${JSON.stringify(name)}, {create: true}); };`);
@@ -1858,7 +1908,9 @@ try {
   assert.ok((await archiveIds()).length <= 3, 'recovery storage stays bounded');
   // Internal autosave exists and is separate from the explicit file; the ∑ menu has no presentation list.
   assert.equal((await idb('deck:v1')).id, await deckId(), 'deck:v1 holds the working presentation');
-  await click('.logo'); await pause(300);
+  // Wait for the menu itself and for its recovery item (read asynchronously) instead of a fixed pause: slow CI runners need longer than 300 ms.
+  await openFileMenu();
+  await until(() => evaluate("document.querySelector('.menu').textContent.includes('직전 작업 복구')"), 'the recovery item (직전 작업 복구) did not appear in the ∑ menu');
   const menuText = await evaluate("document.querySelector('.menu').textContent");
   assert.ok(!menuText.includes('이전 프레젠테이션') && !menuText.includes('Legacy work') && !menuText.includes('Untitled presentation ·'), 'no previous-presentation entries in the ∑ menu');
   assert.ok(menuText.includes('직전 작업 복구'), 'the single recovery item appears while displaced work exists');
@@ -1995,15 +2047,17 @@ try {
   // New Presentation shows no success toast.
   await pause(2500);
   assert.equal(await evaluate("document.querySelectorAll('.toast').length"), 0, 'no stray toasts before the check');
-  await click('.logo'); await pause(300); await evaluate("[...document.querySelectorAll('.menu-item')].find(e => e.textContent.includes('새 프레젠테이션')).click()"); await pause(600);
+  await openFileMenu();
+  await until(() => evaluate("[...document.querySelectorAll('.menu-item')].some(e => e.textContent.includes('새 프레젠테이션'))"), 'the ∑ menu did not offer 새 프레젠테이션 after clicking the logo');
+  await evaluate("[...document.querySelectorAll('.menu-item')].find(e => e.textContent.includes('새 프레젠테이션')).click()"); await pause(600);
   assert.equal(await evaluate("document.querySelectorAll('.toast').length"), 0, 'New Presentation shows no success toast');
   assert.notEqual(await deckId(), 'NATIVE-F');
   console.log('PASS .mslides opened by the OS (cold launch, queued early request, running app, invalid files, write-back, association, New without toast)');
   console.log('PASS presentation lifecycle (restore, New, Open, Save, Save As, file association, pristine detection, recovery slot)');
-  console.log('OUTPUT', output);
+  printOutput(output);
   }
 } catch (error) {
-  console.error(error); console.log('OUTPUT', output);
+  console.error(error); printOutput(output);
   if (socket?.readyState === WebSocket.OPEN) {
     console.log(await evaluate('JSON.stringify({deck:store.getState().deck,body:document.body.innerText.slice(-1500)})').catch(()=>''));
     await screenshot('failure').catch(()=>{});

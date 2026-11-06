@@ -74,6 +74,7 @@ export function toggleMark(mark: MarkName) {
 /** The style object a text-like element keeps its defaults in (text box: `style`; shape: `textStyle`). */
 function styleOf(d: any): TextStyle {
   if (d.type === 'shape') return (d.textStyle ??= { ...shapeTextStyle(d) });
+  if (d.type === 'table') return d.textStyle;
   return d.style;
 }
 
@@ -129,7 +130,8 @@ export function setSelectionFont(font: SlideFont) {
 
 /** The font of the selected text: the run's own font, else the deck's. null = mixed. */
 export function activeTextFont(el: TextElement, editing: boolean): SlideFont | null {
-  const deck = deckFont(useStore.getState().deck.fontFamily);
+  // A box created with a configured font carries it (style.fontFamily); older boxes follow the presentation font.
+  const deck = deckFont(el.style.fontFamily ?? useStore.getState().deck.fontFamily);
   const values = new Set<SlideFont>();
   const collect = (marks: readonly Mark[] | NonNullable<TextElement['doc']['marks']>) => {
     const found = marks.find((m) => (typeof m.type === 'string' ? m.type : m.type.name) === 'textStyle');
@@ -155,7 +157,14 @@ export function setDeckFont(font: SlideFont) {
   useStore.getState().commit((d) => {
     if (font === DEFAULT_FONT) delete d.fontFamily;
     else d.fontFamily = font;
-    for (const slide of d.slides) for (const el of slide.elements) if ((el.type === 'text' || el.type === 'shape') && el.doc) clearRunFonts(el.doc as any);
+    for (const slide of d.slides) for (const el of slide.elements) {
+      if ((el.type === 'text' || el.type === 'shape') && el.doc) clearRunFonts(el.doc as any);
+      else if (el.type === 'table') el.rows.forEach((row) => row.forEach((c) => clearRunFonts(c.doc as any))); // cell fonts too; other formatting stays
+      // "All text in the presentation": also drop the per-box font a configured default may have stamped.
+      if (el.type === 'text') delete el.style.fontFamily;
+      else if (el.type === 'shape' && el.textStyle) delete el.textStyle.fontFamily;
+      else if (el.type === 'table') delete el.textStyle.fontFamily;
+    }
   });
 }
 

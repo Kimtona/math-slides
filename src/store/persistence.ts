@@ -56,6 +56,8 @@ export async function startSession() {
       return;
     }
     if (last !== undefined) await set(`deck:unreadable:${Date.now()}`, last);
+    // Nothing to restore: start a fresh deck now that config.txt is loaded (the store's own initial deck predates it).
+    useStore.getState().loadDeck(initialDeck(), {});
     await set(DECK_KEY, useStore.getState().deck);
   } catch (e) {
     console.error('startup restore failed', e);
@@ -361,11 +363,9 @@ function normalized(d: Deck): string {
     })),
   });
 }
-let freshSignature: string | undefined;
-
 /** A presentation equal to a brand-new default one (untouched) isn't worth archiving. */
 export function isPristine(deck: Deck): boolean {
-  return normalized(deck) === (freshSignature ??= normalized(initialDeck()));
+  return normalized(deck) === normalized(initialDeck()) // not cached: a new deck follows the current config.txt defaults;
 }
 
 /**
@@ -411,11 +411,11 @@ export async function restoreRecovered() {
 }
 
 // ---------- tiny toast ----------
-export function flash(msg: string) {
+export function flash(msg: string, ms = 1600) {
   const el = document.createElement('div');
   el.className = 'toast';
   el.textContent = msg;
   document.body.appendChild(el);
-  setTimeout(() => el.classList.add('out'), 1600);
-  setTimeout(() => el.remove(), 2100);
+  setTimeout(() => el.classList.add('out'), ms);
+  setTimeout(() => el.remove(), ms + 500);
 }

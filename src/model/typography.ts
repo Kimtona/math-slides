@@ -1,7 +1,7 @@
 /**
  * Global typography — the single source of truth for font sizes (px on the 1280×720 slide).
- * Used by the Markdown shortcuts (#, ##, ###, ####) AND the slide templates;
- * change a value here and both follow.
+ * These are the BUILT-IN defaults. The Markdown shortcuts (#, ##, ###, ####) and the slide templates read the
+ * effective size through `headingSize()` (model/defaults.ts), which applies the user's config.txt on top.
  */
 export const TYPOGRAPHY = {
   h1: 80,
@@ -20,14 +20,6 @@ export const INSTANCE_BORDER_WIDTH = 2;
 export const CAPTION_COLOR = '#6B7280';
 /** Gap between an image's bottom edge and its caption. */
 export const CAPTION_GAP = 6;
-
-/** Markdown prefix → font size: `# ` h1, `## ` h2, `### ` h3, `#### ` body. */
-export const MARKDOWN_SIZES: Record<number, number> = {
-  1: TYPOGRAPHY.h1,
-  2: TYPOGRAPHY.h2,
-  3: TYPOGRAPHY.h3,
-  4: TYPOGRAPHY.body,
-};
 
 // ---------- slide footer (slide number bottom-left, reference bottom-right) ----------
 

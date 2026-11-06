@@ -1,7 +1,7 @@
 /**
  * All color definitions live in this file.
  *
- * PRESET_COLORS: shape fill/border, line color and slide background palette.
+ * PRESET_COLORS: base named colors for defaults (presetHex).
  * Red/Blue/Green are matplotlib's default "tab:" colors, so slides match typical plots.
  */
 export const PRESET_COLORS = [
@@ -19,9 +19,6 @@ export const presetHex = (name: (typeof PRESET_COLORS)[number]['name']) =>
 
 export const sameColor = (a: string | null | undefined, b: string | null | undefined) =>
   !!a && !!b && a.toLowerCase() === b.toLowerCase();
-
-export const colorName = (hex: string | null | undefined) =>
-  PRESET_COLORS.find((c) => sameColor(c.hex, hex))?.name ?? hex ?? 'None';
 
 // ---------- text color palette (Text Color button) and highlight palette ----------
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { produce, type Draft } from 'immer';
-import type { Asset, Deck, ID, Slide, SlideElement } from '../model/types';
+import type { Asset, Deck, ID, Slide, SlideElement, TableElement } from '../model/types';
 import { initialDeck, isTemplatePlaceholder, newContentSlide, newTitleSlide, uid } from '../model/defaults';
 import { plainText } from '../editor/docUtils';
 import type { Guide } from '../model/geometry';
@@ -30,10 +30,16 @@ export interface AppState {
   selection: ID[];
   editingId: ID | null;
   editingIsNew: boolean;
-  editCaret: { x: number; y: number } | 'end' | 'all' | 'math' | null;
+  editCaret: { x: number; y: number } | 'end' | 'start' | 'all' | 'math' | null;
   mathEdit: MathEditState | null;
   /** PoC: symbols (leaf indexes, see math/mathjax.ts) picked by dragging over a rendered equation; the Text Color palette then colors just those. */
   mathLeafSel: MathLeafSel | null;
+  /** While a table is being edited (editingId): the cell with the text caret. */
+  editCell: { row: number; col: number } | null;
+  /** The table cell last edited, kept after leaving edit mode so cell-level actions (fill) keep targeting it. Esc clears it; selecting anything else forgets it. */
+  activeCell: { id: ID; row: number; col: number } | null;
+  /** Multi-cell selection of a table (Shift+click / drag across cells): the block Merge acts on. Cleared by any other selection or cell move. */
+  cellRange: { id: ID; r1: number; c1: number; r2: number; c2: number } | null;
   /** Image being re-framed in crop edit mode (double-click an image). */
   cropEditId: ID | null;
   focusArea: 'canvas' | 'navigator';
@@ -56,6 +62,12 @@ export interface AppState {
   select: (ids: ID[]) => void;
   startEditing: (id: ID, caret?: AppState['editCaret'], isNew?: boolean) => void;
   stopEditing: () => void;
+  /** Edit one cell of a table (starts editing the table, or moves between its cells; each cell edit is its own undo step). */
+  startCellEditing: (id: ID, row: number, col: number, caret?: AppState['editCaret']) => void;
+  /** Select a block of cells (corners in any order) in a table, or null to clear it. */
+  setCellRange: (range: AppState['cellRange']) => void;
+  /** Structural table change (rows/columns) as its own undo step; while editing, stays in edit mode at `next`. */
+  editTable: (id: ID, fn: (t: Draft<TableElement>) => void, next?: { row: number; col: number } | null) => void;
   setMathEdit: (m: MathEditState | null) => void;
   setMathLeafSel: (m: MathLeafSel | null) => void;
   enterCrop: (id: ID) => void;
@@ -63,6 +75,8 @@ export interface AppState {
 
   // elements
   addElements: (els: SlideElement[], opts?: { edit?: boolean; caret?: AppState['editCaret'] }) => void;
+  /** Add a divider line from inside the text editor as its own undo step (see below). */
+  insertDividerFromEditor: (line: SlideElement, removeBoxId?: ID) => void;
   deleteSelection: () => void;
   updateElements: (ids: ID[], fn: (el: Draft<SlideElement>) => void, live?: boolean) => void;
   reorderSelection: (dir: 'forward' | 'backward' | 'front' | 'back') => void;
@@ -151,6 +165,9 @@ export const useStore = create<AppState>()((set, get) => {
     editCaret: null,
     mathEdit: null,
     mathLeafSel: null,
+    editCell: null,
+    activeCell: null,
+    cellRange: null,
     cropEditId: null,
     focusArea: 'canvas',
     guides: [],
@@ -198,7 +215,7 @@ export const useStore = create<AppState>()((set, get) => {
     },
     loadDeck: (deck, assets) => {
       set({
-        deck, assets, past: [], future: [], gestureBase: null, selection: [], editingId: null, mathEdit: null, mathLeafSel: null, cropEditId: null,
+        deck, assets, past: [], future: [], gestureBase: null, selection: [], editingId: null, editCell: null, activeCell: null, cellRange: null, mathEdit: null, mathLeafSel: null, cropEditId: null,
         editingIsNew: false, editCaret: null, guides: [], focusArea: 'canvas', presenting: false,
         currentSlideId: deck.slides[0].id,
       });
@@ -207,7 +224,8 @@ export const useStore = create<AppState>()((set, get) => {
     select: (ids) => {
       const { cropEditId } = get();
       if (cropEditId && !(ids.length === 1 && ids[0] === cropEditId)) get().exitCrop();
-      set({ selection: ids, focusArea: 'canvas' });
+      const { activeCell } = get();
+      set({ selection: ids, focusArea: 'canvas', ...(activeCell && !(ids.length === 1 && ids[0] === activeCell.id) ? { activeCell: null } : {}), cellRange: null });
     },
 
     startEditing: (id, caret = 'end', isNew = false) => {
@@ -226,12 +244,39 @@ export const useStore = create<AppState>()((set, get) => {
       get().beginGesture();
       set({ editingId: id, editingIsNew: isNew, editCaret: caret, selection: [id], mathEdit: null, mathLeafSel: null, focusArea: 'canvas' });
     },
+    startCellEditing: (id, row, col, caret = 'end') => {
+      if (get().cropEditId) get().exitCrop();
+      const st = get();
+      if (st.editingId === id) {
+        // Moving between cells of the table being edited: close the previous cell's undo step (the next one opens on its first change).
+        if (st.editCell?.row === row && st.editCell?.col === col) return;
+        get().endGesture();
+        set({ editCell: { row, col }, activeCell: { id, row, col }, editCaret: caret, cellRange: null });
+        return;
+      }
+      if (st.editingId) st.stopEditing();
+      // No gesture yet: CellEditor opens the undo step on the first real change, so that measuring alone never creates one.
+      set({ editingId: id, editingIsNew: false, editCaret: caret, editCell: { row, col }, activeCell: { id, row, col }, selection: [id], mathEdit: null, mathLeafSel: null, focusArea: 'canvas' });
+    },
+    setCellRange: (cellRange) => {
+      if (!cellRange) { if (get().cellRange) set({ cellRange: null }); return; }
+      const { id, r1, c1, r2, c2 } = cellRange;
+      set({ cellRange: { id, r1: Math.min(r1, r2), c1: Math.min(c1, c2), r2: Math.max(r1, r2), c2: Math.max(c1, c2) }, activeCell: { id, row: r1, col: c1 } });
+    },
+    editTable: (id, fn, next) => {
+      const editing = get().editingId === id;
+      if (editing) get().endGesture(); // the structural change must be its own history step
+      get().updateElements([id], (d) => fn(d as Draft<TableElement>));
+      if (!editing) return;
+      if (next) set({ editCell: next, activeCell: { id, ...next }, editCaret: 'end' });
+      else get().stopEditing();
+    },
     stopEditing: () => {
       const { editingId, currentSlideId, editingIsNew, gestureBase } = get();
       if (!editingId) return;
       const slide = findSlide(get().deck, currentSlideId);
       const el = slide?.elements.find((e) => e.id === editingId);
-      set({ editingId: null, mathEdit: null, mathLeafSel: null, editCaret: null });
+      set({ editingId: null, editCell: null, mathEdit: null, mathLeafSel: null, editCaret: null, cellRange: null });
       if (el && el.type === 'text' && !isDocEmpty(el.doc)) {
         const trimmed = trimTrailingEmpty(el.doc);
         if (trimmed !== el.doc) get().updateElements([el.id], (e) => { (e as any).doc = trimmed; }, true);
@@ -282,6 +327,28 @@ export const useStore = create<AppState>()((set, get) => {
       if (opts.edit && els[0]?.type === 'text') {
         set({ editingId: els[0].id, editingIsNew: true, editCaret: opts.caret ?? 'end', mathEdit: null, mathLeafSel: null });
       }
+    },
+    insertDividerFromEditor: (line, removeBoxId) => {
+      const { currentSlideId, editingId, editingIsNew, gestureBase } = get();
+      const push = (d: Deck) => { findSlide(d, currentSlideId)!.elements.push(line as any); };
+      if (removeBoxId && editingId === removeBoxId) {
+        // The box held nothing but the shortcut: it becomes the divider (no empty box left behind).
+        set({ editingId: null, editingIsNew: false, mathEdit: null, mathLeafSel: null, editCaret: null });
+        if (editingIsNew && gestureBase) set({ deck: gestureBase, gestureBase: null }); // a box created just for this
+        get().commit((d) => {
+          const s = findSlide(d as Deck, currentSlideId)!;
+          s.elements = s.elements.filter((e) => e.id !== removeBoxId);
+          push(d as Deck);
+        });
+        get().endGesture(); // an existing box: the whole edit session + divider is one step
+        set({ selection: [line.id], focusArea: 'canvas' });
+        return;
+      }
+      // Editing continues: the text typed so far is one step, the divider the next, later typing a new one.
+      get().endGesture();
+      get().commit((d) => push(d as Deck));
+      set({ editingIsNew: false });
+      get().beginGesture();
     },
     deleteSelection: () => {
       if (get().cropEditId) get().exitCrop();

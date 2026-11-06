@@ -4,6 +4,7 @@ import { bendControl } from '../model/curve';
 import { newEmoji, newLine, newShape, newText, uid } from '../model/defaults';
 import { currentSlide, useStore } from '../store/store';
 import { saveAsset } from '../store/persistence';
+import { newTable } from '../model/table';
 import { textToDoc } from '../editor/docUtils';
 
 const IMAGE_TYPES = /^image\/(png|jpe?g|webp|gif|svg\+xml|bmp|avif)$/;
@@ -101,8 +102,18 @@ export function insertShape(kind: ShapeKind) {
   useStore.getState().addElements([el]);
 }
 
-export function insertLine(arrow: boolean) {
-  useStore.getState().addElements([newLine(SLIDE_W / 2 - 120, SLIDE_H / 2, SLIDE_W / 2 + 120, SLIDE_H / 2, arrow)]);
+/** A default 3×3 table at the slide center (offset when other tables already sit there); selected, not text-edited. */
+export function insertTable() {
+  const taken = currentSlide().elements.filter((e) => e.type === 'table').length;
+  useStore.getState().addElements([newTable(SLIDE_W / 2 + (taken % 6) * 24, SLIDE_H / 2 + (taken % 6) * 24)]);
+}
+
+/** Lines and arrows run left → right; `down` makes a top → bottom arrow with the same line data. */
+export function insertLine(arrow: boolean, down = false) {
+  const el = down
+    ? newLine(SLIDE_W / 2, SLIDE_H / 2 - 120, SLIDE_W / 2, SLIDE_H / 2 + 120, arrow)
+    : newLine(SLIDE_W / 2 - 120, SLIDE_H / 2, SLIDE_W / 2 + 120, SLIDE_H / 2, arrow);
+  useStore.getState().addElements([el]);
 }
 
 /** Curved line / curved arrow (quadratic Bézier), bent upwards by default; the bend is edited with its handle. */

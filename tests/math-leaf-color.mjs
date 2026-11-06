@@ -1,13 +1,12 @@
 /** Partial symbol colors of an equation (headless, MathJax only). Run: node tests/math-leaf-color.mjs */
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
+import { makeTempDir } from './tmp-utils.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const server = await createServer({ root, configLoader: 'runner', cacheDir: await mkdtemp(path.join(tmpdir(), 'mathslides-vite-')), server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
+const server = await createServer({ root, configLoader: 'runner', cacheDir: makeTempDir('mathslides-vite-'), server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 try {
   const { renderTex } = await server.ssrLoadModule('/src/math/mathjax.ts');
   const B = '#2563EB';

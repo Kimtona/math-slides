@@ -18,4 +18,9 @@ contextBridge.exposeInMainWorld('native', {
     capture: (rect) => ipcRenderer.invoke('sketch:capture', rect),
     log: (runId, name, data) => ipcRenderer.invoke('sketch:log', runId, name, data),
   },
+  // User configuration file (config.txt in userData): read it, or create-if-missing and open it in the default editor.
+  readConfig: () => ipcRenderer.invoke('config-read'),
+  openConfig: (template) => ipcRenderer.invoke('config-open', template),
+  // Menu accelerators (Cmd+, / Cmd+Shift+,) arrive as 'open' | 'reload'.
+  onConfigCommand: (cb) => ipcRenderer.on('config-command', (_event, command) => cb(command)),
 });

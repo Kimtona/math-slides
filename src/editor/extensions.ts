@@ -7,7 +7,7 @@ import { Plugin, PluginKey, type EditorState } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PMNodeType } from '@tiptap/pm/model';
 import { CODE_LANGUAGES, highlightCode, isSupportedLanguage } from './codeHighlight';
-import { uid } from '../model/defaults';
+import { headingSize, uid } from '../model/defaults';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextStyle from '@tiptap/extension-text-style';
@@ -15,12 +15,14 @@ import { Color } from '@tiptap/extension-color';
 import Placeholder from '@tiptap/extension-placeholder';
 import { MathBlock, MathInline } from './mathNodes';
 import type { PMNode } from '../model/types';
-import { MARKDOWN_SIZES, TYPOGRAPHY } from '../model/typography';
+import { TYPOGRAPHY } from '../model/typography';
 import { ACADEMIC_BLOCK_TYPES, DEFAULT_BLOCK_TYPE, blockTypeInfo } from '../model/academicBlocks';
 import { Highlight, InlineCode } from './formattingMarks';
+import { UserLink } from './linkMark';
 import { createQuickEmojiPanel } from './quickEmojiPanel';
 import { DEFAULT_QUICK_EMOJIS } from '../model/userPrefs';
 import { getQuickEmojis } from '../store/userPrefs';
+import { convertToDivider } from './divider';
 import { fontFromCss, fontStack } from '../model/fonts';
 
 /**
@@ -50,7 +52,7 @@ const ParagraphFontSize = Extension.create({
         handler: ({ state, range, match }) => {
           const $from = state.doc.resolve(range.from);
           if ($from.parent.type.name !== 'paragraph') return null;
-          const size = MARKDOWN_SIZES[match[1].length];
+          const size = headingSize(match[1].length);
           state.tr.delete(range.from, range.to);
           state.tr.setNodeMarkup($from.before(), undefined, { ...$from.parent.attrs, fontSize: size });
         },
@@ -70,11 +72,110 @@ const ParagraphFontSize = Extension.create({
   },
 });
 
-/** Scale per-line font sizes (used when a text box is scaled by its corner). */
+/**
+ * Notion-style horizontal divider: a top-level paragraph holding exactly `---` plus Space or Enter becomes a
+ * slide-level line element (see divider.ts). Never inside code, tables, lists, quotes, callouts or during IME composition.
+ */
+const MarkdownDivider = Extension.create({
+  name: 'markdownDivider',
+  priority: 1000,
+  addInputRules() {
+    const editor = this.editor;
+    return [
+      new InputRule({
+        find: /^---\s$/,
+        handler: ({ state, range }) => {
+          const $from = state.doc.resolve(range.from);
+          const p = $from.parent;
+          if ($from.depth !== 1 || p.type.name !== 'paragraph' || p.textContent !== '---' || editor.view.composing || hasCode(p)) return null;
+          state.tr.delete($from.start(), $from.end()); // consumes the Space too
+          queueMicrotask(() => convertToDivider(editor)); // after this transaction (and the box's text sync) is applied
+        },
+      }),
+    ];
+  },
+  addKeyboardShortcuts() {
+    return {
+      Enter: ({ editor }) => {
+        const { $from, empty } = editor.state.selection;
+        const p = $from.parent;
+        if (!empty || editor.view.composing || $from.depth !== 1 || p.type.name !== 'paragraph' || p.textContent !== '---' || $from.parentOffset !== 3 || hasCode(p)) return false;
+        editor.view.dispatch(editor.state.tr.delete($from.start(), $from.end()));
+        return convertToDivider(editor) || true;
+      },
+    };
+  },
+});
+
+function hasCode(p: PMNodeType) {
+  let code = false;
+  p.forEach((c) => { if (c.marks.some((m) => m.type.name === 'code' || m.type.name === 'inlineCode')) code = true; });
+  return code;
+}
+
+/** True when the caret/selection is inside a Callout or Quote, where the size field sizes only the selected lines. */
+export const inSizedBlock = (editor: Editor) => editor.isActive('callout') || editor.isActive('blockquote');
+
+/** Size (px) of the first line touched by the selection, or null when it follows the box size. */
+export function lineSizeAt(state: EditorState): number | null {
+  const { from, to } = state.selection;
+  let size: number | null = null, seen = false;
+  state.doc.nodesBetween(from, to, (n) => {
+    if (n.type.name !== 'paragraph') return !seen;
+    if (!seen) { seen = true; size = (n.attrs.fontSize as number | null) ?? null; }
+    return false;
+  });
+  return size;
+}
+
+/** Transaction giving every paragraph touched by the selection a px size (`null` = back to the box size). */
+export function lineSizeTransaction(state: EditorState, size: number | null) {
+  const { from, to } = state.selection;
+  const tr = state.tr;
+  state.doc.nodesBetween(from, to, (n, pos) => {
+    if (n.type.name === 'paragraph') tr.setNodeMarkup(pos, undefined, { ...n.attrs, fontSize: size });
+    return n.type.name !== 'paragraph';
+  });
+  return tr;
+}
+
+export const selectionLineSize = (editor: Editor) => lineSizeAt(editor.state);
+export const setSelectionLineSize = (editor: Editor, size: number | null) =>
+  editor.chain().focus().command(({ dispatch, state, tr }) => {
+    if (dispatch) lineSizeTransaction(state, size).steps.forEach((st) => tr.step(st));
+    return true;
+  }).run();
+
+/** True when the selection is part of one line (not all of it): the size field then sizes just those characters. */
+export function inLineSelection(state: EditorState): boolean {
+  const { $from, $to, empty } = state.selection;
+  return !empty && $from.sameParent($to) && $from.parent.type.name === 'paragraph'
+    && $from.parent.type.spec.attrs?.fontSize !== undefined
+    && ($from.pos > $from.start() || $to.pos < $to.end());
+}
+
+/** Size (px) of the first sized character of the selection, or null when it follows its line. */
+export function charSizeAt(state: EditorState): number | null {
+  const { from, to } = state.selection;
+  let size: number | null = null;
+  state.doc.nodesBetween(from, to, (n) => {
+    if (size === null && n.isText) size = (n.marks.find((m) => m.type.name === 'textStyle')?.attrs.fontSize as number | null) ?? null;
+  });
+  return size;
+}
+
+/** Sets (or with `null` clears) the size of the selected characters: a `fontSize` attribute on the textStyle mark. */
+export const setSelectionCharSize = (editor: Editor, size: number | null) =>
+  editor.chain().focus().setMark('textStyle', { fontSize: size }).run();
+
+/** Scale per-line and per-character font sizes (used when a text box is scaled by its corner). */
 export function scaleParagraphSizes(doc: PMNode, k: number): PMNode {
   const walk = (n: PMNode): PMNode => {
     const out: PMNode = { ...n };
     if ((n.type === 'paragraph' || n.type === 'codeBlock') && n.attrs?.fontSize) out.attrs = { ...n.attrs, fontSize: Math.max(6, Math.round(n.attrs.fontSize * k * 2) / 2) };
+    if (n.marks?.some((m) => m.attrs?.fontSize)) {
+      out.marks = n.marks.map((m) => (m.attrs?.fontSize ? { ...m, attrs: { ...m.attrs, fontSize: Math.max(6, Math.round(m.attrs.fontSize * k * 2) / 2) } } : m));
+    }
     if (n.content) out.content = n.content.map(walk);
     return out;
   };
@@ -85,6 +186,7 @@ export function scaleParagraphSizes(doc: PMNode, k: number): PMNode {
 const LinkMark = Mark.create({
   name: 'link',
   inclusive: false,
+  excludes: 'link userLink',
   addAttributes() {
     return { href: { default: null } };
   },
@@ -634,7 +736,24 @@ const FontFamily = Extension.create({
   },
 });
 
-export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } = {}): Extensions {
+/** Size of a selected range inside a line: a `fontSize` attribute (px) on the textStyle mark, like the font. */
+const CharFontSize = Extension.create({
+  name: 'charFontSize',
+  addGlobalAttributes() {
+    return [{
+      types: ['textStyle'],
+      attributes: {
+        fontSize: {
+          default: null,
+          parseHTML: (el) => parseFloat((el as HTMLElement).style.fontSize) || null,
+          renderHTML: (attrs) => (attrs.fontSize ? { style: `font-size: ${attrs.fontSize}px` } : {}),
+        },
+      },
+    }];
+  },
+});
+
+export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean; cell?: boolean } = {}): Extensions {
   const exts: Extensions = [
     StarterKit.configure({
       heading: false,
@@ -644,23 +763,21 @@ export function makeExtensions(withPlaceholder = true, opts: { toc?: boolean } =
       horizontalRule: false,
       dropcursor: false,
       gapcursor: false,
+      // Table cells hold plain paragraphs with inline marks only (no lists).
+      ...(opts.cell ? { bulletList: false, orderedList: false, listItem: false } : {}),
     }),
     Underline,
     TextStyle,
     Color,
     FontFamily,
+    CharFontSize,
     Highlight, // priority 102 → wraps the TextStyle color span (see formattingMarks.ts)
     InlineCode,
-    MathInline,
-    MathBlock,
-    ParagraphFontSize,
-    SlideCodeBlock,
-    SlideBlockquote,
-    Callout,
-    AcademicBlock,
-    TodoItem,
+    // Table cells: no equations, dividers, code/quote/callout/academic blocks, todo items or paragraph-size lines.
+    ...(opts.cell ? [] : [MathInline, MathBlock, ParagraphFontSize, MarkdownDivider, SlideCodeBlock, SlideBlockquote, Callout, AcademicBlock, TodoItem]),
     LinkMark,
-    TocSections.configure({ enabled: !!opts.toc }),
+    UserLink,
+    ...(opts.cell ? [] : [TocSections.configure({ enabled: !!opts.toc })]),
   ];
   if (withPlaceholder) exts.push(Placeholder.configure({ placeholder: "텍스트 입력, '/' 로 명령 (/math)" }));
   return exts;

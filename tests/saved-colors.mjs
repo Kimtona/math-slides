@@ -2,8 +2,7 @@
  * Real Electron windows on a disposable profile. Run: node tests/emoji-tool.mjs (needs a graphical session).
  */
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -12,10 +11,11 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import { testElectronEnv } from './electron-env.mjs';
 import { launchElectron, startViteServer, stopElectron } from './test-ports.mjs';
+import { makeTempDir } from './tmp-utils.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-colors-profile-'));
+const profile = makeTempDir('mathslides-colors-profile-');
 let debugPort; // assigned by launchElectron (Chromium binds a free port itself)
 const { server, url: devUrl } = await startViteServer(createServer, { root, configLoader: 'runner', cacheDir: path.join(profile, 'vite') }); // OS-assigned port
 const wrapper = path.join(profile, 'main.cjs');
@@ -120,12 +120,12 @@ try {
   // --- shared across surfaces: Fill, Border, Highlight ---
   await selectNew('shape');
   const saved3 = [rgb('#F97316'), rgb('#00FF00'), rgb('#7C3AED')];
-  await openPal(FILL, '.highlight-palette'); assert.deepEqual(await mine('.highlight-palette'), saved3, 'Shape Fill shows My Colors');
-  await click('.highlight-palette .my-colors .text-swatch:last-child'); await pause(300);
+  await openPal(FILL, '.text-palette'); assert.deepEqual(await mine('.text-palette'), saved3, 'Shape Fill shows My Colors');
+  await click('.text-palette .my-colors .text-swatch:nth-last-child(2)'); await pause(300);
   assert.equal(await evaluate(`store.getState().deck.slides[store.getState().deck.slides.findIndex((s) => s.id === store.getState().currentSlideId)].elements.at(-1).fill`), '#7C3AED', 'saved color applied as the fill');
   await openPal(BORDER, '.text-palette'); assert.deepEqual(await mine('.text-palette'), saved3, 'Shape Border shows the same list'); await closePal();
   await evaluate(`store.getState().addElements([defaults.newText(100,500,{w:300})],{edit:true})`); await pause(400);
-  await openPal(HILITE, '.highlight-palette'); assert.deepEqual(await mine('.highlight-palette'), saved3, 'Highlight shows the same list'); await closePal();
+  await openPal(HILITE, '.text-palette'); assert.deepEqual(await mine('.text-palette'), saved3, 'Highlight shows the same list'); await closePal();
   await evaluate('store.getState().stopEditing()'); await pause(200);
   console.log('PASS one shared list across Text / Fill / Border / Highlight');
 
@@ -145,8 +145,8 @@ try {
   await closePal();
   await evaluate(`document.querySelector('.logo').click()`); await pause(300);
   await evaluate(`[...document.querySelectorAll('.menu-item')].find((e) => e.textContent.includes('새 프레젠테이션')).click()`); await pause(700);
-  await selectNew('shape'); await openPal(FILL, '.highlight-palette');
-  assert.deepEqual(await mine('.highlight-palette'), [rgb('#00FF00'), rgb('#7C3AED')], 'survives New Presentation'); await closePal();
+  await selectNew('shape'); await openPal(FILL, '.text-palette');
+  assert.deepEqual(await mine('.text-palette'), [rgb('#00FF00'), rgb('#7C3AED')], 'survives New Presentation'); await closePal();
   await pause(600); await quit(); await launch();
   await selectNew('text'); await openPal(TEXT, '.text-palette');
   assert.deepEqual(await mine(), [rgb('#00FF00'), rgb('#7C3AED')], 'survives a full restart');

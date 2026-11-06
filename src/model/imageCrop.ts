@@ -51,3 +51,17 @@ export function clampFrameToSource(
   if (moving.s) y2 = Math.max(Math.min(y2, r.y + r.h), y1 + MIN_FRAME);
   return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
 }
+
+/** Effective corner radius (px): the stored value clamped to half the shorter side, so it never exceeds a full semicircle end. */
+export const imageRadius = (el: Pick<ImageElement, 'w' | 'h' | 'radius'>) =>
+  Math.max(0, Math.min(el.radius ?? 0, Math.min(el.w, el.h) / 2));
+
+/**
+ * OOXML `roundRect` adjustment for the same radius: the preset's corner radius is `min(w, h) * adj / 100000`
+ * (adj pinned to 0..50000), which is exactly CSS `border-radius: r` on the element box.
+ */
+export const roundRectAdj = (el: Pick<ImageElement, 'w' | 'h' | 'radius'>) =>
+  Math.round((imageRadius(el) / Math.min(el.w, el.h)) * 100000);
+
+/** Default value (px) of the Corner Radius preset button. Single value; a Settings preference can later replace it. */
+export const DEFAULT_RADIUS_PRESET = 50;

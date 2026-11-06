@@ -5,8 +5,7 @@
  * Run: node tests/math-leaf-drag.mjs   (PDF raster check needs poppler's pdftoppm; skipped with a notice without it)
  */
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readdirSync } from 'node:fs';
@@ -16,10 +15,11 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import JSZip from 'jszip';
 import { testElectronEnv } from './electron-env.mjs';
+import { makeTempDir } from './tmp-utils.mjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const profile = await mkdtemp(path.join(tmpdir(), 'mathslides-leafdrag-profile-'));
+const profile = makeTempDir('mathslides-leafdrag-profile-');
 const freePort = async () => { const p = netServer(); await new Promise((r) => p.listen(0, '127.0.0.1', r)); const n = p.address().port; await new Promise((r) => p.close(r)); return n; };
 const debugPort = await freePort();
 const vitePort = await freePort();

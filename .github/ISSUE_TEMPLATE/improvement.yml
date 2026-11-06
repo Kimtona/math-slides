@@ -1,0 +1,19 @@
+name: Suggest an Improvement
+description: Something was awkward, missing, or could be nicer.
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: pain
+    attributes:
+      label: What was frustrating or missing?
+      description: Tell us what you were trying to do. Screenshots are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea for making it better
+      description: Optional. Even a rough thought helps.
+    validations:
+      required: false

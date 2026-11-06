@@ -20,6 +20,8 @@ export interface TextStyle {
   align: 'left' | 'center' | 'right';
   lineHeight: number; // multiplier
   fill: string | null; // background color of the box
+  /** A SLIDE_FONTS id for this box. Absent = the presentation font (older files, and every box created with the default font). */
+  fontFamily?: string;
 }
 
 interface ElementBase {
@@ -28,6 +30,11 @@ interface ElementBase {
   y: number;
   w: number;
   h: number; // for text: measured from content (auto height)
+  /**
+   * Optional plain-text caption drawn left-aligned below the element (below a line's bounding box) at the element's width.
+   * Absent / empty = no caption (older files have none); '' only exists while it is being edited. Never auto-numbered.
+   */
+  caption?: string;
 }
 
 /**
@@ -64,13 +71,10 @@ export interface ImageElement extends ElementBase {
   assetId: ID;
   /** Absent (older files, uncropped images) = the whole image. */
   crop?: ImageCrop;
-  /**
-   * Optional plain-text caption, drawn left-aligned below the image at the image's width.
-   * Absent / empty = no caption (older files have none); '' only exists while it is being edited.
-   */
-  caption?: string;
   /** Instance border color (#rrggbb), drawn on the image bounds. Absent = no border. */
   borderColor?: string;
+  /** Corner radius in slide px (absent / 0 = square, as in older files). Rendered clamped to half the shorter side. */
+  radius?: number;
 }
 
 export type ShapeKind = 'rect' | 'roundRect' | 'ellipse' | 'blockArrow';
@@ -109,6 +113,8 @@ export interface LineElement extends ElementBase {
    */
   cx?: number;
   cy?: number;
+  /** Set only on Markdown/slash dividers: endpoint drags stay horizontal unless ⌥ is held. Absent = ordinary line. */
+  role?: 'divider';
 }
 
 /**
@@ -120,7 +126,41 @@ export interface EmojiElement extends ElementBase {
   emoji: string;
 }
 
-export type SlideElement = TextElement | ImageElement | ShapeElement | LineElement | EmojiElement;
+/** One table cell: rich text (the same ProseMirror JSON as a text box; no math/blocks/lists in v1). */
+export interface TableCell {
+  doc: PMNode;
+  /** Custom background (#rrggbb). Absent = the style's default (none, or the Header style's gray). Always wins over the style fill. */
+  fill?: string;
+  /** Merged cell (top-left anchor of the block): how many rows / columns it spans (absent = 1). The cells it covers stay in the grid as `covered`. */
+  rowSpan?: number;
+  colSpan?: number;
+  /** Hidden by the merged cell that covers it. Its (empty) doc is kept so the grid stays rectangular and unmerging restores plain cells. */
+  covered?: true;
+}
+
+export type TableStyle = 'minimal' | 'grid' | 'header';
+
+/**
+ * A table as ONE slide element. `rows[r][c]` is a rectangular grid; `cols` holds the column widths in px and
+ * always sums to `w`. Row heights are content-driven (never stored); `h` is the measured height, like text boxes.
+ */
+export interface TableElement extends ElementBase {
+  type: 'table';
+  cols: number[];
+  rows: TableCell[][];
+  /** Appearance preset. Phase 1 renders 'minimal'; the others are reserved. */
+  style: TableStyle;
+  /** First row is emphasized (header). */
+  headerRow: boolean;
+  /** Table-wide text defaults (same shape as a text box's style; `fill` is unused). */
+  textStyle: TextStyle;
+  /** Multiplier of the cell padding (absent = 1). Whole-table resizing scales it together with the text, so the table keeps its proportions. */
+  padScale?: number;
+  /** Custom line color (#rrggbb) for every table line (width stays fixed). Absent = the style's default grays. */
+  borderColor?: string;
+}
+
+export type SlideElement = TextElement | ImageElement | ShapeElement | LineElement | EmojiElement | TableElement;
 
 export interface Slide {
   id: ID;

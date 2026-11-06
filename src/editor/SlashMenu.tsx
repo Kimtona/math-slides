@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/core';
 import { insertMath } from './mathNodes';
-import { pickImages } from '../canvas/insert';
+import { insertTable, pickImages } from '../canvas/insert';
+import { convertToDivider, inEmptyTopLevelParagraph } from './divider';
 import { convertToAcademicBlock, convertToCallout, convertToCodeBlock, convertToTodo } from './extensions';
 
 interface Item {
@@ -30,8 +31,18 @@ const ITEMS: Item[] = [
     run: (ed, r) => { convertToAcademicBlock(ed, r); } },
   { title: 'Image', hint: '이미지 — 줄 시작에서 /image (툴바 이미지와 동일)', icon: '🖼', keys: ['image', 'img', 'picture', 'photo'], lineStart: true,
     run: (ed, r) => { ed.chain().focus().deleteRange(r).run(); pickImages(); } },
+  { title: 'Table', hint: '표 (3×3) — 줄 시작에서 /table', icon: '▦', keys: ['table', 'grid', '표'], lineStart: true,
+    run: (ed, r) => { ed.chain().focus().deleteRange(r).run(); insertTable(); } },
   { title: 'Todo', hint: '체크박스 — 줄 시작에서 /todo', icon: '☐', keys: ['todo', 'task', 'checkbox', 'check'], lineStart: true,
     run: (ed, r) => { convertToTodo(ed, r); } },
+  { title: 'Divider', hint: '구분선 — 줄 시작에서 /divider (또는 ---)', icon: '―', keys: ['divider', 'line', 'hr', 'separator', 'rule'], lineStart: true, hideIn: 'nested',
+    run: (ed, r) => {
+      // Re-validated here: never delete the command text unless a divider will replace it.
+      const $f = ed.state.doc.resolve(r.from);
+      if ($f.depth !== 1 || $f.parent.type.name !== 'paragraph' || $f.parent.content.size !== r.to - r.from) return;
+      ed.chain().focus().deleteRange(r).run();
+      if (inEmptyTopLevelParagraph(ed)) convertToDivider(ed);
+    } },
   { title: 'Bulleted list', hint: '글머리 기호 — "- "', icon: '•', keys: ['bullet', 'list', 'ul'],
     run: (ed, r) => ed.chain().focus().deleteRange(r).toggleBulletList().run() },
   { title: 'Numbered list', hint: '번호 목록 — "1. "', icon: '1.', keys: ['number', 'numbered', 'ordered', 'list', 'ol'],
@@ -75,6 +86,8 @@ export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { curren
       // Line start = "/" is the first character of the paragraph and that paragraph could become a code block.
       const lineStart = from === $from.start() && editor.can().setNode('codeBlock');
       const inside = ['callout', 'academicBlock'].filter((n) => editor.isActive(n));
+      // Slide-level commands (divider) need a plain top-level paragraph holding only the command.
+      if ($from.depth !== 1 || $from.parent.type.name !== 'paragraph' || from !== $from.start() || $from.parentOffset !== $from.parent.content.size) inside.push('nested');
       if (dismissedAt.current === from || !filter(m[1], lineStart, inside).length) return setMenu(null);
       const c = view.coordsAtPos(from);
       setMenu((prev) => {
@@ -136,3 +149,6 @@ export function SlashMenu({ editor, keyRef }: { editor: Editor; keyRef: { curren
     document.body,
   );
 }
+
+/** Test hook: run a menu item by title. */
+export function __runItem(title: string, ed: Editor, r: { from: number; to: number }) { ITEMS.find((i) => i.title === title)?.run(ed, r); }
