@@ -388,3 +388,30 @@ a bold word inside a table cell, save → reopen, PDF, PPTX runs/bullets/quote. 
 **Real-model status (honest).** Recognized and converted: tables (via grid detection, not via the model's own `table` type, which it never filled
 correctly), headings, quotes, lists (bullet vs. numbered is the model's guess — flagged). **Not recognized by the 7B model: bold, italic, strikethrough** — it wrote
 no markers in any run; the conversion supports them (tested), the model does not see them. The Claude provider can use the structured `blocks` schema; it was not run.
+
+## Stage 10 — the user's real composite screenshot (2026-11-06)
+
+Input: `~/Downloads/test_composite.png` (copy: `examples/composite/test_composite.png`, 840×1580, sent as 653×1229). Real run, qwen2.5vl:7b, CLI: **244.9 s** (prompt eval 18.5 s, generation 225.4 s, 2018 input / 1481 output tokens ≈ 6.6 tok/s, model already loaded). Raw output kept verbatim in `tests/fixtures/sketch/test-composite.real.json`.
+
+### What the model did vs. what the converter lost (traced stage by stage)
+| Stage | Finding |
+|---|---|
+| VLM raw output | Recognised everything correctly, text exact: 10 table cells with consistent boxes, 3 bullet lines, 3 numbered lines, both equations. It typed ALL of them as plain `text` (no table/list/heading types), dropped the bullet glyphs, and wrote the display equation as LaTeX inside a `text`. |
+| Adapter | **A (table):** `detectGridTable` required the grid to cover ≥ 80 % of all texts on the page → a page with headings/lists/equations never qualified. **B (lists):** `1. …` lines each became a one-item list (also the section headings `1. Model Configuration`…); unmarked bullets were never recognised. Display equation typed as text was wrapped as sentence + fragments of `\frac`, `\sum`. "Inline:" and its equation stayed two overlapping boxes. |
+| Converter | Fine; but a 5-row table at the floor font (14 px) with default padding was taller than the space the tall page gave it and overlapped the next heading (padScale now fits it). |
+
+### Changes
+- `detectGridTable`: region-based — a run of ≥ 3 consecutive rows with equal cell count, aligned columns (left/right/centre), regular row pitch, non-overlapping cells; the first row is the header (flagged for review). Paragraph lines, list items, equations cannot form such a run (negative tests).
+- `mergeListItems`: numbered items must count up (`3. Workflow` then `1. Upload` are not joined); tighter geometry; a lone `N. title` goes back to plain text. New `inferBulletLists`: ≥ 2 plain lines, one shared left edge, indented from the text margin, even pitch → bullet list, flagged "markers inferred".
+- `looksLikeLatex`: a `text` that is pure LaTeX becomes a math element. A formula starting right after a short text on the same line joins that sentence as inline math.
+- `convert.ts`: table `padScale` shrinks cell padding so the table keeps the height the sketch gave it.
+- `Canvas.tsx` (problem C, earlier): a selected text box inside a group (right after Apply) picks equation symbols instead of moving the group; `tests/math-leaf-sketch.mjs` reproduces it with real mouse events.
+- Test change: the old test "a grid that is only part of the page is left alone" encoded the very rule that broke composites; it now asserts the grid IS a table and the notes around it are not pulled in.
+
+### Results
+- Re-conversion of the REAL saved model output (no model call): native 5×2 table (10 cells exact), `bulletList` ×3, `orderedList` ×3, section headings stay plain lines, display equation = `mathBlock`, `Inline: $E = mc^2$` = one text with `mathInline`, 0 warnings. Verified in the real Electron GUI (replay of the real output): render, per-cell edit + undo, save/reopen, PDF, PPTX (5 `<a:tr>`, 10 `<a:tc>`, `buChar`, `buAutoNum`).
+- Not recognised: the blockquote (the model gave no marker; only a plain indented line), bold of table header (no pixel analysis), header row is assumed.
+
+### Speed (problem D) — measured, NOT solved
+- Cost model: ~18 s fixed prompt evaluation (+ up to 9 s cold model load) + 6.6 tok/s. The JSON answer (26 elements with ids and four box numbers each) is 1481 tokens = 225 s. 60 s ⇒ ≤ ~290 generated tokens.
+- One real experiment, short Markdown-only prompt (no boxes, no JSON): 176 output tokens, prompt 21.4 s, eval 24.3 s, load 9.3 s (cold), wall **55.3 s**; the transcription is exact incl. headings, table, both lists, `$…$`/`$$…$$` and the `>` quote. But it carries no positions, so it needs a new "document mode" (stack blocks vertically in the image frame). That is an architectural addition and was NOT made without approval. Output saved in the scratchpad only.

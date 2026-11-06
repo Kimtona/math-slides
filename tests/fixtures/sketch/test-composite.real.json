@@ -1,0 +1,305 @@
+{
+ "_note": "REAL qwen2.5vl:7b output (2026-11-06, 244.9 s, 1481 output tokens) for the user's ~/Downloads/test_composite.png (copy: examples/composite/test_composite.png). Unedited. The model listed table cells, list items and the display equation as plain text elements.",
+ "sentImage": {
+  "width": 653,
+  "height": 1229
+ },
+ "localOutput": {
+  "elements": [
+   {
+    "id": "t1",
+    "type": "title",
+    "bbox_2d": [
+     10,
+     18,
+     256,
+     43
+    ],
+    "content": "AI Research Notes"
+   },
+   {
+    "id": "t2",
+    "type": "text",
+    "bbox_2d": [
+     10,
+     82,
+     281,
+     104
+    ],
+    "content": "1. Model Configuration"
+   },
+   {
+    "id": "t3",
+    "type": "text",
+    "bbox_2d": [
+     10,
+     150,
+     134,
+     168
+    ],
+    "content": "Component"
+   },
+   {
+    "id": "t4",
+    "type": "text",
+    "bbox_2d": [
+     433,
+     149,
+     491,
+     168
+    ],
+    "content": "Value"
+   },
+   {
+    "id": "t5",
+    "type": "text",
+    "bbox_2d": [
+     10,
+     209,
+     62,
+     227
+    ],
+    "content": "Model"
+   },
+   {
+    "id": "t6",
+    "type": "text",
+    "bbox_2d": [
+     433,
+     209,
+     592,
+     227
+    ],
+    "content": "Qwen2.5-VL 7B"
+   },
+   {
+    "id": "t7",
+    "type": "text",
+    "bbox_2d": [
+     10,
+     267,
+     123,
+     285
+    ],
+    "content": "Framework"
+   },
+   {
+    "id": "t8",
+    "type": "text",
+    "bbox_2d": [
+     433,
+     267,
+     502,
+     285
+    ],
+    "content": "Ollama"
+   },
+   {
+    "id": "t9",
+    "type": "text",
+    "bbox_2d": [
+     10,
+     325,
+     150,
+     343
+    ],
+    "content": "Learning Rate"
+   },
+   {
+    "id": "t10",
+    "type": "text",
+    "bbox_2d": [
+     433,
+     325,
+     491,
+     343
+    ],
+    "content": "0.001"
+   },
+   {
+    "id": "t11",
+    "type": "text",
+    "bbox_2d": [
+     10,
+     383,
+     118,
+     401
+    ],
+    "content": "Batch Size"
+   },
+   {
+    "id": "t12",
+    "type": "text",
+    "bbox_2d": [
+     433,
+     383,
+     465,
+     401
+    ],
+    "content": "32"
+   },
+   {
+    "id": "t13",
+    "type": "text",
+    "bbox_2d": [
+     10,
+     447,
+     226,
+     470
+    ],
+    "content": "2. Research Tasks"
+   },
+   {
+    "id": "t14",
+    "type": "text",
+    "bbox_2d": [
+     63,
+     506,
+     363,
+     528
+    ],
+    "content": "Extract text and equations"
+   },
+   {
+    "id": "t15",
+    "type": "text",
+    "bbox_2d": [
+     63,
+     548,
+     354,
+     570
+    ],
+    "content": "Reconstruct native tables"
+   },
+   {
+    "id": "t16",
+    "type": "text",
+    "bbox_2d": [
+     63,
+     589,
+     374,
+     611
+    ],
+    "content": "Preserve editable elements"
+   },
+   {
+    "id": "t17",
+    "type": "text",
+    "bbox_2d": [
+     10,
+     647,
+     151,
+     669
+    ],
+    "content": "3. Workflow"
+   },
+   {
+    "id": "t18",
+    "type": "text",
+    "bbox_2d": [
+     25,
+     705,
+     278,
+     727
+    ],
+    "content": "1. Upload screenshot"
+   },
+   {
+    "id": "t19",
+    "type": "text",
+    "bbox_2d": [
+     25,
+     747,
+     257,
+     769
+    ],
+    "content": "2. Run vision model"
+   },
+   {
+    "id": "t20",
+    "type": "text",
+    "bbox_2d": [
+     25,
+     789,
+     290,
+     811
+    ],
+    "content": "3. Edit generated slide"
+   },
+   {
+    "id": "t21",
+    "type": "text",
+    "bbox_2d": [
+     10,
+     847,
+     160,
+     869
+    ],
+    "content": "4. Equations"
+   },
+   {
+    "id": "t22",
+    "type": "text",
+    "bbox_2d": [
+     10,
+     905,
+     100,
+     927
+    ],
+    "content": "Inline:"
+   },
+   {
+    "id": "t23",
+    "type": "math",
+    "bbox_2d": [
+     105,
+     905,
+     180,
+     927
+    ],
+    "content": "E = mc^2"
+   },
+   {
+    "id": "t24",
+    "type": "text",
+    "bbox_2d": [
+     312,
+     978,
+     581,
+     1044
+    ],
+    "content": "L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2"
+   },
+   {
+    "id": "t25",
+    "type": "text",
+    "bbox_2d": [
+     10,
+     1098,
+     173,
+     1120
+    ],
+    "content": "5. Conclusion"
+   },
+   {
+    "id": "t26",
+    "type": "text",
+    "bbox_2d": [
+     37,
+     1158,
+     509,
+     1180
+    ],
+    "content": "Structure matters more than plain text."
+   }
+  ]
+ },
+ "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"t1\",\n      \"type\": \"title\",\n      \"bbox_2d\": [10, 18, 256, 43],\n      \"content\": \"AI Research Notes\"\n    },\n    {\n      \"id\": \"t2\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 82, 281, 104],\n      \"content\": \"1. Model Configuration\"\n    },\n    {\n      \"id\": \"t3\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 150, 134, 168],\n      \"content\": \"Component\"\n    },\n    {\n      \"id\": \"t4\",\n      \"type\": \"text\",\n      \"bbox_2d\": [433, 149, 491, 168],\n      \"content\": \"Value\"\n    },\n    {\n      \"id\": \"t5\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 209, 62, 227],\n      \"content\": \"Model\"\n    },\n    {\n      \"id\": \"t6\",\n      \"type\": \"text\",\n      \"bbox_2d\": [433, 209, 592, 227],\n      \"content\": \"Qwen2.5-VL 7B\"\n    },\n    {\n      \"id\": \"t7\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 267, 123, 285],\n      \"content\": \"Framework\"\n    },\n    {\n      \"id\": \"t8\",\n      \"type\": \"text\",\n      \"bbox_2d\": [433, 267, 502, 285],\n      \"content\": \"Ollama\"\n    },\n    {\n      \"id\": \"t9\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 325, 150, 343],\n      \"content\": \"Learning Rate\"\n    },\n    {\n      \"id\": \"t10\",\n      \"type\": \"text\",\n      \"bbox_2d\": [433, 325, 491, 343],\n      \"content\": \"0.001\"\n    },\n    {\n      \"id\": \"t11\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 383, 118, 401],\n      \"content\": \"Batch Size\"\n    },\n    {\n      \"id\": \"t12\",\n      \"type\": \"text\",\n      \"bbox_2d\": [433, 383, 465, 401],\n      \"content\": \"32\"\n    },\n    {\n      \"id\": \"t13\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 447, 226, 470],\n      \"content\": \"2. Research Tasks\"\n    },\n    {\n      \"id\": \"t14\",\n      \"type\": \"text\",\n      \"bbox_2d\": [63, 506, 363, 528],\n      \"content\": \"Extract text and equations\"\n    },\n    {\n      \"id\": \"t15\",\n      \"type\": \"text\",\n      \"bbox_2d\": [63, 548, 354, 570],\n      \"content\": \"Reconstruct native tables\"\n    },\n    {\n      \"id\": \"t16\",\n      \"type\": \"text\",\n      \"bbox_2d\": [63, 589, 374, 611],\n      \"content\": \"Preserve editable elements\"\n    },\n    {\n      \"id\": \"t17\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 647, 151, 669],\n      \"content\": \"3. Workflow\"\n    },\n    {\n      \"id\": \"t18\",\n      \"type\": \"text\",\n      \"bbox_2d\": [25, 705, 278, 727],\n      \"content\": \"1. Upload screenshot\"\n    },\n    {\n      \"id\": \"t19\",\n      \"type\": \"text\",\n      \"bbox_2d\": [25, 747, 257, 769],\n      \"content\": \"2. Run vision model\"\n    },\n    {\n      \"id\": \"t20\",\n      \"type\": \"text\",\n      \"bbox_2d\": [25, 789, 290, 811],\n      \"content\": \"3. Edit generated slide\"\n    },\n    {\n      \"id\": \"t21\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 847, 160, 869],\n      \"content\": \"4. Equations\"\n    },\n    {\n      \"id\": \"t22\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 905, 100, 927],\n      \"content\": \"Inline:\"\n    },\n    {\n      \"id\": \"t23\",\n      \"type\": \"math\",\n      \"bbox_2d\": [105, 905, 180, 927],\n      \"content\": \"E = mc^2\"\n    },\n    {\n      \"id\": \"t24\",\n      \"type\": \"text\",\n      \"bbox_2d\": [312, 978, 581, 1044],\n      \"content\": \"L = \\\\frac{1}{N} \\\\sum_{i=1}^{N} (y_i - \\\\hat{y}_i)^2\"\n    },\n    {\n      \"id\": \"t25\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 1098, 173, 1120],\n      \"content\": \"5. Conclusion\"\n    },\n    {\n      \"id\": \"t26\",\n      \"type\": \"text\",\n      \"bbox_2d\": [37, 1158, 509, 1180],\n      \"content\": \"Structure matters more than plain text.\"\n    }\n  ]\n}",
+ "usage": {
+  "input_tokens": 2018,
+  "output_tokens": 1481,
+  "load_ms": 15,
+  "prompt_ms": 18534,
+  "eval_ms": 225351
+ }
+}

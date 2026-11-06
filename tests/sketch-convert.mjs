@@ -468,6 +468,30 @@ try {
     assert.deepEqual(salvaged.elements.map((e) => e.kind), ['table'], 'the cells become ONE table; the empty table element is dropped, nothing is invented');
     assert.ok(salvaged.notes.some((n) => /cut off/.test(n)) && salvaged.notes.some((n) => /no rows/.test(n)), 'both are reported: ' + salvaged.notes);
     assert.equal(OL.salvageElements('{"elements":[{"id":"a","type":"text","content":"x"},{"id":"b","type":"te').length, 1, 'a half-written element is never completed');
+    // -- REAL model output for the user's composite screenshot (test_composite.png): the model gave every table cell, list item
+    //    and the display equation as plain `text`; structure has to be recovered from geometry (no hard-coded answer)
+    const comp = await fixture('test-composite.real.json');
+    const ci = localToModelIR(comp.localOutput, comp.sentImage.width, comp.sentImage.height);
+    const tbls = ci.elements.filter((e) => e.kind === 'table');
+    assert.equal(tbls.length, 1, 'composite: exactly one table');
+    assert.deepEqual(tbls[0].table.rows.map((r) => r.map((c) => c.map((sp) => sp.text).join(''))),
+      [['Component', 'Value'], ['Model', 'Qwen2.5-VL 7B'], ['Framework', 'Ollama'], ['Learning Rate', '0.001'], ['Batch Size', '32']], 'composite: 5×2 cells exact');
+    const lists = ci.elements.filter((e) => e.blocks?.[0] && ['bullet', 'ordered'].includes(e.blocks[0].type));
+    assert.deepEqual(lists.map((e) => [e.blocks[0].type, e.blocks[0].items.map((it) => it.map((sp) => sp.text).join(''))]),
+      [['bullet', ['Extract text and equations', 'Reconstruct native tables', 'Preserve editable elements']], ['ordered', ['Upload screenshot', 'Run vision model', 'Edit generated slide']]], 'composite: one bullet list + one ordered list, 3 items each');
+    const plainTexts = ci.elements.filter((e) => e.kind === 'text' && !e.blocks).map((e) => e.text);
+    for (const h of ['1. Model Configuration', '2. Research Tasks', '3. Workflow', '4. Equations', '5. Conclusion']) assert.ok(plainTexts.includes(h), 'numbered section heading stays a plain line, not a list: ' + h);
+    assert.ok(!plainTexts.some((t) => /Component|Qwen|Upload|Extract/.test(t)), 'no table cell / list item is left behind as a text box');
+    assert.deepEqual(ci.elements.filter((e) => e.kind === 'math').map((e) => e.latex), ['L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2'], 'display equation typed as text by the model is a math element');
+    assert.ok(plainTexts.includes('Inline: $E = mc^2$'), 'trailing inline equation joins its sentence: ' + plainTexts);
+    // negatives: look-alikes must not become a table / list
+    const tx = (id, x, y, w, c) => ({ id, type: 'text', bbox_2d: [x, y, x + w, y + 20], content: c });
+    const rowsOf = (els) => localToModelIR({ elements: els }, 1000, 1000).elements.map((e) => e.kind);
+    assert.deepEqual(rowsOf(Array.from({ length: 6 }, (_, i) => tx('p' + i, 50, 100 + i * 30, 400 + (i % 3) * 20, 'paragraph line number ' + i))).includes('table'), false, 'stacked paragraph lines are not a table');
+    assert.deepEqual(rowsOf([tx('a', 50, 100, 100, 'x1'), tx('b', 500, 100, 100, 'y1'), tx('c', 50, 130, 100, 'x2'), tx('d', 500, 130, 100, 'y2')]).includes('table'), false, 'two rows are not a table');
+    assert.deepEqual(rowsOf([tx('a', 50, 100, 100, 'x1'), tx('b', 500, 100, 100, 'y1'), tx('c', 50, 130, 100, 'x2'), tx('d', 500, 130, 100, 'y2'), tx('e', 50, 160, 100, 'x3'), tx('f', 500, 160, 100, 'y3')]).includes('table'), true, 'three aligned rows of two cells are a table');
+    assert.deepEqual(rowsOf([tx('a', 50, 100, 300, 'Intro line'), tx('b', 150, 140, 200, 'single indented line')]), ['text', 'text'], 'one indented line is not a list');
+    assert.deepEqual(rowsOf([tx('a', 50, 100, 300, 'Intro line'), tx('b', 150, 140, 200, 'item one'), tx('c', 150, 200, 200, 'item two'), tx('d', 150, 330, 200, 'far away')]).filter((k) => k === 'text').length, 3, 'irregular spacing is not a list');
     // -- list items listed one element each (the real model's habit) become ONE list; look-alikes stay separate
     const real2 = await fixture('formatted-notes.real-run2.json');
     const r2 = localToModelIR(real2.localOutput, real2.sentImage.width, real2.sentImage.height);
@@ -496,7 +520,9 @@ try {
     assert.equal(localToModelIR(grid(2, 2), 1000, 600).elements.filter((e) => e.kind === 'table').length, 0, 'a 2×2 arrangement is not turned into a table');
     assert.equal(localToModelIR(grid(4, 2, { 3: 90 }), 1000, 600).elements.filter((e) => e.kind === 'table').length, 0, 'a misaligned column breaks it');
     const mixed = grid(4, 2); mixed.elements.push(mkText('note', 300, 500, 200, { explains: 'c0' }), mkText('n2', 60, 560, 300), mkText('n3', 70, 600, 100));
-    assert.equal(localToModelIR(mixed, 1000, 700).elements.filter((e) => e.kind === 'table').length, 0, 'a grid that is only part of the page is left alone');
+    const mixedIR = localToModelIR(mixed, 1000, 700).elements;
+    assert.equal(mixedIR.filter((e) => e.kind === 'table').length, 1, 'a grid that is only PART of the page is still a table (region-based; the old 80%-of-the-page rule lost tables on composite screenshots)');
+    assert.deepEqual(mixedIR.filter((e) => e.kind !== 'table').map((e) => e.id).sort(), ['n2', 'note'].sort(), 'the notes around it are not pulled into the table (n3 stacks under n2 as before)');
   }
 
   console.log('sketch-convert: all checks passed');

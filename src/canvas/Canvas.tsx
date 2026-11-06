@@ -147,8 +147,8 @@ function startMove(e: React.PointerEvent, el: SlideElement) {
     ids = [el.id];
     st.select(ids);
   }
-  // Already selected text box, press on a rendered equation symbol: edit mode + symbol picking instead of a move (box moves from anywhere else).
-  if (wasSelected && !e.shiftKey && el.type === 'text' && ids.length === 1 && armMathPick(e, el.id)) { st.startEditing(el.id, { x: e.clientX, y: e.clientY }); return; }
+  // Already selected text box (alone or inside a group, e.g. right after Sketch-to-Slides Apply), press on a rendered equation symbol: edit mode + symbol picking instead of a move (box moves from anywhere else).
+  if (wasSelected && !e.shiftKey && el.type === 'text' && armMathPick(e, el.id)) { if (ids.length > 1) st.select([el.id]); st.startEditing(el.id, { x: e.clientX, y: e.clientY }); return; }
   const idSet = new Set(ids);
   const origs = new Map(currentSlide().elements.filter((x) => idSet.has(x.id)).map((x) => [x.id, x]));
   const startBox = unionBox([...origs.values()].map(boxOf))!;

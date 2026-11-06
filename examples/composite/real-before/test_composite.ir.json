@@ -1,0 +1,778 @@
+{
+  "source": "model",
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 244241,
+  "usage": {
+    "input_tokens": 2018,
+    "output_tokens": 1481,
+    "load_ms": 15,
+    "prompt_ms": 18534,
+    "eval_ms": 225351
+  },
+  "sentImage": {
+    "width": 653,
+    "height": 1229
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"t1\",\n      \"type\": \"title\",\n      \"bbox_2d\": [10, 18, 256, 43],\n      \"content\": \"AI Research Notes\"\n    },\n    {\n      \"id\": \"t2\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 82, 281, 104],\n      \"content\": \"1. Model Configuration\"\n    },\n    {\n      \"id\": \"t3\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 150, 134, 168],\n      \"content\": \"Component\"\n    },\n    {\n      \"id\": \"t4\",\n      \"type\": \"text\",\n      \"bbox_2d\": [433, 149, 491, 168],\n      \"content\": \"Value\"\n    },\n    {\n      \"id\": \"t5\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 209, 62, 227],\n      \"content\": \"Model\"\n    },\n    {\n      \"id\": \"t6\",\n      \"type\": \"text\",\n      \"bbox_2d\": [433, 209, 592, 227],\n      \"content\": \"Qwen2.5-VL 7B\"\n    },\n    {\n      \"id\": \"t7\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 267, 123, 285],\n      \"content\": \"Framework\"\n    },\n    {\n      \"id\": \"t8\",\n      \"type\": \"text\",\n      \"bbox_2d\": [433, 267, 502, 285],\n      \"content\": \"Ollama\"\n    },\n    {\n      \"id\": \"t9\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 325, 150, 343],\n      \"content\": \"Learning Rate\"\n    },\n    {\n      \"id\": \"t10\",\n      \"type\": \"text\",\n      \"bbox_2d\": [433, 325, 491, 343],\n      \"content\": \"0.001\"\n    },\n    {\n      \"id\": \"t11\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 383, 118, 401],\n      \"content\": \"Batch Size\"\n    },\n    {\n      \"id\": \"t12\",\n      \"type\": \"text\",\n      \"bbox_2d\": [433, 383, 465, 401],\n      \"content\": \"32\"\n    },\n    {\n      \"id\": \"t13\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 447, 226, 470],\n      \"content\": \"2. Research Tasks\"\n    },\n    {\n      \"id\": \"t14\",\n      \"type\": \"text\",\n      \"bbox_2d\": [63, 506, 363, 528],\n      \"content\": \"Extract text and equations\"\n    },\n    {\n      \"id\": \"t15\",\n      \"type\": \"text\",\n      \"bbox_2d\": [63, 548, 354, 570],\n      \"content\": \"Reconstruct native tables\"\n    },\n    {\n      \"id\": \"t16\",\n      \"type\": \"text\",\n      \"bbox_2d\": [63, 589, 374, 611],\n      \"content\": \"Preserve editable elements\"\n    },\n    {\n      \"id\": \"t17\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 647, 151, 669],\n      \"content\": \"3. Workflow\"\n    },\n    {\n      \"id\": \"t18\",\n      \"type\": \"text\",\n      \"bbox_2d\": [25, 705, 278, 727],\n      \"content\": \"1. Upload screenshot\"\n    },\n    {\n      \"id\": \"t19\",\n      \"type\": \"text\",\n      \"bbox_2d\": [25, 747, 257, 769],\n      \"content\": \"2. Run vision model\"\n    },\n    {\n      \"id\": \"t20\",\n      \"type\": \"text\",\n      \"bbox_2d\": [25, 789, 290, 811],\n      \"content\": \"3. Edit generated slide\"\n    },\n    {\n      \"id\": \"t21\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 847, 160, 869],\n      \"content\": \"4. Equations\"\n    },\n    {\n      \"id\": \"t22\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 905, 100, 927],\n      \"content\": \"Inline:\"\n    },\n    {\n      \"id\": \"t23\",\n      \"type\": \"math\",\n      \"bbox_2d\": [105, 905, 180, 927],\n      \"content\": \"E = mc^2\"\n    },\n    {\n      \"id\": \"t24\",\n      \"type\": \"text\",\n      \"bbox_2d\": [312, 978, 581, 1044],\n      \"content\": \"L = \\\\frac{1}{N} \\\\sum_{i=1}^{N} (y_i - \\\\hat{y}_i)^2\"\n    },\n    {\n      \"id\": \"t25\",\n      \"type\": \"text\",\n      \"bbox_2d\": [10, 1098, 173, 1120],\n      \"content\": \"5. Conclusion\"\n    },\n    {\n      \"id\": \"t26\",\n      \"type\": \"text\",\n      \"bbox_2d\": [37, 1158, 509, 1180],\n      \"content\": \"Structure matters more than plain text.\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "t1",
+        "type": "title",
+        "bbox_2d": [
+          10,
+          18,
+          256,
+          43
+        ],
+        "content": "AI Research Notes"
+      },
+      {
+        "id": "t2",
+        "type": "text",
+        "bbox_2d": [
+          10,
+          82,
+          281,
+          104
+        ],
+        "content": "1. Model Configuration"
+      },
+      {
+        "id": "t3",
+        "type": "text",
+        "bbox_2d": [
+          10,
+          150,
+          134,
+          168
+        ],
+        "content": "Component"
+      },
+      {
+        "id": "t4",
+        "type": "text",
+        "bbox_2d": [
+          433,
+          149,
+          491,
+          168
+        ],
+        "content": "Value"
+      },
+      {
+        "id": "t5",
+        "type": "text",
+        "bbox_2d": [
+          10,
+          209,
+          62,
+          227
+        ],
+        "content": "Model"
+      },
+      {
+        "id": "t6",
+        "type": "text",
+        "bbox_2d": [
+          433,
+          209,
+          592,
+          227
+        ],
+        "content": "Qwen2.5-VL 7B"
+      },
+      {
+        "id": "t7",
+        "type": "text",
+        "bbox_2d": [
+          10,
+          267,
+          123,
+          285
+        ],
+        "content": "Framework"
+      },
+      {
+        "id": "t8",
+        "type": "text",
+        "bbox_2d": [
+          433,
+          267,
+          502,
+          285
+        ],
+        "content": "Ollama"
+      },
+      {
+        "id": "t9",
+        "type": "text",
+        "bbox_2d": [
+          10,
+          325,
+          150,
+          343
+        ],
+        "content": "Learning Rate"
+      },
+      {
+        "id": "t10",
+        "type": "text",
+        "bbox_2d": [
+          433,
+          325,
+          491,
+          343
+        ],
+        "content": "0.001"
+      },
+      {
+        "id": "t11",
+        "type": "text",
+        "bbox_2d": [
+          10,
+          383,
+          118,
+          401
+        ],
+        "content": "Batch Size"
+      },
+      {
+        "id": "t12",
+        "type": "text",
+        "bbox_2d": [
+          433,
+          383,
+          465,
+          401
+        ],
+        "content": "32"
+      },
+      {
+        "id": "t13",
+        "type": "text",
+        "bbox_2d": [
+          10,
+          447,
+          226,
+          470
+        ],
+        "content": "2. Research Tasks"
+      },
+      {
+        "id": "t14",
+        "type": "text",
+        "bbox_2d": [
+          63,
+          506,
+          363,
+          528
+        ],
+        "content": "Extract text and equations"
+      },
+      {
+        "id": "t15",
+        "type": "text",
+        "bbox_2d": [
+          63,
+          548,
+          354,
+          570
+        ],
+        "content": "Reconstruct native tables"
+      },
+      {
+        "id": "t16",
+        "type": "text",
+        "bbox_2d": [
+          63,
+          589,
+          374,
+          611
+        ],
+        "content": "Preserve editable elements"
+      },
+      {
+        "id": "t17",
+        "type": "text",
+        "bbox_2d": [
+          10,
+          647,
+          151,
+          669
+        ],
+        "content": "3. Workflow"
+      },
+      {
+        "id": "t18",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          705,
+          278,
+          727
+        ],
+        "content": "1. Upload screenshot"
+      },
+      {
+        "id": "t19",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          747,
+          257,
+          769
+        ],
+        "content": "2. Run vision model"
+      },
+      {
+        "id": "t20",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          789,
+          290,
+          811
+        ],
+        "content": "3. Edit generated slide"
+      },
+      {
+        "id": "t21",
+        "type": "text",
+        "bbox_2d": [
+          10,
+          847,
+          160,
+          869
+        ],
+        "content": "4. Equations"
+      },
+      {
+        "id": "t22",
+        "type": "text",
+        "bbox_2d": [
+          10,
+          905,
+          100,
+          927
+        ],
+        "content": "Inline:"
+      },
+      {
+        "id": "t23",
+        "type": "math",
+        "bbox_2d": [
+          105,
+          905,
+          180,
+          927
+        ],
+        "content": "E = mc^2"
+      },
+      {
+        "id": "t24",
+        "type": "text",
+        "bbox_2d": [
+          312,
+          978,
+          581,
+          1044
+        ],
+        "content": "L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2"
+      },
+      {
+        "id": "t25",
+        "type": "text",
+        "bbox_2d": [
+          10,
+          1098,
+          173,
+          1120
+        ],
+        "content": "5. Conclusion"
+      },
+      {
+        "id": "t26",
+        "type": "text",
+        "bbox_2d": [
+          37,
+          1158,
+          509,
+          1180
+        ],
+        "content": "Structure matters more than plain text."
+      }
+    ]
+  },
+  "image": {
+    "width": 653,
+    "height": 1229
+  },
+  "output": {
+    "elements": [
+      {
+        "id": "t1",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 14.646053702196907,
+          "w": 376.7228177641654,
+          "h": 20.34174125305126
+        },
+        "kind": "text",
+        "text": "AI Research Notes",
+        "role": "title"
+      },
+      {
+        "id": "t2",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 66.72091131000813,
+          "w": 415.0076569678407,
+          "h": 17.9007323026851
+        },
+        "kind": "text",
+        "text": "Model Configuration",
+        "role": "body",
+        "blocks": [
+          {
+            "type": "ordered",
+            "start": 1,
+            "items": [
+              [
+                {
+                  "text": "Model Configuration"
+                }
+              ]
+            ]
+          }
+        ],
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Model Configuration"
+        }
+      },
+      {
+        "id": "t3",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 122.05044751830756,
+          "w": 189.8928024502297,
+          "h": 14.646053702196909
+        },
+        "kind": "text",
+        "text": "Component",
+        "role": "body"
+      },
+      {
+        "id": "t4",
+        "bbox": {
+          "x": 663.093415007657,
+          "y": 121.23677786818551,
+          "w": 88.82082695252677,
+          "h": 15.45972335231896
+        },
+        "kind": "text",
+        "text": "Value",
+        "role": "body"
+      },
+      {
+        "id": "t5",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 170.05695687550855,
+          "w": 79.63246554364471,
+          "h": 14.646053702196895
+        },
+        "kind": "text",
+        "text": "Model",
+        "role": "body"
+      },
+      {
+        "id": "t6",
+        "bbox": {
+          "x": 663.093415007657,
+          "y": 170.05695687550855,
+          "w": 243.49157733537515,
+          "h": 14.646053702196895
+        },
+        "kind": "text",
+        "text": "Qwen2.5-VL 7B",
+        "role": "body"
+      },
+      {
+        "id": "t7",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 217.24979658258746,
+          "w": 173.04747320061256,
+          "h": 14.646053702196923
+        },
+        "kind": "text",
+        "text": "Framework",
+        "role": "body"
+      },
+      {
+        "id": "t8",
+        "bbox": {
+          "x": 663.093415007657,
+          "y": 217.24979658258746,
+          "w": 105.66615620214395,
+          "h": 14.646053702196923
+        },
+        "kind": "text",
+        "text": "Ollama",
+        "role": "body"
+      },
+      {
+        "id": "t9",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 264.44263628966644,
+          "w": 214.39509954058195,
+          "h": 14.646053702196866
+        },
+        "kind": "text",
+        "text": "Learning Rate",
+        "role": "body"
+      },
+      {
+        "id": "t10",
+        "bbox": {
+          "x": 663.093415007657,
+          "y": 264.44263628966644,
+          "w": 88.82082695252677,
+          "h": 14.646053702196866
+        },
+        "kind": "text",
+        "text": "0.001",
+        "role": "body"
+      },
+      {
+        "id": "t11",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 311.63547599674536,
+          "w": 165.3905053598775,
+          "h": 14.646053702196923
+        },
+        "kind": "text",
+        "text": "Batch Size",
+        "role": "body"
+      },
+      {
+        "id": "t12",
+        "bbox": {
+          "x": 663.093415007657,
+          "y": 311.63547599674536,
+          "w": 49.00459418070443,
+          "h": 14.646053702196923
+        },
+        "kind": "text",
+        "text": "32",
+        "role": "body"
+      },
+      {
+        "id": "t13",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 363.7103336045566,
+          "w": 330.781010719755,
+          "h": 18.714401952807123
+        },
+        "kind": "text",
+        "text": "Research Tasks",
+        "role": "body",
+        "blocks": [
+          {
+            "type": "ordered",
+            "start": 2,
+            "items": [
+              [
+                {
+                  "text": "Research Tasks"
+                }
+              ]
+            ]
+          }
+        ],
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Research Tasks"
+        }
+      },
+      {
+        "id": "t14",
+        "bbox": {
+          "x": 96.47779479326186,
+          "y": 411.71684296175755,
+          "w": 459.41807044410416,
+          "h": 17.900732302685128
+        },
+        "kind": "text",
+        "text": "Extract text and equations",
+        "role": "body"
+      },
+      {
+        "id": "t15",
+        "bbox": {
+          "x": 96.47779479326186,
+          "y": 445.89096826688365,
+          "w": 445.6355283307811,
+          "h": 17.900732302685128
+        },
+        "kind": "text",
+        "text": "Reconstruct native tables",
+        "role": "body"
+      },
+      {
+        "id": "t16",
+        "bbox": {
+          "x": 96.47779479326186,
+          "y": 479.2514239218877,
+          "w": 476.2633996937212,
+          "h": 17.900732302685128
+        },
+        "kind": "text",
+        "text": "Preserve editable elements",
+        "role": "body"
+      },
+      {
+        "id": "t17",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 526.4442636289667,
+          "w": 215.92649310872895,
+          "h": 17.900732302685014
+        },
+        "kind": "text",
+        "text": "Workflow",
+        "role": "body",
+        "blocks": [
+          {
+            "type": "ordered",
+            "start": 3,
+            "items": [
+              [
+                {
+                  "text": "Workflow"
+                }
+              ]
+            ]
+          }
+        ],
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Workflow"
+        }
+      },
+      {
+        "id": "t18",
+        "bbox": {
+          "x": 38.28483920367534,
+          "y": 573.6371033360456,
+          "w": 387.4425727411945,
+          "h": 17.900732302685014
+        },
+        "kind": "text",
+        "text": "Upload screenshot",
+        "role": "body",
+        "blocks": [
+          {
+            "type": "ordered",
+            "start": 1,
+            "items": [
+              [
+                {
+                  "text": "Upload screenshot"
+                }
+              ]
+            ]
+          }
+        ],
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Upload screenshot"
+        }
+      },
+      {
+        "id": "t19",
+        "bbox": {
+          "x": 38.28483920367534,
+          "y": 607.8112286411716,
+          "w": 355.2833078101072,
+          "h": 17.900732302685242
+        },
+        "kind": "text",
+        "text": "Run vision model",
+        "role": "body",
+        "blocks": [
+          {
+            "type": "ordered",
+            "start": 2,
+            "items": [
+              [
+                {
+                  "text": "Run vision model"
+                }
+              ]
+            ]
+          }
+        ],
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Run vision model"
+        }
+      },
+      {
+        "id": "t20",
+        "bbox": {
+          "x": 38.28483920367534,
+          "y": 641.9853539462979,
+          "w": 405.81929555895863,
+          "h": 17.900732302685014
+        },
+        "kind": "text",
+        "text": "Edit generated slide",
+        "role": "body",
+        "blocks": [
+          {
+            "type": "ordered",
+            "start": 3,
+            "items": [
+              [
+                {
+                  "text": "Edit generated slide"
+                }
+              ]
+            ]
+          }
+        ],
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Edit generated slide"
+        }
+      },
+      {
+        "id": "t21",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 689.1781936533768,
+          "w": 229.70903522205208,
+          "h": 17.900732302685014
+        },
+        "kind": "text",
+        "text": "Equations",
+        "role": "body",
+        "blocks": [
+          {
+            "type": "ordered",
+            "start": 4,
+            "items": [
+              [
+                {
+                  "text": "Equations"
+                }
+              ]
+            ]
+          }
+        ],
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Equations"
+        }
+      },
+      {
+        "id": "t22",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 736.3710333604556,
+          "w": 137.82542113323123,
+          "h": 17.900732302685242
+        },
+        "kind": "text",
+        "text": "Inline:",
+        "role": "body"
+      },
+      {
+        "id": "t23",
+        "bbox": {
+          "x": 160.79632465543645,
+          "y": 736.3710333604556,
+          "w": 114.85451761102601,
+          "h": 17.900732302685242
+        },
+        "kind": "math",
+        "latex": "E = mc^2",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+          "transcribed": "E = mc^2"
+        }
+      },
+      {
+        "id": "t24",
+        "bbox": {
+          "x": 477.7947932618683,
+          "y": 795.7689178193654,
+          "w": 411.9448698315468,
+          "h": 53.70219690805527
+        },
+        "kind": "text",
+        "text": "L = $\\frac{1}{N}$ $\\sum$_{i=1}^{N} (y_i - $\\hat{y}$_i)^2",
+        "role": "body"
+      },
+      {
+        "id": "t25",
+        "bbox": {
+          "x": 15.313935681470138,
+          "y": 893.4092758340114,
+          "w": 249.61715160796325,
+          "h": 17.900732302685128
+        },
+        "kind": "text",
+        "text": "Conclusion",
+        "role": "body",
+        "blocks": [
+          {
+            "type": "ordered",
+            "start": 5,
+            "items": [
+              [
+                {
+                  "text": "Conclusion"
+                }
+              ]
+            ]
+          }
+        ],
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Conclusion"
+        }
+      },
+      {
+        "id": "t26",
+        "bbox": {
+          "x": 56.66156202143951,
+          "y": 942.2294548413345,
+          "w": 722.8177641653905,
+          "h": 17.900732302685014
+        },
+        "kind": "text",
+        "text": "Structure matters more than plain text.",
+        "role": "body"
+      }
+    ],
+    "notes": []
+  }
+}

@@ -121,7 +121,7 @@ try {
   console.log('PASS A3 independent cell edit, undo');
 
   // save → reopen, PDF, PPTX
-  const slideIdx = await evaluate(`store.getState().deck.slides.findIndex((s) => s.id === store.getState().currentSlideId)`);
+  let slideIdx = await evaluate(`store.getState().deck.slides.findIndex((s) => s.id === store.getState().currentSlideId)`);
   const reopenCheck = async (check) => {
     await evaluate(`persist.saveProject(true)`);
     const name = await until(() => evaluate(`Object.keys(testFiles).filter((k) => k.endsWith('.mslides')).pop()`), 'saved');
@@ -191,6 +191,46 @@ try {
   assert.ok(xmlB.includes('Think on paper'), 'PPTX: the quote text'); assert.ok(/<a:tbl>/.test(xmlB), 'PPTX: native table');
   assert.ok(ex.pdf.length > 3000);
   console.log('PASS B3 PDF + PPTX (bold/italic/strike runs, numbered + bullet lists, quote, native table)');
+
+  // ================= C) the user's REAL composite screenshot (real model output replayed, unedited) =================
+  const comp = await fixtureJson('test-composite.real.json');
+  await asFake(comp.localOutput, comp.sentImage);
+  const C = await convertAndApply('/examples/composite/test_composite.png', { x: 360, y: 20, w: 340, h: Math.round(340 * 1229 / 653) }, 'composite');
+  const cTables = C.els.filter((e) => e.type === 'table'), cTexts = C.els.filter((e) => e.type === 'text');
+  assert.equal(cTables.length, 1, 'composite: ONE native table');
+  const COMP_CELLS = [['Component', 'Value'], ['Model', 'Qwen2.5-VL 7B'], ['Framework', 'Ollama'], ['Learning Rate', '0.001'], ['Batch Size', '32']];
+  assert.equal(cTables[0].rows.length, 5); assert.equal(cTables[0].cols.length, 2); assert.equal(cTables[0].headerRow, true);
+  assert.deepEqual(cellTexts(cTables[0]), COMP_CELLS, 'composite: 10 cell texts exact');
+  const liItems = (type) => cTexts.flatMap((e) => e.doc.content.filter((n) => n.type === type).map((n) => n.content.map((li) => flat(li))));
+  assert.deepEqual(liItems('bulletList'), [['Extract text and equations', 'Reconstruct native tables', 'Preserve editable elements']], 'native bulletList > listItem ×3');
+  assert.deepEqual(liItems('orderedList'), [['Upload screenshot', 'Run vision model', 'Edit generated slide']], 'native orderedList > listItem ×3');
+  assert.ok(!cTexts.filter((e) => e.doc.content.every((n) => n.type === 'paragraph')).some((e) => /^(Component|Value|Model|Framework|Learning|Batch|Extract|Reconstruct|Preserve|Upload|Run vision|Edit generated)/.test(flat(e.doc))), 'no loose text box for a cell / item');
+  const mathNodes = []; const wm = (n) => { if (/^math/.test(n.type)) mathNodes.push([n.type, n.attrs.latex]); n.content?.forEach(wm); };
+  cTexts.forEach((e) => wm(e.doc));
+  assert.deepEqual(mathNodes, [['mathInline', 'E = mc^2'], ['mathBlock', 'L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2']], 'inline + display equation: ' + JSON.stringify(mathNodes));
+  const tb = cTables[0], tTop = tb.y, tBot = tb.y + tb.h;
+  assert.ok(!cTexts.some((e) => e.y < tBot - 1 && e.y + e.h > tTop + 1 && e.x < tb.x + tb.w && e.x + e.w > tb.x), 'nothing overlaps the table');
+  console.log('PASS C1 real composite output → native 5×2 table, bullet list ×3, ordered list ×3, inline + display equation, no overlap');
+  const domC = await evaluate(`(() => { const s = document.querySelector('.stage .slide'); return { rows: s.querySelectorAll('table.ms-table tr').length, cells: s.querySelectorAll('table.ms-table td, table.ms-table th').length, ul: s.querySelectorAll('ul li').length, ol: s.querySelectorAll('ol li').length }; })()`);
+  assert.deepEqual(domC, { rows: 5, cells: 10, ul: 3, ol: 3 }, 'rendered: ' + JSON.stringify(domC));
+  await evaluate(`store.getState().startCellEditing(${JSON.stringify(tb.id)}, 4, 1, 'end')`); await pause(350);
+  await type(' (edited)'); await evaluate('store.getState().stopEditing()'); await pause(300);
+  let [Tc] = await slideEls().then((e) => e.filter((x) => x.type === 'table'));
+  assert.equal(cellTexts(Tc)[4][1], '32 (edited)'); assert.deepEqual(cellTexts(Tc).flat().filter((c, i) => i !== 9), COMP_CELLS.flat().filter((c, i) => i !== 9), 'only that cell changed');
+  await evaluate('store.getState().undo()'); await pause(300);
+  [Tc] = await slideEls().then((e) => e.filter((x) => x.type === 'table'));
+  assert.deepEqual(cellTexts(Tc), COMP_CELLS, 'undo restores the cell');
+  // one Undo of the whole Apply brings the image back
+  console.log('PASS C2 rendered natively; per-cell edit and undo');
+  slideIdx = await evaluate(`store.getState().deck.slides.findIndex((s) => s.id === store.getState().currentSlideId)`);
+  const snapC = (els) => JSON.stringify(els.map((e) => e.doc ?? e.rows));
+  const beforeC = snapC((await slideEls()).filter((e) => C.els.some((b) => b.id === e.id)));
+  await reopenCheck(async (els) => { assert.equal(snapC(els.filter((e) => C.els.some((b) => b.id === e.id))), beforeC, 'composite identical after save + reopen'); });
+  ex = await exportBoth();
+  assert.equal((ex.xml.match(/<a:tr[ >]/g) ?? []).length, 5, 'PPTX table: 5 rows'); assert.equal((ex.xml.match(/<a:tc[ >]/g) ?? []).length, 10, '10 cells');
+  assert.ok(/<a:buChar/.test(ex.xml) && /<a:buAutoNum/.test(ex.xml), 'PPTX: bullet + numbered lists');
+  assert.ok(ex.pdf.length > 3000, 'PDF written');
+  console.log('PASS C3 save → reopen, PDF, PPTX (5 rows × 10 cells, bullet + numbered lists)');
   console.log('ALL PASS');
 } finally {
   socket?.close();

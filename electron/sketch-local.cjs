@@ -2,7 +2,7 @@
 // conversion to the shared model IR ({ elements, notes } with 0..1000 coordinates) that src/sketch/ir.ts validates.
 // Nothing is invented here: unreadable or inconsistent items are kept and flagged for review, or dropped with a note.
 
-const { parseInline, markupToBlocks, blocksPlain, parseMarkdownTable, detectGridTable, mergeListItems } = require('./sketch-markup.cjs');
+const { parseInline, markupToBlocks, blocksPlain, parseMarkdownTable, detectGridTable, mergeListItems, inferBulletLists } = require('./sketch-markup.cjs');
 
 const TYPES = ['title', 'text', 'math', 'circle', 'rectangle', 'arrow', 'line', 'curved_arrow', 'curve', 'heading', 'list', 'quote', 'table'];
 const BENDS = ['up', 'down', 'left', 'right'];
@@ -63,6 +63,12 @@ function repairLatex(s) {
  * are (wrapping inside them corrupted `\(\pi_{\theta}\)` into `\($\pi$_{$\theta$}\)` — PPO capture).
  */
 const MATH_SPAN = /\$\$[^$]+?\$\$|\$[^$]+?\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/g;
+/** Pure LaTeX (commands, ^ _ { }, no words of 3+ letters outside the commands) — e.g. `L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2`. */
+function looksLikeLatex(s) {
+  if (!/\\[A-Za-z]{2,}|[\^_]\{/.test(s)) return false;
+  return !/[A-Za-z]{3,}/.test(s.replace(/\\[A-Za-z]+/g, '').replace(/\\text\{[^}]*\}/g, ''));
+}
+
 function wrapBlocks(blocks) {
   const fix = (spans) => spans.map((sp) => ({ ...sp, text: wrapInlineCommands(sp.text) }));
   return blocks.map((b) => (b.items ? { ...b, items: b.items.map(fix) } : { ...b, spans: fix(b.spans) }));
@@ -218,11 +224,20 @@ function localToModelIR(data, width, height) {
       } else blocks = markupToBlocks(content); // a list written as lines in `content`
       if (blocks && blocks.length) Object.assign(out, { kind: 'text', blocks: wrapBlocks(blocks), text: blocksPlain(wrapBlocks(blocks)), role: e.type === 'heading' && e.level === 1 ? 'title' : 'body' });
       else Object.assign(out, { kind: 'text', text: wrapInlineCommands(content), role: 'body' });
+    } else if (e.type === 'text' && looksLikeLatex(content)) {
+      // A formula the model typed as `text` (it wrote LaTeX): it is an equation, not a sentence with fragments of commands.
+      Object.assign(out, { kind: 'math', latex: repairLatex(content).replace(/^\$+|\$+$/g, '').trim(), role: 'body' });
     } else if (e.type === 'title' || e.type === 'text') {
       Object.assign(out, { kind: 'text', text: wrapInlineCommands(content), role: e.type === 'title' ? 'title' : 'body' });
       // Formatting markers / list / quote / heading lines in a note become structure; a plain note stays exactly as before.
       const blocks = e.type === 'text' || /[*~]|^\s*[-#>]|^\s*\d+[.)]/m.test(content) ? markupToBlocks(content) : null;
       if (blocks) Object.assign(out, { blocks: wrapBlocks(blocks), text: blocksPlain(wrapBlocks(blocks)) });
+      // One "1. item" / "- item" line of a text: a candidate list item. A lone numbered line is just a numbered heading
+      // ("2. Research Tasks"), not a list: it is turned back into plain text below unless neighbours join it.
+      if (blocks && blocks.length === 1 && (blocks[0].type === 'ordered' || blocks[0].type === 'bullet') && blocks[0].items.length === 1 && !content.includes('\n')) {
+        out._listItem = true; out._plain = wrapInlineCommands(content);
+        if (blocks[0].type === 'ordered') out._num = blocks[0].start;
+      }
     } else if (e.type === 'math') {
       Object.assign(out, { kind: 'math', latex: repairLatex(typeof e.content === 'string' ? e.content : '').replace(/^\$+|\$+$/g, '').trim(), role: 'body' });
     } else if (e.type === 'circle' || e.type === 'rectangle') {
@@ -262,16 +277,40 @@ function localToModelIR(data, width, height) {
     out._unsure = unsure;
   }
   elements = mergeListItems(elements, width, height);
+  for (const e of elements) {
+    if (e._listItem && e._plain && !e._merged && e.blocks?.[0]?.type === 'ordered') { delete e.blocks; e.text = e._plain; } // a lone "N. title" is not a list
+    delete e._plain; delete e._num; delete e._merged;
+  }
   // The model listed every table cell as its own element? Aligned cells covering the page become one table (conservative rules).
   if (!elements.some((e) => e.kind === 'table')) {
     const det = detectGridTable(elements, width, height);
     if (det) {
       const ids = new Set(det.ids);
       for (let i = elements.length - 1; i >= 0; i--) if (ids.has(elements[i].id)) elements.splice(i, 1);
-      elements.push({ id: 'tbl1', kind: 'table', bbox: det.bbox, table: det.table, _unsure: det.table.header ? '' : 'Table inferred from aligned cells: check whether the first row is a header.' });
+      elements.push({ id: 'tbl1', kind: 'table', bbox: det.bbox, table: det.table, _unsure: 'Table inferred from aligned cells: the first row is taken as the header; check it.' });
       warnings.push(`Grouped ${det.ids.length} aligned cells into one table (${det.table.rows.length}×${det.table.rows[0].length}).`);
     }
   }
+  // "Inline: E = mc^2": a formula starting right after a short text on the same line is part of that sentence (inline math).
+  {
+    const px = (v, d) => (v * d) / 1000;
+    for (let i = elements.length - 1; i > 0; i--) {
+      const m = elements[i], t = elements[i - 1];
+      if (m.kind !== 'math' || t.kind !== 'text' || t.blocks || !t.text || t.text.includes('\n') || t.relations?.length || m.relations?.length) continue;
+      const lineH = px(Math.min(t.bbox.h, m.bbox.h), height);
+      const vOverlap = px(Math.min(t.bbox.y + t.bbox.h, m.bbox.y + m.bbox.h) - Math.max(t.bbox.y, m.bbox.y), height);
+      const gap = px(m.bbox.x - (t.bbox.x + t.bbox.w), width);
+      if (vOverlap < 0.6 * lineH || gap < -0.2 * lineH || gap > 1.2 * lineH || m.bbox.h > 1.6 * t.bbox.h) continue;
+      t.text = `${t.text} $${m.latex}$`;
+      const x2 = Math.max(t.bbox.x + t.bbox.w, m.bbox.x + m.bbox.w), y1 = Math.min(t.bbox.y, m.bbox.y), y2 = Math.max(t.bbox.y + t.bbox.h, m.bbox.y + m.bbox.h);
+      t.bbox = { x: t.bbox.x, y: y1, w: x2 - t.bbox.x, h: y2 - y1 };
+      elements.splice(i, 1);
+      warnings.push(`Joined the equation ${m.id} into the sentence ${t.id} (inline math).`);
+    }
+  }
+  const bl = inferBulletLists(elements, width, height);
+  elements = bl.elements;
+  if (bl.inferred) warnings.push(`Read ${bl.inferred} indented, evenly spaced run(s) of lines as bullet lists (the model gave no bullet markers).`);
   const { elements: merged, merged: nMerged } = mergeStackedLines(elements, width, height);
   if (nMerged) warnings.push(`Merged ${nMerged} stacked line(s) into multi-line notes.`);
   for (const out of merged) {

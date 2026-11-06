@@ -386,6 +386,9 @@ function tableElement(e: IRElement, pl: Placement, issues: IRIssue[]): TableElem
   const sum = (v: number[]) => v.reduce((a, x) => a + x, 0);
   const maxW = Math.max(120, pl.area.w - 8);
   if (sum(natural(fontSize)) > maxW) fontSize = Math.max(12, Math.floor((fontSize * maxW) / sum(natural(fontSize))));
+  // Rows must not grow past the space the sketch gave the table (a tall page is scaled down, the font has a floor): trim the
+  // cell padding (the table's own padScale) so the following elements are not overlapped.
+  const fitPad = clamp(((b.h / nRows) - fontSize * lh) / (2 * TABLE_CELL_PAD_Y), 0.2, 1);
   const widths = natural(fontSize);
   const total = Math.round(Math.min(maxW, Math.max(b.w, sum(widths))));
   const el = newTable(0, 0, { rows: nRows, cols: nCols, w: total });
@@ -394,7 +397,8 @@ function tableElement(e: IRElement, pl: Placement, issues: IRIssue[]): TableElem
   el.textStyle = { ...el.textStyle, fontSize, color: INK[e.color ?? 'black'] };
   el.headerRow = t.header;
   el.w = total;
-  el.h = estimateTableHeight(nRows, fontSize, lh);
+  if (fitPad < 1) el.padScale = Math.round(fitPad * 100) / 100;
+  el.h = estimateTableHeight(nRows, fontSize, lh, el.padScale ?? 1);
   const box = keepInside({ x: b.x, y: b.y, w: el.w, h: el.h }, issues, e.id, pl.area);
   el.x = round(box.x); el.y = round(box.y);
   return repairTable(el);

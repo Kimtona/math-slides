@@ -85,19 +85,19 @@ function parseMarkdownTable(content) {
 }
 
 /**
- * Fallback for a model that lists every table cell as its own text element: a conservative grid detection on IR elements
- * (coordinates 0..1000 of an image of width×height pixels). Returns { table, ids, bbox } or null.
- * Rules: ≥ 2 columns and ≥ 3 rows; every row has the same number of cells; cells of a column share a left edge; the grid
- * covers ≥ 80 % of the image's text elements (so notes that merely sit in a row are not turned into a table).
+ * Fallback for a model that lists every table cell as its own text element: region-based grid detection on IR elements
+ * (coordinates 0..1000 of an image of width×height pixels). Works on a page that ALSO holds headings, lists and equations:
+ * the page's single-line texts are clustered into rows, and a TABLE is a run of ≥ 3 vertically consecutive rows that
+ * (a) all have the same number of cells (≥ 2), (b) line up column by column (left, right or centre edges), (c) have a regular row
+ * pitch, and (d) whose cells do not overlap horizontally. Paragraph lines, list items (one box per line) and equations
+ * never form such a run. Returns { table, ids, bbox } or null. The first row is taken as the header (flagged for review).
  */
 function detectGridTable(elements, width, height) {
-  const cand = elements.filter((e) => e.kind === 'text' && e.role !== 'annotation' && !e.relations?.length && e.text && !e.text.includes('\n'));
-  const texts = elements.filter((e) => e.kind === 'text');
-  if (cand.length < 6 || cand.length < 0.8 * texts.length) return null;
+  const cand = elements.filter((e) => e.kind === 'text' && !e.blocks && e.role !== 'annotation' && !e.relations?.length && e.text && !e.text.includes('\n'));
+  if (cand.length < 6) return null;
   const px = (e) => ({ x: (e.bbox.x * width) / 1000, y: (e.bbox.y * height) / 1000, w: (e.bbox.w * width) / 1000, h: (e.bbox.h * height) / 1000 });
   const med = (v) => [...v].sort((a, b) => a - b)[Math.floor(v.length / 2)];
   const medH = med(cand.map((e) => px(e).h));
-  // rows: cluster by vertical center
   const byY = [...cand].sort((a, b) => px(a).y + px(a).h / 2 - (px(b).y + px(b).h / 2));
   const rows = [];
   for (const e of byY) {
@@ -105,46 +105,64 @@ function detectGridTable(elements, width, height) {
     if (row && Math.abs(cy - row.cy) < 0.6 * medH) { row.cells.push(e); row.cy = (row.cy * (row.cells.length - 1) + cy) / row.cells.length; }
     else rows.push({ cy, cells: [e] });
   }
-  const nCols = rows[0].cells.length;
-  if (rows.length < 3 || nCols < 2 || nCols > 8 || rows.some((r) => r.cells.length !== nCols)) return null;
   for (const r of rows) r.cells.sort((a, b) => a.bbox.x - b.bbox.x);
-  // columns: left edges must line up (within 1.5 % of the image width) down the rows
-  const tol = 0.015 * width;
-  for (let c = 0; c < nCols; c++) {
-    const xs = rows.map((r) => px(r.cells[c]).x);
-    if (Math.max(...xs) - Math.min(...xs) > tol) return null;
+  const rowOk = (r) => r.cells.every((c, i) => i === 0 || px(r.cells[i - 1]).x + px(r.cells[i - 1]).w <= px(c).x + 2);
+  const tol = 0.02 * width;
+  const aligned = (run, nCols) => {
+    for (let c = 0; c < nCols; c++) {
+      const edge = (f) => run.map((r) => f(px(r.cells[c])));
+      const ok = [(b) => b.x, (b) => b.x + b.w, (b) => b.x + b.w / 2].some((f) => { const v = edge(f); return Math.max(...v) - Math.min(...v) <= tol; });
+      if (!ok) return false;
+    }
+    return true;
+  };
+  // longest run of consecutive rows with the same cell count whose columns line up and whose pitch is regular
+  let best = null;
+  for (let a = 0; a < rows.length; a++) {
+    const n = rows[a].cells.length;
+    if (n < 2 || n > 8 || !rowOk(rows[a])) continue;
+    let b = a;
+    while (b + 1 < rows.length && rows[b + 1].cells.length === n && rowOk(rows[b + 1]) && aligned(rows.slice(a, b + 2), n)) {
+      const ys = rows.slice(a, b + 2).map((r) => r.cy), gaps = ys.slice(1).map((y, i) => y - ys[i]), m = med(gaps);
+      if (gaps.some((g) => Math.abs(g - m) > 0.35 * m)) break;
+      b++;
+    }
+    if (b - a + 1 >= 3 && (!best || b - a > best.b - best.a)) best = { a, b, n };
+    a = b; // rows inside a found run cannot start a better one
   }
-  const flat = rows.flatMap((r) => r.cells);
+  if (!best) return null;
+  const run = rows.slice(best.a, best.b + 1), flat = run.flatMap((r) => r.cells);
   const x1 = Math.min(...flat.map((e) => e.bbox.x)), y1 = Math.min(...flat.map((e) => e.bbox.y));
   const x2 = Math.max(...flat.map((e) => e.bbox.x + e.bbox.w)), y2 = Math.max(...flat.map((e) => e.bbox.y + e.bbox.h));
-  // The model called the first row's cells headings: take that as the header (nothing else tells layout alone).
-  const header = rows[0].cells.every((e) => e.role === 'title');
   return {
     ids: flat.map((e) => e.id),
     bbox: { x: x1, y: y1, w: x2 - x1, h: y2 - y1 },
-    table: { header, rows: rows.map((r) => r.cells.map((e) => (e.blocks ? e.blocks[0]?.spans ?? [{ text: e.text }] : [{ text: e.text }]))) },
+    table: { header: true, rows: run.map((r) => r.cells.map((e) => [{ text: e.text }])) },
   };
 }
 
 /**
- * A model that lists every list item as its own `list` element (instead of one element with "items"): consecutive items of the
- * same kind, left-aligned and stacked closely, become ONE list. Items must carry `_listItem` (set by the adapter).
- * (coordinates 0..1000 of an image of width×height pixels)
+ * A model that lists every list item as its own `list` element (or writes "1. item" / "- item" as one text per line):
+ * consecutive items of the same kind, left-aligned and stacked closely, become ONE list. Items carry `_listItem`
+ * (set by the adapter); numbered items must also count up (`_num`), so section headings like "3. Workflow" followed by
+ * "1. Upload" are not joined. (coordinates 0..1000 of an image of width×height pixels)
  */
 function mergeListItems(elements, width, height) {
   const out = [];
   for (const e of elements) {
     const prev = out[out.length - 1];
     const b = e.blocks && e.blocks[0];
-    if (prev && prev._listItem && e._listItem && prev.blocks[0].type === b.type) {
+    if (prev && prev._listItem && e._listItem && prev.blocks[0].type === b.type && (b.type !== 'ordered' || e._num === undefined || prev._num === undefined || e._num === prev._num + 1)) {
       const pb = prev.bbox, eb = e.bbox;
       const lineH = (Math.min(pb.h, eb.h) * height) / 1000;
       const gap = ((eb.y - (pb.y + pb.h)) * height) / 1000, dx = Math.abs(((eb.x - pb.x) * width) / 1000);
-      if (gap < 1.6 * lineH && gap > -0.5 * lineH && dx < 0.03 * width) {
+      if (gap < 1.4 * lineH && gap > -0.5 * lineH && dx < 0.015 * width) {
         prev.blocks[0].items.push(...b.items);
+        prev._num = e._num;
         const x1 = Math.min(pb.x, eb.x), y1 = Math.min(pb.y, eb.y), x2 = Math.max(pb.x + pb.w, eb.x + eb.w), y2 = Math.max(pb.y + pb.h, eb.y + eb.h);
         prev.bbox = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
         prev.text = blocksPlain(prev.blocks);
+        prev._merged = true;
         continue;
       }
     }
@@ -153,4 +171,41 @@ function mergeListItems(elements, width, height) {
   return out;
 }
 
-module.exports = { mergeListItems, parseInline, markupToBlocks, blocksPlain, parseMarkdownTable, detectGridTable, plain, styled };
+/**
+ * The model dropped the bullet glyphs and wrote each item as a plain single-line text. Several of them stacked at a regular
+ * pitch, with one shared left edge, indented from the page's text margin, are a bullet list (the indentation is what is left
+ * of the glyph). Returns the elements with such runs merged into one bullet-list element (flagged for review, since the
+ * marker is inferred). Only plain texts qualify (no structure, relations, titles); numbered lines are handled by mergeListItems.
+ */
+function inferBulletLists(elements, width, height) {
+  const isPlain = (e) => e.kind === 'text' && !e.blocks && e.role === 'body' && !e.relations?.length && e.text && !e.text.includes('\n') && !/^\s*\d{1,3}[.)]\s/.test(e.text);
+  const texts = elements.filter((e) => e.kind === 'text');
+  if (!texts.length) return { elements, inferred: 0 };
+  const margin = Math.min(...texts.map((e) => (e.bbox.x * width) / 1000));
+  const X = (e) => (e.bbox.x * width) / 1000, Y = (e) => (e.bbox.y * height) / 1000, H = (e) => (e.bbox.h * height) / 1000;
+  const out = [];
+  let inferred = 0;
+  for (let i = 0; i < elements.length; ) {
+    const run = [];
+    if (isPlain(elements[i]) && X(elements[i]) - margin >= 0.04 * width) {
+      run.push(elements[i]);
+      for (let j = i + 1; j < elements.length && isPlain(elements[j]); j++) {
+        const p = run[run.length - 1], e = elements[j];
+        const gaps = run.length > 1 ? Y(p) - Y(run[run.length - 2]) : null, pitch = Y(e) - Y(p);
+        if (Math.abs(X(e) - X(run[0])) > 0.015 * width || Math.abs(H(e) - H(p)) > 0.3 * H(p) || pitch < 0.9 * H(p) || pitch > 3 * H(p) || (gaps && Math.abs(pitch - gaps) > 0.3 * gaps)) break;
+        run.push(e);
+      }
+    }
+    if (run.length >= 2) {
+      const x1 = Math.min(...run.map((e) => e.bbox.x)), y1 = Math.min(...run.map((e) => e.bbox.y));
+      const x2 = Math.max(...run.map((e) => e.bbox.x + e.bbox.w)), y2 = Math.max(...run.map((e) => e.bbox.y + e.bbox.h));
+      const blocks = [{ type: 'bullet', items: run.map((e) => parseInline(e.text)) }];
+      out.push({ id: run[0].id, kind: 'text', role: 'body', bbox: { x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, blocks, text: blocksPlain(blocks), _unsure: 'Bullet markers inferred from the indented, evenly spaced lines: check them.' });
+      inferred++;
+      i += run.length;
+    } else { out.push(elements[i]); i++; }
+  }
+  return { elements: out, inferred };
+}
+
+module.exports = { inferBulletLists, mergeListItems, parseInline, markupToBlocks, blocksPlain, parseMarkdownTable, detectGridTable, plain, styled };
