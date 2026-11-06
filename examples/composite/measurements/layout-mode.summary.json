@@ -1,0 +1,484 @@
+{
+  "started": "2026-11-06T09:35:49.957Z",
+  "runs": [
+    {
+      "image": "test_composite.png",
+      "wallMs": 215037,
+      "frame": {
+        "x": 515,
+        "y": 200,
+        "w": 250,
+        "h": 470
+      },
+      "phase": "preview",
+      "error": null,
+      "model": "ollama/qwen2.5vl:7b",
+      "timings": {
+        "prepare": 20,
+        "recognizeWall": 214890,
+        "recognize": 214879,
+        "ink": 61,
+        "render": 162,
+        "total": 215136,
+        "other": 3
+      },
+      "rounds": [],
+      "counts": {
+        "error": 0,
+        "warning": 7,
+        "info": 10
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "code": "model-note",
+          "message": "Grouped 10 aligned cells into one table (5×2)."
+        },
+        {
+          "severity": "info",
+          "code": "model-note",
+          "message": "Read 1 indented, evenly spaced run(s) of lines as bullet lists (the model gave no bullet markers)."
+        },
+        {
+          "severity": "info",
+          "code": "fit",
+          "id": "t1",
+          "message": "Font reduced from 32 to 23 px to keep the text in place inside the image area."
+        },
+        {
+          "severity": "info",
+          "code": "bounds",
+          "id": "t1",
+          "message": "Moved inside the image area (by 0, 4 px)."
+        },
+        {
+          "severity": "info",
+          "code": "wrap",
+          "id": "t14",
+          "message": "Text wraps within the image area (225 px wide)."
+        },
+        {
+          "severity": "info",
+          "code": "bounds",
+          "id": "t23",
+          "message": "Moved inside the image area (by -34, 0 px)."
+        },
+        {
+          "severity": "info",
+          "code": "wrap",
+          "id": "t25",
+          "message": "Text wraps within the image area (236 px wide)."
+        },
+        {
+          "severity": "info",
+          "code": "bounds",
+          "id": "t25",
+          "message": "Moved inside the image area (by 0, -27 px)."
+        },
+        {
+          "severity": "warning",
+          "code": "overlap",
+          "id": "t1",
+          "message": "Overlaps \"t2\" (27% of the smaller box)."
+        },
+        {
+          "severity": "warning",
+          "code": "overlap",
+          "id": "t14",
+          "message": "Overlaps \"t17\" (65% of the smaller box)."
+        },
+        {
+          "severity": "warning",
+          "code": "overlap",
+          "id": "t17",
+          "message": "Overlaps \"t18\" (26% of the smaller box)."
+        },
+        {
+          "severity": "warning",
+          "code": "overlap",
+          "id": "t18",
+          "message": "Overlaps \"t21\" (22% of the smaller box)."
+        },
+        {
+          "severity": "warning",
+          "code": "overlap",
+          "id": "t22",
+          "message": "Overlaps \"t23\" (23% of the smaller box)."
+        },
+        {
+          "severity": "warning",
+          "code": "overlap",
+          "id": "t23",
+          "message": "Overlaps \"t24\" (19% of the smaller box)."
+        },
+        {
+          "severity": "warning",
+          "code": "overlap",
+          "id": "t24",
+          "message": "Overlaps \"t25\" (79% of the smaller box)."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "t14",
+          "message": "Bullet markers inferred from the indented, evenly spaced lines: check them."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "t18",
+          "message": "List read by a local model: check bullets vs. numbers and the items."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "t23",
+          "message": "Equation read by a local model: check the LaTeX against the sketch."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "tbl1",
+          "message": "Table inferred from aligned cells: the first row is taken as the header; check it."
+        }
+      ],
+      "ir": {
+        "version": 1,
+        "image": {
+          "width": 653,
+          "height": 1229
+        },
+        "elements": [
+          {
+            "id": "t1",
+            "kind": "text",
+            "bbox": {
+              "x": 15.313935681470138,
+              "y": 14.646053702196907,
+              "w": 375.1914241960184,
+              "h": 21.155410903173312
+            },
+            "text": "AI Research Notes",
+            "role": "title"
+          },
+          {
+            "id": "t2",
+            "kind": "text",
+            "bbox": {
+              "x": 15.313935681470138,
+              "y": 66.72091131000813,
+              "w": 415.0076569678407,
+              "h": 17.9007323026851
+            },
+            "text": "1. Model Configuration",
+            "role": "body"
+          },
+          {
+            "id": "t13",
+            "kind": "text",
+            "bbox": {
+              "x": 15.313935681470138,
+              "y": 363.7103336045566,
+              "w": 330.781010719755,
+              "h": 18.714401952807123
+            },
+            "text": "2. Research Tasks",
+            "role": "body"
+          },
+          {
+            "id": "t14",
+            "kind": "text",
+            "bbox": {
+              "x": 98.00918836140889,
+              "y": 411.71684296175755,
+              "w": 474.73200612557423,
+              "h": 86.24898291293738
+            },
+            "text": "Extract text and equations\nReconstruct native tables\nPreserve editable elements",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "Bullet markers inferred from the indented, evenly spaced lines: check them.",
+              "transcribed": "Extract text and equations\nReconstruct native tables\nPreserve editable elements"
+            },
+            "blocks": [
+              {
+                "type": "bullet",
+                "items": [
+                  [
+                    {
+                      "text": "Extract text and equations"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Reconstruct native tables"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Preserve editable elements"
+                    }
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "id": "t17",
+            "kind": "text",
+            "bbox": {
+              "x": 15.313935681470138,
+              "y": 526.4442636289667,
+              "w": 214.39509954058195,
+              "h": 17.900732302685014
+            },
+            "text": "3. Workflow",
+            "role": "body"
+          },
+          {
+            "id": "t18",
+            "kind": "text",
+            "bbox": {
+              "x": 38.28483920367534,
+              "y": 573.6371033360456,
+              "w": 405.81929555895863,
+              "h": 86.24898291293732
+            },
+            "text": "Upload screenshot\nRun vision model\nEdit generated slide",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "List read by a local model: check bullets vs. numbers and the items.",
+              "transcribed": "Upload screenshot\nRun vision model\nEdit generated slide"
+            },
+            "blocks": [
+              {
+                "type": "ordered",
+                "items": [
+                  [
+                    {
+                      "text": "Upload screenshot"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Run vision model"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Edit generated slide"
+                    }
+                  ]
+                ],
+                "start": 1
+              }
+            ]
+          },
+          {
+            "id": "t21",
+            "kind": "text",
+            "bbox": {
+              "x": 15.313935681470138,
+              "y": 688.3645240032547,
+              "w": 229.70903522205208,
+              "h": 17.900732302685128
+            },
+            "text": "4. Equations",
+            "role": "body"
+          },
+          {
+            "id": "t22",
+            "kind": "text",
+            "bbox": {
+              "x": 15.313935681470138,
+              "y": 736.3710333604556,
+              "w": 260.33690658499233,
+              "h": 17.900732302685242
+            },
+            "text": "Inline: E = mc²",
+            "role": "body"
+          },
+          {
+            "id": "t23",
+            "kind": "math",
+            "bbox": {
+              "x": 473.20061255742723,
+              "y": 794.1415785191213,
+              "w": 418.0704441041348,
+              "h": 79.73962571196091
+            },
+            "latex": "L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+              "transcribed": "L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2"
+            }
+          },
+          {
+            "id": "t24",
+            "kind": "text",
+            "bbox": {
+              "x": 15.313935681470138,
+              "y": 917.0056956875509,
+              "w": 249.61715160796325,
+              "h": 17.900732302685014
+            },
+            "text": "5. Conclusion",
+            "role": "body"
+          },
+          {
+            "id": "t25",
+            "kind": "text",
+            "bbox": {
+              "x": 56.66156202143951,
+              "y": 965.0122050447518,
+              "w": 679.9387442572742,
+              "h": 17.900732302685128
+            },
+            "text": "Structure matters more than plain text.",
+            "role": "body"
+          },
+          {
+            "id": "tbl1",
+            "kind": "table",
+            "bbox": {
+              "x": 15.313935681470138,
+              "y": 122.05044751830756,
+              "w": 891.2710566615619,
+              "h": 205.0447518307567
+            },
+            "review": {
+              "needed": true,
+              "reason": "Table inferred from aligned cells: the first row is taken as the header; check it."
+            },
+            "table": {
+              "header": true,
+              "rows": [
+                [
+                  [
+                    {
+                      "text": "Component"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Value"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Model"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Qwen2.5-VL 7B"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Framework"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Ollama"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Learning Rate"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "0.001"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Batch Size"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "32"
+                    }
+                  ]
+                ]
+              ]
+            }
+          }
+        ],
+        "notes": [
+          "Grouped 10 aligned cells into one table (5×2).",
+          "Read 1 indented, evenly spaced run(s) of lines as bullet lists (the model gave no bullet markers)."
+        ]
+      },
+      "elementTypes": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "table"
+      ],
+      "applied": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "table"
+      ],
+      "outsideFrame": [],
+      "coversExisting": [],
+      "textEditable": true,
+      "undoRedo": "ok"
+    }
+  ],
+  "status": {
+    "provider": "ollama",
+    "model": "ollama/qwen2.5vl:7b",
+    "ready": true
+  },
+  "saved": {
+    "slides": 2,
+    "elements": 16
+  },
+  "pdf": {
+    "file": "Untitled presentation.pdf",
+    "bytes": 28674,
+    "pages": 2
+  },
+  "pptx": {
+    "bytes": 37233,
+    "slides": 2
+  },
+  "finished": "2026-11-06T09:39:28.657Z"
+}

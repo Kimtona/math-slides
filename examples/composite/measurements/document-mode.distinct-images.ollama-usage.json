@@ -1,0 +1,47 @@
+[
+ {
+  "run": "2026-11-06_09-33-59-2kog",
+  "mode": "document",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 34970,
+  "usage": {
+   "input_tokens": 1127,
+   "output_tokens": 176,
+   "load_ms": 7,
+   "prompt_ms": 11383,
+   "eval_ms": 23507
+  },
+  "stopReason": "stop",
+  "markdown": "# AI Research Notes\n\n## 1. Model Configuration\n\n| Component | Value |\n| --- | --- |\n| Model | Qwen2.5-VL 7B |\n| Framework | Ollama |\n| Learning Rate | 0.001 |\n| Batch Size | 32 |\n\n## 2. Research Tasks\n- Extract text and equations\n- Reconstruct native tables\n- Preserve editable elements\n\n## 3. Workflow\n1. Upload screenshot\n2. Run vision model\n3. Edit generated slide\n\n## 4. Equations\nInline: $E = mc^2$\n\n$$\nL = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2\n$$\n\n## 5. Conclusion\n> Structure matters more than plain text."
+ },
+ {
+  "run": "2026-11-06_09-34-35-kgzn",
+  "mode": "document",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 35124,
+  "usage": {
+   "input_tokens": 1127,
+   "output_tokens": 176,
+   "load_ms": 6,
+   "prompt_ms": 10646,
+   "eval_ms": 24401
+  },
+  "stopReason": "stop",
+  "markdown": "# AI Research Notes\n\n## 1. Model Configuration\n\n| Component | Value |\n| --- | --- |\n| Model | Qwen2.5-VL 7B |\n| Framework | Ollama |\n| Learning Rate | 0.001 |\n| Batch Size | 32 |\n\n## 2. Research Tasks\n- Extract text and equations\n- Reconstruct native tables\n- Preserve editable elements\n\n## 3. Workflow\n1. Upload screenshot\n2. Run vision model\n3. Edit generated slide\n\n## 4. Equations\nInline: $E = mc^2$\n\n$$\nL = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2\n$$\n\n## 5. Conclusion\n> Structure matters more than plain text."
+ },
+ {
+  "run": "2026-11-06_09-35-12-snrb",
+  "mode": "document",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 34837,
+  "usage": {
+   "input_tokens": 1127,
+   "output_tokens": 176,
+   "load_ms": 5,
+   "prompt_ms": 11286,
+   "eval_ms": 23477
+  },
+  "stopReason": "stop",
+  "markdown": "# AI Research Notes\n\n## 1. Model Configuration\n\n| Component | Value |\n| --- | --- |\n| Model | Qwen2.5-VL 7B |\n| Framework | Ollama |\n| Learning Rate | 0.001 |\n| Batch Size | 32 |\n\n## 2. Research Tasks\n- Extract text and equations\n- Reconstruct native tables\n- Preserve editable elements\n\n## 3. Workflow\n1. Upload screenshot\n2. Run vision model\n3. Edit generated slide\n\n## 4. Equations\nInline: $E = mc^2$\n\n$$\nL = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2\n$$\n\n## 5. Conclusion\n> Structure matters more than plain text."
+ }
+]

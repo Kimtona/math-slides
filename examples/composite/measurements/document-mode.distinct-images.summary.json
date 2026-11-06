@@ -1,0 +1,1389 @@
+{
+  "started": "2026-11-06T09:33:56.346Z",
+  "runs": [
+    {
+      "image": "test_composite_830.png",
+      "wallMs": 35167,
+      "frame": {
+        "x": 515,
+        "y": 200,
+        "w": 250,
+        "h": 470
+      },
+      "phase": "preview",
+      "error": null,
+      "model": "ollama/qwen2.5vl:7b",
+      "timings": {
+        "prepare": 59,
+        "recognizeWall": 34977,
+        "recognize": 34970,
+        "ink": 59,
+        "render": 98,
+        "total": 35196,
+        "other": 3
+      },
+      "rounds": [],
+      "counts": {
+        "error": 0,
+        "warning": 0,
+        "info": 4
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "code": "pages",
+          "message": "The content is longer than one slide: 1 more slide(s) will be added after this one."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "d5",
+          "message": "List read by a local model: check bullets vs. numbers and the items."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "d7",
+          "message": "List read by a local model: check bullets vs. numbers and the items."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "d10",
+          "message": "Equation read by a local model: check the LaTeX against the sketch."
+        }
+      ],
+      "ir": {
+        "version": 1,
+        "image": {
+          "width": 653,
+          "height": 1229
+        },
+        "elements": [
+          {
+            "id": "d1",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 0,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "AI Research Notes",
+            "role": "title",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 1,
+                "spans": [
+                  {
+                    "text": "AI Research Notes"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d2",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 83.33333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "1. Model Configuration",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "1. Model Configuration"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d3",
+            "kind": "table",
+            "bbox": {
+              "x": 0,
+              "y": 166.66666666666666,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "role": "body",
+            "table": {
+              "header": true,
+              "rows": [
+                [
+                  [
+                    {
+                      "text": "Component"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Value"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Model"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Qwen2.5-VL 7B"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Framework"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Ollama"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Learning Rate"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "0.001"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Batch Size"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "32"
+                    }
+                  ]
+                ]
+              ]
+            }
+          },
+          {
+            "id": "d4",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 250,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "2. Research Tasks",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "2. Research Tasks"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d5",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 333.3333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Extract text and equations\nReconstruct native tables\nPreserve editable elements",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "List read by a local model: check bullets vs. numbers and the items.",
+              "transcribed": "Extract text and equations\nReconstruct native tables\nPreserve editable elements"
+            },
+            "blocks": [
+              {
+                "type": "bullet",
+                "items": [
+                  [
+                    {
+                      "text": "Extract text and equations"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Reconstruct native tables"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Preserve editable elements"
+                    }
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d6",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 416.66666666666663,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "3. Workflow",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "3. Workflow"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d7",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 500,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Upload screenshot\nRun vision model\nEdit generated slide",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "List read by a local model: check bullets vs. numbers and the items.",
+              "transcribed": "Upload screenshot\nRun vision model\nEdit generated slide"
+            },
+            "blocks": [
+              {
+                "type": "ordered",
+                "items": [
+                  [
+                    {
+                      "text": "Upload screenshot"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Run vision model"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Edit generated slide"
+                    }
+                  ]
+                ],
+                "start": 1
+              }
+            ]
+          },
+          {
+            "id": "d8",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 583.3333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "4. Equations",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "4. Equations"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d9",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 666.6666666666666,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Inline: $E = mc^2$",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "paragraph",
+                "spans": [
+                  {
+                    "text": "Inline: $E = mc^2$"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d10",
+            "kind": "math",
+            "bbox": {
+              "x": 0,
+              "y": 750,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "latex": "L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+              "transcribed": "L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2"
+            }
+          },
+          {
+            "id": "d11",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 833.3333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "5. Conclusion",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "5. Conclusion"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d12",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 916.6666666666666,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Structure matters more than plain text.",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "quote",
+                "spans": [
+                  {
+                    "text": "Structure matters more than plain text."
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "layout": "document"
+      },
+      "elementTypes": [
+        "text",
+        "text",
+        "table"
+      ],
+      "applied": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "table"
+      ],
+      "outsideFrame": [
+        {
+          "type": "text",
+          "x": 360,
+          "y": 200,
+          "w": 560,
+          "h": 43
+        },
+        {
+          "type": "text",
+          "x": 360,
+          "y": 263,
+          "w": 560,
+          "h": 43
+        },
+        {
+          "type": "table",
+          "x": 360,
+          "y": 320,
+          "w": 360,
+          "h": 227
+        }
+      ],
+      "coversExisting": [],
+      "textEditable": true,
+      "undoRedo": "ok"
+    },
+    {
+      "image": "test_composite_850.png",
+      "wallMs": 35339,
+      "frame": {
+        "x": 515,
+        "y": 200,
+        "w": 250,
+        "h": 470
+      },
+      "phase": "preview",
+      "error": null,
+      "model": "ollama/qwen2.5vl:7b",
+      "timings": {
+        "prepare": 21,
+        "recognizeWall": 35129,
+        "recognize": 35124,
+        "ink": 13,
+        "render": 104,
+        "total": 35269,
+        "other": 2
+      },
+      "rounds": [],
+      "counts": {
+        "error": 0,
+        "warning": 0,
+        "info": 4
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "code": "pages",
+          "message": "The content is longer than one slide: 1 more slide(s) will be added after this one."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "d5",
+          "message": "List read by a local model: check bullets vs. numbers and the items."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "d7",
+          "message": "List read by a local model: check bullets vs. numbers and the items."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "d10",
+          "message": "Equation read by a local model: check the LaTeX against the sketch."
+        }
+      ],
+      "ir": {
+        "version": 1,
+        "image": {
+          "width": 653,
+          "height": 1229
+        },
+        "elements": [
+          {
+            "id": "d1",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 0,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "AI Research Notes",
+            "role": "title",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 1,
+                "spans": [
+                  {
+                    "text": "AI Research Notes"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d2",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 83.33333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "1. Model Configuration",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "1. Model Configuration"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d3",
+            "kind": "table",
+            "bbox": {
+              "x": 0,
+              "y": 166.66666666666666,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "role": "body",
+            "table": {
+              "header": true,
+              "rows": [
+                [
+                  [
+                    {
+                      "text": "Component"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Value"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Model"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Qwen2.5-VL 7B"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Framework"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Ollama"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Learning Rate"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "0.001"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Batch Size"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "32"
+                    }
+                  ]
+                ]
+              ]
+            }
+          },
+          {
+            "id": "d4",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 250,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "2. Research Tasks",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "2. Research Tasks"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d5",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 333.3333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Extract text and equations\nReconstruct native tables\nPreserve editable elements",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "List read by a local model: check bullets vs. numbers and the items.",
+              "transcribed": "Extract text and equations\nReconstruct native tables\nPreserve editable elements"
+            },
+            "blocks": [
+              {
+                "type": "bullet",
+                "items": [
+                  [
+                    {
+                      "text": "Extract text and equations"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Reconstruct native tables"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Preserve editable elements"
+                    }
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d6",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 416.66666666666663,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "3. Workflow",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "3. Workflow"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d7",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 500,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Upload screenshot\nRun vision model\nEdit generated slide",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "List read by a local model: check bullets vs. numbers and the items.",
+              "transcribed": "Upload screenshot\nRun vision model\nEdit generated slide"
+            },
+            "blocks": [
+              {
+                "type": "ordered",
+                "items": [
+                  [
+                    {
+                      "text": "Upload screenshot"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Run vision model"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Edit generated slide"
+                    }
+                  ]
+                ],
+                "start": 1
+              }
+            ]
+          },
+          {
+            "id": "d8",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 583.3333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "4. Equations",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "4. Equations"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d9",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 666.6666666666666,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Inline: $E = mc^2$",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "paragraph",
+                "spans": [
+                  {
+                    "text": "Inline: $E = mc^2$"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d10",
+            "kind": "math",
+            "bbox": {
+              "x": 0,
+              "y": 750,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "latex": "L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+              "transcribed": "L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2"
+            }
+          },
+          {
+            "id": "d11",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 833.3333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "5. Conclusion",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "5. Conclusion"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d12",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 916.6666666666666,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Structure matters more than plain text.",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "quote",
+                "spans": [
+                  {
+                    "text": "Structure matters more than plain text."
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "layout": "document"
+      },
+      "elementTypes": [
+        "text",
+        "text",
+        "table"
+      ],
+      "applied": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "table"
+      ],
+      "outsideFrame": [
+        {
+          "type": "text",
+          "x": 360,
+          "y": 200,
+          "w": 560,
+          "h": 43
+        },
+        {
+          "type": "text",
+          "x": 360,
+          "y": 263,
+          "w": 560,
+          "h": 43
+        },
+        {
+          "type": "table",
+          "x": 360,
+          "y": 320,
+          "w": 360,
+          "h": 227
+        }
+      ],
+      "coversExisting": [],
+      "textEditable": true,
+      "undoRedo": "ok"
+    },
+    {
+      "image": "test_composite_820.png",
+      "wallMs": 35061,
+      "frame": {
+        "x": 515,
+        "y": 200,
+        "w": 250,
+        "h": 470
+      },
+      "phase": "preview",
+      "error": null,
+      "model": "ollama/qwen2.5vl:7b",
+      "timings": {
+        "prepare": 24,
+        "recognizeWall": 34842,
+        "recognize": 34837,
+        "ink": 18,
+        "render": 113,
+        "total": 34999,
+        "other": 2
+      },
+      "rounds": [],
+      "counts": {
+        "error": 0,
+        "warning": 0,
+        "info": 4
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "code": "pages",
+          "message": "The content is longer than one slide: 1 more slide(s) will be added after this one."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "d5",
+          "message": "List read by a local model: check bullets vs. numbers and the items."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "d7",
+          "message": "List read by a local model: check bullets vs. numbers and the items."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "d10",
+          "message": "Equation read by a local model: check the LaTeX against the sketch."
+        }
+      ],
+      "ir": {
+        "version": 1,
+        "image": {
+          "width": 653,
+          "height": 1229
+        },
+        "elements": [
+          {
+            "id": "d1",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 0,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "AI Research Notes",
+            "role": "title",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 1,
+                "spans": [
+                  {
+                    "text": "AI Research Notes"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d2",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 83.33333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "1. Model Configuration",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "1. Model Configuration"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d3",
+            "kind": "table",
+            "bbox": {
+              "x": 0,
+              "y": 166.66666666666666,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "role": "body",
+            "table": {
+              "header": true,
+              "rows": [
+                [
+                  [
+                    {
+                      "text": "Component"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Value"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Model"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Qwen2.5-VL 7B"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Framework"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Ollama"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Learning Rate"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "0.001"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Batch Size"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "32"
+                    }
+                  ]
+                ]
+              ]
+            }
+          },
+          {
+            "id": "d4",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 250,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "2. Research Tasks",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "2. Research Tasks"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d5",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 333.3333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Extract text and equations\nReconstruct native tables\nPreserve editable elements",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "List read by a local model: check bullets vs. numbers and the items.",
+              "transcribed": "Extract text and equations\nReconstruct native tables\nPreserve editable elements"
+            },
+            "blocks": [
+              {
+                "type": "bullet",
+                "items": [
+                  [
+                    {
+                      "text": "Extract text and equations"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Reconstruct native tables"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Preserve editable elements"
+                    }
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d6",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 416.66666666666663,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "3. Workflow",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "3. Workflow"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d7",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 500,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Upload screenshot\nRun vision model\nEdit generated slide",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "List read by a local model: check bullets vs. numbers and the items.",
+              "transcribed": "Upload screenshot\nRun vision model\nEdit generated slide"
+            },
+            "blocks": [
+              {
+                "type": "ordered",
+                "items": [
+                  [
+                    {
+                      "text": "Upload screenshot"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Run vision model"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Edit generated slide"
+                    }
+                  ]
+                ],
+                "start": 1
+              }
+            ]
+          },
+          {
+            "id": "d8",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 583.3333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "4. Equations",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "4. Equations"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d9",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 666.6666666666666,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Inline: $E = mc^2$",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "paragraph",
+                "spans": [
+                  {
+                    "text": "Inline: $E = mc^2$"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d10",
+            "kind": "math",
+            "bbox": {
+              "x": 0,
+              "y": 750,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "latex": "L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2",
+            "role": "body",
+            "review": {
+              "needed": true,
+              "reason": "Equation read by a local model: check the LaTeX against the sketch.",
+              "transcribed": "L = \\frac{1}{N} \\sum_{i=1}^{N} (y_i - \\hat{y}_i)^2"
+            }
+          },
+          {
+            "id": "d11",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 833.3333333333333,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "5. Conclusion",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "heading",
+                "level": 2,
+                "spans": [
+                  {
+                    "text": "5. Conclusion"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "d12",
+            "kind": "text",
+            "bbox": {
+              "x": 0,
+              "y": 916.6666666666666,
+              "w": 1000,
+              "h": 66.66666666666667
+            },
+            "text": "Structure matters more than plain text.",
+            "role": "body",
+            "blocks": [
+              {
+                "type": "quote",
+                "spans": [
+                  {
+                    "text": "Structure matters more than plain text."
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "layout": "document"
+      },
+      "elementTypes": [
+        "text",
+        "text",
+        "table"
+      ],
+      "applied": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "table"
+      ],
+      "outsideFrame": [
+        {
+          "type": "text",
+          "x": 360,
+          "y": 200,
+          "w": 560,
+          "h": 43
+        },
+        {
+          "type": "text",
+          "x": 360,
+          "y": 263,
+          "w": 560,
+          "h": 43
+        },
+        {
+          "type": "table",
+          "x": 360,
+          "y": 320,
+          "w": 360,
+          "h": 227
+        }
+      ],
+      "coversExisting": [],
+      "textEditable": true,
+      "undoRedo": "ok"
+    }
+  ],
+  "status": {
+    "provider": "ollama",
+    "model": "ollama/qwen2.5vl:7b",
+    "ready": true
+  },
+  "saved": {
+    "slides": 7,
+    "elements": 44
+  },
+  "pdf": {
+    "file": "Untitled presentation.pdf",
+    "bytes": 55668,
+    "pages": 7
+  },
+  "pptx": {
+    "bytes": 125469,
+    "slides": 7
+  },
+  "finished": "2026-11-06T09:35:49.010Z"
+}

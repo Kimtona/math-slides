@@ -1,0 +1,35 @@
+{"wall_s":55.266,"load_s":9.257223917,"prompt_s":21.403679,"eval_s":24.333816,"prompt_tokens":1751,"out_tokens":176}
+# AI Research Notes
+
+## 1. Model Configuration
+
+| Component | Value |
+| --- | --- |
+| Model | Qwen2.5-VL 7B |
+| Framework | Ollama |
+| Learning Rate | 0.001 |
+| Batch Size | 32 |
+
+## 2. Research Tasks
+
+- Extract text and equations
+- Reconstruct native tables
+- Preserve editable elements
+
+## 3. Workflow
+
+1. Upload screenshot
+2. Run vision model
+3. Edit generated slide
+
+## 4. Equations
+
+Inline: $E = mc^2$
+
+$$
+L = \frac{1}{N} \sum_{i=1}^{N} (y_i - \hat{y}_i)^2
+$$
+
+## 5. Conclusion
+
+> Structure matters more than plain text.

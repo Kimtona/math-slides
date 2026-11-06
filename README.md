@@ -161,8 +161,18 @@ download, and the image never leaves your computer. Claude (Anthropic API) can b
    ```
 3. `npm install`, then `npm run app`. Nothing else to configure; no key.
 
-Expect about **75–105 s per sketch** on a MacBook Air M-series with 24 GB (measured; most of it is the model writing
-its answer). The first call after starting Ollama also loads the model (≈ 3–15 s).
+**Two conversion modes** (switch in the dialog footer; the choice is kept for the session):
+
+| | Document (fast, default) | Layout (positions) |
+|---|---|---|
+| Reads | the screenshot as Markdown: headings, tables, bullet / numbered lists, `>` quotes, `$…$` / `$$…$$` equations | every element with its position (JSON) |
+| Result | native table, `bulletList` / `orderedList`, `blockquote`, editable equations, set top to bottom in reading order; content that does not fit continues on new slides (one Undo removes them) | elements where they were drawn, inside the image's frame |
+| Time (real GUI, `test_composite.png`, MacBook M-series) | **≈ 35 s** (42 s with a cold model) | **≈ 215 s** |
+| Best for | screenshots, typed notes, documents | sketches, diagrams, arrows, handwriting |
+
+The difference is output length: Layout writes ≈ 1,400 tokens (ids and coordinates), Document ≈ 176, at ≈ 7 tokens/s. Conditions,
+Ollama counters and commands: `examples/composite/measurements/README.md`; assignment-style summary: `docs/SKETCH_ASSIGNMENT_NOTES.md`.
+The first call after starting Ollama also loads the model (≈ 7–9 s).
 
 **Claude (optional)**: choose *Claude* in **AI settings…** and enter an Anthropic API key (stored encrypted with the OS
 keychain via Electron `safeStorage` as `ai-key.bin` in the app's user-data folder), or start the app with
