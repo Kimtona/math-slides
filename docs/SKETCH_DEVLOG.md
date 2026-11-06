@@ -438,3 +438,17 @@ Cold model start adds ≈ 7–9 s (observed 42.2 s). Layout Mode earlier: 244.9 
 - Document: exact text everywhere; table 5×2 (header recognised from the `---` row), bullet ×3, ordered ×3, headings, `Inline: $E = mc^2$`, display equation, **blockquote** — all native. Layout positions are NOT kept (reading order only).
 - Layout: everything except the blockquote (no marker from the model; plain line); table header assumed; bullets inferred from indentation (flagged).
 - Limits: the one image is the only real-model sample for Document Mode (deterministic, 4 identical outputs); handwriting/diagrams/arrows are not Document Mode's job (use Layout); no bold/italic detection (7B).
+
+## Stage 12 — converted equations did not enter the editing state on the first click (2026-11-06)
+
+Report: an equation typed with `/math` is edited with a click (caret at its end, then symbol picking); the Document-Mode equation only showed the blue selection border.
+
+**Investigation (real Electron, real mouse/keyboard events, no `startEditing` shortcuts — `tests/math-leaf-document.mjs`).** Compared typed vs converted equations: same data structure (a text element holding one `mathBlock`; a typed `/math` box holds only the equation at rest, the caret line exists only while editing); same hit-testing on every symbol (the equation is the topmost element); same flow select → click opens the LaTeX popover (caret at the end of the LaTeX) → Esc → caret after the equation; same drag-pick / Shift+→ / palette coloring; inline equation: caret after it + Shift+← picks its last symbol (identical for typed and converted). Held-button (20/120/400 ms) clicks, single and group selection: identical.
+
+**Why `tests/math-leaf-sketch.mjs` passed anyway:** it enters edit mode with `store.startEditing(...)` and so skips the pointer path; the previous fix (symbol press inside a group) was reproduced with a real drag but only for a press ON a rendered symbol.
+
+**The reproduced difference:** right after Apply every converted element is selected (a group). A click that lands on a box holding an equation but not on a rendered symbol (e.g. the sentence `Inline: …` right of its equation) took the "narrow the group to this element" branch of `startMove`: `editing:false, selection:1` = the blue border only. A typed equation is never in a group, so the same click edits it. (A click on a symbol was already fixed in Stage 10.) Failing run before the fix: `inline sentence, after the equation: one click after Apply enters the editing state: {"editing":false,"selection":1,…}`.
+
+**Fix (`src/canvas/Canvas.tsx`, click branch of `startMove`):** a click without movement on a text box that contains an equation, inside a multi-selection, narrows the selection AND starts editing at the click point (the same as a click on an already selected box). Dragging still moves the group; boxes without equations keep the old narrowing behavior.
+
+**Not found / limits:** I could not reproduce any other difference between typed and converted equations with synthetic input; if it still fails in the app, the exact click sequence and the slide it happens on are needed. Shift+←/→ stepping into an equation from a caret exists only for INLINE equations (caret directly after/before it); for a display equation (typed or converted) symbols are picked by dragging, then Shift+←/→ extends — that is existing behavior and unchanged.

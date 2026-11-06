@@ -177,7 +177,12 @@ function startMove(e: React.PointerEvent, el: SlideElement) {
       // Click on an already-selected table: edit the cell that was clicked.
       const c = cellAt(ev.clientX, ev.clientY);
       s.startCellEditing(el.id, c?.row ?? 0, c?.col ?? 0, { x: ev.clientX, y: ev.clientY });
-    } else if (wasSelected && !e.shiftKey && s.selection.length > 1) s.select([el.id]);
+    } else if (wasSelected && !e.shiftKey && s.selection.length > 1) {
+      // Right after Sketch-to-Slides Apply every converted element is selected. A click on a box that holds an equation edits it
+      // right away (as a click on an already selected box does), instead of only narrowing the group to a blue border.
+      s.select([el.id]);
+      if (el.type === 'text' && JSON.stringify(el.doc).includes('"type":"math')) s.startEditing(el.id, { x: ev.clientX, y: ev.clientY });
+    }
   });
 }
 
