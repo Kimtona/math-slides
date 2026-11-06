@@ -174,7 +174,7 @@ function enterMathFromCaret(e: KeyboardEvent, editor: Editor, target: HTMLElemen
 }
 
 const PICK_EVENT = 'math-pick-begin';
-interface ArmedPick { id: string; ordinal: number; x: number; y: number; released: boolean; endX: number; endY: number; at: number }
+interface ArmedPick { id: string; ordinal: number; x: number; y: number; released: boolean; endX: number; endY: number; at: number; stop: () => void }
 let armed: ArmedPick | null = null;
 
 /**
@@ -189,9 +189,14 @@ export function armMathPick(e: { target: EventTarget | null; clientX: number; cl
   if (!eq || !box || !eq.querySelector('svg')) return false;
   const ordinal = [...box.querySelectorAll('.math-inline, .math-block')].indexOf(eq);
   if (ordinal < 0) return false;
-  const pick: ArmedPick = { id, ordinal, x: e.clientX, y: e.clientY, released: false, endX: e.clientX, endY: e.clientY, at: Date.now() };
+  // The editor needs a moment to mount: remember where the pointer goes (and whether the button is released) until it takes over.
+  const track = (ev: MouseEvent) => { pick.endX = ev.clientX; pick.endY = ev.clientY; };
+  const stop = () => window.removeEventListener('mousemove', track, true);
+  const pick: ArmedPick = { id, ordinal, x: e.clientX, y: e.clientY, released: false, endX: e.clientX, endY: e.clientY, at: Date.now(), stop };
+  armed?.stop();
   armed = pick;
-  window.addEventListener('mouseup', (ev) => { pick.released = true; pick.endX = ev.clientX; pick.endY = ev.clientY; }, { capture: true, once: true });
+  window.addEventListener('mousemove', track, true);
+  window.addEventListener('mouseup', (ev) => { track(ev); pick.released = true; stop(); }, { capture: true, once: true });
   return true;
 }
 
@@ -202,6 +207,7 @@ export const hasArmedMathPick = (id: string) => !!armed && armed.id === id && Da
 export function runArmedMathPick(editor: Editor, id: string): boolean {
   const pick = armed;
   armed = null;
+  pick?.stop();
   if (!pick || pick.id !== id) return false;
   let n = 0, pos = -1;
   editor.state.doc.descendants((node, p) => { if (isMathNode(node)) { if (n++ === pick.ordinal) pos = p; return false; } return pos < 0; });
@@ -209,10 +215,8 @@ export function runArmedMathPick(editor: Editor, id: string): boolean {
   const moved = Math.hypot(pick.endX - pick.x, pick.endY - pick.y) >= DRAG_PX;
   if (pick.released && !moved) { openMath(editor, pos); return true; }
   (editor.view.nodeDOM(pos) as HTMLElement | null)?.dispatchEvent(new CustomEvent(PICK_EVENT, { detail: { x: pick.x, y: pick.y } }));
-  if (pick.released) {
-    // A quick flick: the button was already up before the editor mounted — replay where it ended.
-    for (const type of ['mousemove', 'mouseup']) window.dispatchEvent(new MouseEvent(type, { clientX: pick.endX, clientY: pick.endY }));
-  }
+  // A quick flick: the pointer moved (and maybe the button was released) while the editor was mounting — replay where it got to.
+  for (const type of pick.released ? ['mousemove', 'mouseup'] : ['mousemove']) window.dispatchEvent(new MouseEvent(type, { clientX: pick.endX, clientY: pick.endY }));
   return true;
 }
 
