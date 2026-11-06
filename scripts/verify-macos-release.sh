@@ -92,6 +92,19 @@ else
   ok "quarantined copy gets the ordinary not-notarized rejection (Open Anyway path), not a broken-signature error"
 fi
 
+# ---- packaged main-process modules must load (a missing runtime dependency only shows as a modal dialog at launch) ----
+asar="$app/Contents/Resources/app.asar"
+# Modules that require("electron") need the Electron runtime and are skipped; the plain Node modules carry the third-party requires.
+ELECTRON_RUN_AS_NODE=1 "$app/Contents/MacOS/MathSlides" -e '
+const fs = require("fs"), path = require("path"), dir = path.join(process.argv[1], "electron");
+for (const f of fs.readdirSync(dir).filter((n) => n.endsWith(".cjs"))) {
+  if (/require\(.electron.\)/.test(fs.readFileSync(path.join(dir, f), "utf8"))) continue;
+  require(path.join(dir, f));
+}
+' "$asar" >"$work/require.log" 2>&1 \
+  || { cat "$work/require.log" >&2; fail "an electron/*.cjs module cannot load from app.asar (missing runtime dependency in the package?)"; }
+ok "packaged electron/*.cjs modules load from app.asar (runtime dependencies are bundled)"
+
 # ---- launch smoke test: the app must stay alive with a throwaway profile ------------------------------------------
 MATHSLIDES_TEST_HIDDEN=1 "$app/Contents/MacOS/MathSlides" --user-data-dir="$work/profile" >"$work/launch.log" 2>&1 &
 pid=$!
@@ -100,6 +113,7 @@ if ! kill -0 "$pid" 2>/dev/null; then
   cat "$work/launch.log" || true
   fail "MathSlides exited within 8 seconds of launch"
 fi
+grep -q "Cannot find module" "$work/launch.log" && { cat "$work/launch.log"; fail "Launch log reports a missing module"; }
 ok "launch: still running after 8 seconds with a throwaway profile"
 
 echo "$info" | grep -E '^(Identifier|Signature|TeamIdentifier|Sealed Resources|CodeDirectory)' | sed 's/^/  /'
