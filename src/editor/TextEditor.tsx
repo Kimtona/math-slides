@@ -7,7 +7,7 @@ import { currentSlide, useStore } from '../store/store';
 import { makeExtensions } from './extensions';
 import { setActiveEditor } from './active';
 import { SlashMenu } from './SlashMenu';
-import { openMath } from './mathNodes';
+import { handleMathLeafKey, hasArmedMathPick, openMath, runArmedMathPick } from './mathNodes';
 import { insertImageFiles } from '../canvas/insert';
 
 /** In-place rich text editor for the text box being edited. */
@@ -48,12 +48,26 @@ export function TextEditor({ el }: { el: TextElement | ShapeElement }) {
     },
   });
 
+  // Shift+←/→ and Esc on picked equation symbols (inactive unless symbols are picked).
+  useEffect(() => {
+    if (!editor) return;
+    const onKey = (e: KeyboardEvent) => { if (handleMathLeafKey(e, editor)) { e.preventDefault(); e.stopPropagation(); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [editor]);
+
   useEffect(() => {
     if (!editor) return;
     setActiveEditor(editor);
     const { editCaret } = useStore.getState();
     const view = editor.view;
     view.focus();
+    if (hasArmedMathPick(el.id)) {
+      // Pressed on an equation symbol of a selected box: continue as symbol picking once the editor has settled (a remount drops this instance).
+      let f2 = 0;
+      const f1 = requestAnimationFrame(() => { f2 = requestAnimationFrame(() => { if (!editor.isDestroyed && view.dom.isConnected) runArmedMathPick(editor, el.id); }); });
+      return () => { cancelAnimationFrame(f1); cancelAnimationFrame(f2); setActiveEditor(null); };
+    }
     if (editCaret === 'all') editor.commands.selectAll();
     else if (editCaret === 'math') openMath(editor, 0);
     else if (editCaret && typeof editCaret === 'object') {

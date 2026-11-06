@@ -16,6 +16,9 @@ export interface MathEditState {
   pos: number; // ProseMirror position of the math node inside the editing text box
 }
 
+/** Picked equation symbols: `leaves` is the inclusive range anchor..focus (render-order indexes); Shift+←/→ moves the focus end. */
+export interface MathLeafSel { pos: number; leaves: number[]; anchor?: number; focus?: number }
+
 export interface AppState {
   deck: Deck;
   past: Deck[];
@@ -29,6 +32,8 @@ export interface AppState {
   editingIsNew: boolean;
   editCaret: { x: number; y: number } | 'end' | 'all' | 'math' | null;
   mathEdit: MathEditState | null;
+  /** PoC: symbols (leaf indexes, see math/mathjax.ts) picked by dragging over a rendered equation; the Text Color palette then colors just those. */
+  mathLeafSel: MathLeafSel | null;
   /** Image being re-framed in crop edit mode (double-click an image). */
   cropEditId: ID | null;
   focusArea: 'canvas' | 'navigator';
@@ -52,6 +57,7 @@ export interface AppState {
   startEditing: (id: ID, caret?: AppState['editCaret'], isNew?: boolean) => void;
   stopEditing: () => void;
   setMathEdit: (m: MathEditState | null) => void;
+  setMathLeafSel: (m: MathLeafSel | null) => void;
   enterCrop: (id: ID) => void;
   exitCrop: () => void;
 
@@ -144,6 +150,7 @@ export const useStore = create<AppState>()((set, get) => {
     editingIsNew: false,
     editCaret: null,
     mathEdit: null,
+    mathLeafSel: null,
     cropEditId: null,
     focusArea: 'canvas',
     guides: [],
@@ -191,7 +198,7 @@ export const useStore = create<AppState>()((set, get) => {
     },
     loadDeck: (deck, assets) => {
       set({
-        deck, assets, past: [], future: [], gestureBase: null, selection: [], editingId: null, mathEdit: null, cropEditId: null,
+        deck, assets, past: [], future: [], gestureBase: null, selection: [], editingId: null, mathEdit: null, mathLeafSel: null, cropEditId: null,
         editingIsNew: false, editCaret: null, guides: [], focusArea: 'canvas', presenting: false,
         currentSlideId: deck.slides[0].id,
       });
@@ -217,14 +224,14 @@ export const useStore = create<AppState>()((set, get) => {
       const el = findSlide(get().deck, get().currentSlideId)?.elements.find((e) => e.id === id);
       if (el?.type === 'text' && caret !== 'math' && isTemplatePlaceholder(plainText(el.doc))) caret = 'all';
       get().beginGesture();
-      set({ editingId: id, editingIsNew: isNew, editCaret: caret, selection: [id], mathEdit: null, focusArea: 'canvas' });
+      set({ editingId: id, editingIsNew: isNew, editCaret: caret, selection: [id], mathEdit: null, mathLeafSel: null, focusArea: 'canvas' });
     },
     stopEditing: () => {
       const { editingId, currentSlideId, editingIsNew, gestureBase } = get();
       if (!editingId) return;
       const slide = findSlide(get().deck, currentSlideId);
       const el = slide?.elements.find((e) => e.id === editingId);
-      set({ editingId: null, mathEdit: null, editCaret: null });
+      set({ editingId: null, mathEdit: null, mathLeafSel: null, editCaret: null });
       if (el && el.type === 'text' && !isDocEmpty(el.doc)) {
         const trimmed = trimTrailingEmpty(el.doc);
         if (trimmed !== el.doc) get().updateElements([el.id], (e) => { (e as any).doc = trimmed; }, true);
@@ -247,7 +254,8 @@ export const useStore = create<AppState>()((set, get) => {
       }
       get().endGesture();
     },
-    setMathEdit: (m) => set({ mathEdit: m }),
+    setMathEdit: (m) => set({ mathEdit: m, mathLeafSel: null }),
+    setMathLeafSel: (m) => set({ mathLeafSel: m }),
     enterCrop: (id) => {
       const st = get();
       if (st.cropEditId === id) return;
@@ -272,7 +280,7 @@ export const useStore = create<AppState>()((set, get) => {
       });
       set({ selection: els.map((e) => e.id), focusArea: 'canvas' });
       if (opts.edit && els[0]?.type === 'text') {
-        set({ editingId: els[0].id, editingIsNew: true, editCaret: opts.caret ?? 'end', mathEdit: null });
+        set({ editingId: els[0].id, editingIsNew: true, editCaret: opts.caret ?? 'end', mathEdit: null, mathLeafSel: null });
       }
     },
     deleteSelection: () => {
