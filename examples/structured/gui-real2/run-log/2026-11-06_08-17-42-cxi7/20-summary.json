@@ -1,0 +1,59 @@
+{
+  "model": "ollama/qwen2.5vl:7b",
+  "timings": {
+    "prepare": 21,
+    "recognizeWall": 162228,
+    "recognize": 162213,
+    "ink": 75,
+    "render": 115,
+    "total": 162442,
+    "other": 3
+  },
+  "rounds": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "tbl1",
+        "message": "Moved inside the image area (by -5, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "tbl1",
+        "message": "Table read by a local model: check every cell."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 2
+    },
+    "review": [
+      "tbl1"
+    ]
+  },
+  "parseIssues": [
+    {
+      "severity": "info",
+      "code": "model-note",
+      "message": "Dropped table t13: it had no rows."
+    },
+    {
+      "severity": "info",
+      "code": "model-note",
+      "message": "Dropped 12 repeated element(s) (same type, text and place)."
+    },
+    {
+      "severity": "info",
+      "code": "model-note",
+      "message": "Coordinates exceeded the image by 2%; rescaled uniformly."
+    },
+    {
+      "severity": "info",
+      "code": "model-note",
+      "message": "Grouped 12 aligned cells into one table (6×2)."
+    }
+  ]
+}

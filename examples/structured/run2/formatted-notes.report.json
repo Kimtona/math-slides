@@ -1,0 +1,237 @@
+{
+  "source": "model",
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 97480,
+  "usage": {
+    "input_tokens": 2018,
+    "output_tokens": 557,
+    "load_ms": 4,
+    "prompt_ms": 17858,
+    "eval_ms": 79550
+  },
+  "sentImage": {
+    "width": 1218,
+    "height": 659
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"e1\",\n      \"type\": \"title\",\n      \"bbox_2d\": [58, 65, 413, 112],\n      \"content\": \"Project notes\"\n    },\n    {\n      \"id\": \"e2\",\n      \"type\": \"text\",\n      \"bbox_2d\": [58, 160, 1028, 192],\n      \"content\": \"The final model is Qwen2.5-VL, the old baseline was replaced.\"\n    },\n    {\n      \"id\": \"e3\",\n      \"type\": \"list\",\n      \"bbox_2d\": [85, 229, 444, 258],\n      \"content\": \"Run the model locally\",\n      \"ordered\": true\n    },\n    {\n      \"id\": \"e4\",\n      \"type\": \"list\",\n      \"bbox_2d\": [85, 279, 458, 308],\n      \"content\": \"Check every table cell\",\n      \"ordered\": true\n    },\n    {\n      \"id\": \"e5\",\n      \"type\": \"list\",\n      \"bbox_2d\": [85, 329, 476, 358],\n      \"content\": \"Keep the original image\",\n      \"ordered\": true\n    },\n    {\n      \"id\": \"e6\",\n      \"type\": \"list\",\n      \"bbox_2d\": [76, 395, 404, 424],\n      \"content\": \"Convert the sketch\",\n      \"ordered\": true\n    },\n    {\n      \"id\": \"e7\",\n      \"type\": \"list\",\n      \"bbox_2d\": [76, 445, 376, 474],\n      \"content\": \"Review the result\",\n      \"ordered\": true\n    },\n    {\n      \"id\": \"e8\",\n      \"type\": \"list\",\n      \"bbox_2d\": [76, 495, 409, 524],\n      \"content\": \"Apply it to the slide\",\n      \"ordered\": true\n    },\n    {\n      \"id\": \"e9\",\n      \"type\": \"quote\",\n      \"bbox_2d\": [94, 573, 720, 602],\n      \"content\": \"Think on paper. Present with MathSlides.\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "e1",
+        "type": "title",
+        "bbox_2d": [
+          58,
+          65,
+          413,
+          112
+        ],
+        "content": "Project notes"
+      },
+      {
+        "id": "e2",
+        "type": "text",
+        "bbox_2d": [
+          58,
+          160,
+          1028,
+          192
+        ],
+        "content": "The final model is Qwen2.5-VL, the old baseline was replaced."
+      },
+      {
+        "id": "e3",
+        "type": "list",
+        "bbox_2d": [
+          85,
+          229,
+          444,
+          258
+        ],
+        "content": "Run the model locally",
+        "ordered": true
+      },
+      {
+        "id": "e4",
+        "type": "list",
+        "bbox_2d": [
+          85,
+          279,
+          458,
+          308
+        ],
+        "content": "Check every table cell",
+        "ordered": true
+      },
+      {
+        "id": "e5",
+        "type": "list",
+        "bbox_2d": [
+          85,
+          329,
+          476,
+          358
+        ],
+        "content": "Keep the original image",
+        "ordered": true
+      },
+      {
+        "id": "e6",
+        "type": "list",
+        "bbox_2d": [
+          76,
+          395,
+          404,
+          424
+        ],
+        "content": "Convert the sketch",
+        "ordered": true
+      },
+      {
+        "id": "e7",
+        "type": "list",
+        "bbox_2d": [
+          76,
+          445,
+          376,
+          474
+        ],
+        "content": "Review the result",
+        "ordered": true
+      },
+      {
+        "id": "e8",
+        "type": "list",
+        "bbox_2d": [
+          76,
+          495,
+          409,
+          524
+        ],
+        "content": "Apply it to the slide",
+        "ordered": true
+      },
+      {
+        "id": "e9",
+        "type": "quote",
+        "bbox_2d": [
+          94,
+          573,
+          720,
+          602
+        ],
+        "content": "Think on paper. Present with MathSlides."
+      }
+    ]
+  },
+  "totalMs": 98116,
+  "parseIssues": [],
+  "validation": {
+    "issues": [],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "review": []
+  },
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1218,
+      "height": 659
+    },
+    "elements": [
+      {
+        "id": "e1",
+        "kind": "text",
+        "bbox": {
+          "x": 47.61904761904761,
+          "y": 98.63429438543247,
+          "w": 291.46141215106735,
+          "h": 71.32018209408196
+        },
+        "text": "Project notes",
+        "role": "title"
+      },
+      {
+        "id": "e2",
+        "kind": "text",
+        "bbox": {
+          "x": 47.61904761904761,
+          "y": 242.79210925644918,
+          "w": 796.3875205254516,
+          "h": 48.558421851289836
+        },
+        "text": "The final model is Qwen2.5-VL, the old baseline was replaced.",
+        "role": "body"
+      },
+      {
+        "id": "e3",
+        "kind": "text",
+        "bbox": {
+          "x": 69.78653530377669,
+          "y": 347.49620637329286,
+          "w": 321.0180623973728,
+          "h": 195.75113808801206
+        },
+        "text": "Run the model locally\nCheck every table cell\nKeep the original image",
+        "role": "body"
+      },
+      {
+        "id": "e6",
+        "kind": "text",
+        "bbox": {
+          "x": 62.397372742200325,
+          "y": 599.3930197268588,
+          "w": 273.3990147783251,
+          "h": 195.75113808801223
+        },
+        "text": "Convert the sketch\nReview the result\nApply it to the slide",
+        "role": "body"
+      },
+      {
+        "id": "e9",
+        "kind": "text",
+        "bbox": {
+          "x": 77.17569786535304,
+          "y": 869.4992412746586,
+          "w": 513.9573070607554,
+          "h": 44.006069802731304
+        },
+        "text": "Think on paper. Present with MathSlides.",
+        "role": "body",
+        "blocks": [
+          {
+            "type": "quote",
+            "spans": [
+              {
+                "text": "Think on paper. Present with MathSlides."
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "notes": [
+      "Merged 4 stacked line(s) into multi-line notes."
+    ]
+  },
+  "map": {
+    "e1": [
+      "lqD6dhMcma"
+    ],
+    "e2": [
+      "ASfJeNYujK"
+    ],
+    "e3": [
+      "3vM2JVp2O6"
+    ],
+    "e6": [
+      "ddYLtkUeEB"
+    ],
+    "e9": [
+      "Rkyk6aMjTH"
+    ]
+  }
+}

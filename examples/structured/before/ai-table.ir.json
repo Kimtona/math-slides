@@ -1,0 +1,361 @@
+{
+  "source": "model",
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 133139,
+  "usage": {
+    "input_tokens": 1776,
+    "output_tokens": 786,
+    "load_ms": 5631,
+    "prompt_ms": 16441,
+    "eval_ms": 110964
+  },
+  "sentImage": {
+    "width": 1277,
+    "height": 629
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"t1\",\n      \"type\": \"title\",\n      \"bbox_2d\": [25, 30, 95, 68],\n      \"content\": \"항목\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t2\",\n      \"type\": \"title\",\n      \"bbox_2d\": [469, 30, 615, 68],\n      \"content\": \"제출 내용\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t3\",\n      \"type\": \"text\",\n      \"bbox_2d\": [25, 140, 142, 174],\n      \"content\": \"AI 모델\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t4\",\n      \"type\": \"text\",\n      \"bbox_2d\": [469, 140, 926, 174],\n      \"content\": \"Ollama + Qwen2.5-VL 7B\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t5\",\n      \"type\": \"text\",\n      \"bbox_2d\": [25, 250, 275, 284],\n      \"content\": \"Coding Agent\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t6\",\n      \"type\": \"text\",\n      \"bbox_2d\": [469, 250, 704, 284],\n      \"content\": \"Claude Code\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t7\",\n      \"type\": \"text\",\n      \"bbox_2d\": [25, 356, 120, 389],\n      \"content\": \"Skills\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t8\",\n      \"type\": \"text\",\n      \"bbox_2d\": [469, 356, 1040, 389],\n      \"content\": \"실제 사용한 skill 파일이 있다면 포함\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t9\",\n      \"type\": \"text\",\n      \"bbox_2d\": [25, 465, 110, 498],\n      \"content\": \"MCP\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t10\",\n      \"type\": \"text\",\n      \"bbox_2d\": [469, 465, 1198, 498],\n      \"content\": \"실제 사용한 MCP 서버와 설정이 있다면 명시\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t11\",\n      \"type\": \"text\",\n      \"bbox_2d\": [25, 574, 178, 607],\n      \"content\": \"Prompts\",\n      \"color\": \"black\"\n    },\n    {\n      \"id\": \"t12\",\n      \"type\": \"text\",\n      \"bbox_2d\": [469, 574, 1226, 607],\n      \"content\": \"Claude Code 작업 지시 및 주요 반복 개선 기록\",\n      \"color\": \"black\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "t1",
+        "type": "title",
+        "bbox_2d": [
+          25,
+          30,
+          95,
+          68
+        ],
+        "content": "항목",
+        "color": "black"
+      },
+      {
+        "id": "t2",
+        "type": "title",
+        "bbox_2d": [
+          469,
+          30,
+          615,
+          68
+        ],
+        "content": "제출 내용",
+        "color": "black"
+      },
+      {
+        "id": "t3",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          140,
+          142,
+          174
+        ],
+        "content": "AI 모델",
+        "color": "black"
+      },
+      {
+        "id": "t4",
+        "type": "text",
+        "bbox_2d": [
+          469,
+          140,
+          926,
+          174
+        ],
+        "content": "Ollama + Qwen2.5-VL 7B",
+        "color": "black"
+      },
+      {
+        "id": "t5",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          250,
+          275,
+          284
+        ],
+        "content": "Coding Agent",
+        "color": "black"
+      },
+      {
+        "id": "t6",
+        "type": "text",
+        "bbox_2d": [
+          469,
+          250,
+          704,
+          284
+        ],
+        "content": "Claude Code",
+        "color": "black"
+      },
+      {
+        "id": "t7",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          356,
+          120,
+          389
+        ],
+        "content": "Skills",
+        "color": "black"
+      },
+      {
+        "id": "t8",
+        "type": "text",
+        "bbox_2d": [
+          469,
+          356,
+          1040,
+          389
+        ],
+        "content": "실제 사용한 skill 파일이 있다면 포함",
+        "color": "black"
+      },
+      {
+        "id": "t9",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          465,
+          110,
+          498
+        ],
+        "content": "MCP",
+        "color": "black"
+      },
+      {
+        "id": "t10",
+        "type": "text",
+        "bbox_2d": [
+          469,
+          465,
+          1198,
+          498
+        ],
+        "content": "실제 사용한 MCP 서버와 설정이 있다면 명시",
+        "color": "black"
+      },
+      {
+        "id": "t11",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          574,
+          178,
+          607
+        ],
+        "content": "Prompts",
+        "color": "black"
+      },
+      {
+        "id": "t12",
+        "type": "text",
+        "bbox_2d": [
+          469,
+          574,
+          1226,
+          607
+        ],
+        "content": "Claude Code 작업 지시 및 주요 반복 개선 기록",
+        "color": "black"
+      }
+    ]
+  },
+  "image": {
+    "width": 1277,
+    "height": 629
+  },
+  "output": {
+    "elements": [
+      {
+        "id": "t1",
+        "bbox": {
+          "x": 19.57713390759593,
+          "y": 47.694753577106525,
+          "w": 54.815974941268585,
+          "h": 60.41335453100159
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "항목",
+        "role": "title",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "항목"
+        }
+      },
+      {
+        "id": "t2",
+        "bbox": {
+          "x": 367.26703210649964,
+          "y": 47.694753577106525,
+          "w": 114.33046202036019,
+          "h": 60.41335453100159
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "제출 내용",
+        "role": "title",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "제출 내용"
+        }
+      },
+      {
+        "id": "t3",
+        "bbox": {
+          "x": 19.57713390759593,
+          "y": 222.57551669316376,
+          "w": 91.62098668754894,
+          "h": 54.054054054054006
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "AI 모델",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "AI 모델"
+        }
+      },
+      {
+        "id": "t4",
+        "bbox": {
+          "x": 367.26703210649964,
+          "y": 222.57551669316376,
+          "w": 357.8700078308535,
+          "h": 54.054054054054006
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "Ollama + Qwen2.5-VL 7B",
+        "role": "body"
+      },
+      {
+        "id": "t5",
+        "bbox": {
+          "x": 19.57713390759593,
+          "y": 397.456279809221,
+          "w": 195.77133907595925,
+          "h": 54.05405405405406
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "Coding Agent",
+        "role": "body"
+      },
+      {
+        "id": "t6",
+        "bbox": {
+          "x": 367.26703210649964,
+          "y": 397.456279809221,
+          "w": 184.0250587314017,
+          "h": 54.05405405405406
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "Claude Code",
+        "role": "body"
+      },
+      {
+        "id": "t7",
+        "bbox": {
+          "x": 19.57713390759593,
+          "y": 565.9777424483307,
+          "w": 74.39310884886453,
+          "h": 52.46422893481713
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "Skills",
+        "role": "body"
+      },
+      {
+        "id": "t8",
+        "bbox": {
+          "x": 367.26703210649964,
+          "y": 565.9777424483307,
+          "w": 447.14173844949096,
+          "h": 52.46422893481713
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "실제 사용한 skill 파일이 있다면 포함",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "실제 사용한 skill 파일이 있다면 포함"
+        }
+      },
+      {
+        "id": "t9",
+        "bbox": {
+          "x": 19.57713390759593,
+          "y": 739.2686804451511,
+          "w": 66.56225528582615,
+          "h": 52.46422893481713
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "MCP",
+        "role": "body"
+      },
+      {
+        "id": "t10",
+        "bbox": {
+          "x": 367.26703210649964,
+          "y": 739.2686804451511,
+          "w": 570.8692247454973,
+          "h": 52.46422893481713
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "실제 사용한 MCP 서버와 설정이 있다면 명시",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "실제 사용한 MCP 서버와 설정이 있다면 명시"
+        }
+      },
+      {
+        "id": "t11",
+        "bbox": {
+          "x": 19.57713390759593,
+          "y": 912.5596184419715,
+          "w": 119.81205951448706,
+          "h": 52.46422893481713
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "Prompts",
+        "role": "body"
+      },
+      {
+        "id": "t12",
+        "bbox": {
+          "x": 367.26703210649964,
+          "y": 912.5596184419715,
+          "w": 592.7956147220046,
+          "h": 52.46422893481713
+        },
+        "color": "black",
+        "kind": "text",
+        "text": "Claude Code 작업 지시 및 주요 반복 개선 기록",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "Claude Code 작업 지시 및 주요 반복 개선 기록"
+        }
+      }
+    ],
+    "notes": []
+  }
+}

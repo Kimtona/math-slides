@@ -1,0 +1,161 @@
+{
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1218,
+      "height": 659
+    },
+    "elements": [
+      {
+        "id": "e1",
+        "kind": "text",
+        "bbox": {
+          "x": 47.61904761904761,
+          "y": 98.63429438543247,
+          "w": 291.46141215106735,
+          "h": 74.35508345978755
+        },
+        "text": "Project notes",
+        "role": "title"
+      },
+      {
+        "id": "e2",
+        "kind": "text",
+        "bbox": {
+          "x": 47.61904761904761,
+          "y": 242.79210925644918,
+          "w": 793.1034482758621,
+          "h": 48.558421851289836
+        },
+        "text": "The final model is Qwen2.5-VL, the old baseline was replaced.",
+        "role": "body"
+      },
+      {
+        "id": "e3",
+        "kind": "text",
+        "bbox": {
+          "x": 70.60755336617406,
+          "y": 345.97875569044004,
+          "w": 320.19704433497543,
+          "h": 203.33839150227618
+        },
+        "text": "Run the model locally\nCheck every table cell\nKeep the original image",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Run the model locally\nCheck every table cell\nKeep the original image"
+        },
+        "blocks": [
+          {
+            "type": "bullet",
+            "items": [
+              [
+                {
+                  "text": "Run the model locally"
+                }
+              ],
+              [
+                {
+                  "text": "Check every table cell"
+                }
+              ],
+              [
+                {
+                  "text": "Keep the original image"
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "e6",
+        "kind": "text",
+        "bbox": {
+          "x": 62.397372742200325,
+          "y": 600.9104704097117,
+          "w": 272.5779967159277,
+          "h": 206.37329286798172
+        },
+        "text": "Convert the sketch\nReview the result\nApply it to the slide",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Convert the sketch\nReview the result\nApply it to the slide"
+        },
+        "blocks": [
+          {
+            "type": "ordered",
+            "items": [
+              [
+                {
+                  "text": "Convert the sketch"
+                }
+              ],
+              [
+                {
+                  "text": "Review the result"
+                }
+              ],
+              [
+                {
+                  "text": "Apply it to the slide"
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      {
+        "id": "e9",
+        "kind": "text",
+        "bbox": {
+          "x": 77.17569786535304,
+          "y": 871.0166919575114,
+          "w": 512.3152709359605,
+          "h": 45.523520485584186
+        },
+        "text": "Think on paper. Present with MathSlides.",
+        "role": "body",
+        "blocks": [
+          {
+            "type": "quote",
+            "spans": [
+              {
+                "text": "Think on paper. Present with MathSlides."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "parseIssues": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e3",
+        "message": "List read by a local model: check bullets vs. numbers and the items."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e6",
+        "message": "List read by a local model: check bullets vs. numbers and the items."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 2
+    },
+    "review": [
+      "e3",
+      "e6"
+    ]
+  }
+}

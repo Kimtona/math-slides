@@ -1,0 +1,230 @@
+{
+  "source": "model",
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 43105,
+  "usage": {
+    "input_tokens": 2209,
+    "output_tokens": 263,
+    "load_ms": 3,
+    "prompt_ms": 6547,
+    "eval_ms": 35942
+  },
+  "sentImage": {
+    "width": 1277,
+    "height": 629
+  },
+  "rawText": "{\"elements\":[{\"id\":\"e1\",\"type\":\"table\",\"bbox_2d\":[40,30,1277,629],\"content\":\":[{\"},{ \"id\":\"e2\",\"type\":\"text\",\"bbox_2d\":[40,30,1277,629],\"content\":\"항목 제출 내용 AI 모델 Ollama + Qwen2.5-VL 7B Coding Agent Claude Code Skills 실제 사용한 skill 파일이 있다면 포함 MCP 실제 사용한 MCP 서버와 설정이 있다면 명시 Prompts Claude Code 작업 지시 및 주요 반복 개선 기록\"},{\"id\":\"e3\",\"type\":\"list\",\"bbox_2d\":[40,30,1277,629],\"content\":\"항목\",\"header\":true,\"items\":[\"항목\",\"제출 내용\",\"AI 모델\",\"Ollama + Qwen2.5-VL 7B\",\"Coding Agent\",\"Claude Code\",\"Skills\",\"실제 사용한 skill 파일이 있다면 포함\",\"MCP\",\"실제 사용한 MCP 서버와 설정이 있다면 명시\",\"Prompts\",\"Claude Code 작업 지시 및 주요 반복 개선 기록\"]}] }",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "e1",
+        "type": "table",
+        "bbox_2d": [
+          40,
+          30,
+          1277,
+          629
+        ],
+        "content": ":[{"
+      },
+      {
+        "id": "e2",
+        "type": "text",
+        "bbox_2d": [
+          40,
+          30,
+          1277,
+          629
+        ],
+        "content": "항목 제출 내용 AI 모델 Ollama + Qwen2.5-VL 7B Coding Agent Claude Code Skills 실제 사용한 skill 파일이 있다면 포함 MCP 실제 사용한 MCP 서버와 설정이 있다면 명시 Prompts Claude Code 작업 지시 및 주요 반복 개선 기록"
+      },
+      {
+        "id": "e3",
+        "type": "list",
+        "bbox_2d": [
+          40,
+          30,
+          1277,
+          629
+        ],
+        "content": "항목",
+        "header": true,
+        "items": [
+          "항목",
+          "제출 내용",
+          "AI 모델",
+          "Ollama + Qwen2.5-VL 7B",
+          "Coding Agent",
+          "Claude Code",
+          "Skills",
+          "실제 사용한 skill 파일이 있다면 포함",
+          "MCP",
+          "실제 사용한 MCP 서버와 설정이 있다면 명시",
+          "Prompts",
+          "Claude Code 작업 지시 및 주요 반복 개선 기록"
+        ]
+      }
+    ]
+  },
+  "totalMs": 43882,
+  "parseIssues": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "wrap",
+        "id": "e2",
+        "message": "Text wraps within the image area (1188 px wide)."
+      },
+      {
+        "severity": "warning",
+        "code": "overlap",
+        "id": "e2",
+        "message": "Overlaps \"e3\" (94% of the smaller box)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e2",
+        "message": "Korean handwriting read by a local model: check the wording."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e3",
+        "message": "List read by a local model: check bullets vs. numbers and the items."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 1,
+      "info": 3
+    },
+    "review": [
+      "e2",
+      "e3"
+    ]
+  },
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1277,
+      "height": 629
+    },
+    "elements": [
+      {
+        "id": "e2",
+        "kind": "text",
+        "bbox": {
+          "x": 31.323414252153487,
+          "y": 47.694753577106525,
+          "w": 968.6765857478465,
+          "h": 952.3052464228934
+        },
+        "text": "항목 제출 내용 AI 모델 Ollama + Qwen2.5-VL 7B Coding Agent Claude Code Skills 실제 사용한 skill 파일이 있다면 포함 MCP 실제 사용한 MCP 서버와 설정이 있다면 명시 Prompts Claude Code 작업 지시 및 주요 반복 개선 기록",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "Korean handwriting read by a local model: check the wording.",
+          "transcribed": "항목 제출 내용 AI 모델 Ollama + Qwen2.5-VL 7B Coding Agent Claude Code Skills 실제 사용한 skill 파일이 있다면 포함 MCP 실제 사용한 MCP 서버와 설정이 있다면 명시 Prompts Claude Code 작업 지시 및 주요 반복 개선 기록"
+        }
+      },
+      {
+        "id": "e3",
+        "kind": "text",
+        "bbox": {
+          "x": 31.323414252153487,
+          "y": 47.694753577106525,
+          "w": 968.6765857478465,
+          "h": 952.3052464228934
+        },
+        "text": "항목\n제출 내용\nAI 모델\nOllama + Qwen2.5-VL 7B\nCoding Agent\nClaude Code\nSkills\n실제 사용한 skill 파일이 있다면 포함\nMCP\n실제 사용한 MCP 서버와 설정이 있다면 명시\nPrompts\nClaude Code 작업 지시 및 주요 반복 개선 기록",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "항목\n제출 내용\nAI 모델\nOllama + Qwen2.5-VL 7B\nCoding Agent\nClaude Code\nSkills\n실제 사용한 skill 파일이 있다면 포함\nMCP\n실제 사용한 MCP 서버와 설정이 있다면 명시\nPrompts\nClaude Code 작업 지시 및 주요 반복 개선 기록"
+        },
+        "blocks": [
+          {
+            "type": "bullet",
+            "items": [
+              [
+                {
+                  "text": "항목"
+                }
+              ],
+              [
+                {
+                  "text": "제출 내용"
+                }
+              ],
+              [
+                {
+                  "text": "AI 모델"
+                }
+              ],
+              [
+                {
+                  "text": "Ollama + Qwen2.5-VL 7B"
+                }
+              ],
+              [
+                {
+                  "text": "Coding Agent"
+                }
+              ],
+              [
+                {
+                  "text": "Claude Code"
+                }
+              ],
+              [
+                {
+                  "text": "Skills"
+                }
+              ],
+              [
+                {
+                  "text": "실제 사용한 skill 파일이 있다면 포함"
+                }
+              ],
+              [
+                {
+                  "text": "MCP"
+                }
+              ],
+              [
+                {
+                  "text": "실제 사용한 MCP 서버와 설정이 있다면 명시"
+                }
+              ],
+              [
+                {
+                  "text": "Prompts"
+                }
+              ],
+              [
+                {
+                  "text": "Claude Code 작업 지시 및 주요 반복 개선 기록"
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "notes": [
+      "Dropped table e1: it had no rows."
+    ]
+  },
+  "map": {
+    "e2": [
+      "jgVdI6Q3ge"
+    ],
+    "e3": [
+      "l8gztxzfDP"
+    ]
+  }
+}

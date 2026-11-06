@@ -1,0 +1,450 @@
+{
+  "replace": true,
+  "elements": [
+    {
+      "id": "MeOEhm1I7B",
+      "type": "table",
+      "x": 171,
+      "y": 222,
+      "w": 947,
+      "h": 242,
+      "cols": [
+        129,
+        129,
+        344,
+        345
+      ],
+      "rows": [
+        [
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "항목"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "항목"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "제출 내용"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "제출 내용"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        [
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "AI 모델"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "AI 모델"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Ollama + Qwen2.5-VL 7B"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Ollama + Qwen2.5-VL 7B"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        [
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Coding Agent"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Coding Agent"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Claude Code"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Claude Code"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        [
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Skills"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Skills"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "실제 사용한 skill 파일이 있다면 포함"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "실제 사용한 skill 파일이 있다면 포함"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        [
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "MCP"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "MCP"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "실제 사용한 MCP 서버와 설정이 있다면 명시"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "실제 사용한 MCP 서버와 설정이 있다면 명시"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        [
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Prompts"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Prompts"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Claude Code 작업 지시 및 주요 반복 개선 기록"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "doc": {
+              "type": "doc",
+              "content": [
+                {
+                  "type": "paragraph",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Claude Code 작업 지시 및 주요 반복 개선 기록"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      ],
+      "style": "minimal",
+      "headerRow": true,
+      "textStyle": {
+        "fontSize": 15,
+        "color": "#000000",
+        "align": "left",
+        "lineHeight": 1.35,
+        "fill": null
+      }
+    }
+  ],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "tbl1",
+        "message": "Moved inside the image area (by -11, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "tbl1",
+        "message": "Table read by a local model: check every cell."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 2
+    },
+    "review": [
+      "tbl1"
+    ]
+  }
+}

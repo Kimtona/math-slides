@@ -1,0 +1,204 @@
+{
+  "started": "2026-11-06T08:17:39.333Z",
+  "runs": [
+    {
+      "image": "ai-table.png",
+      "wallMs": 162421,
+      "frame": {
+        "x": 163,
+        "y": 200,
+        "w": 955,
+        "h": 470
+      },
+      "phase": "preview",
+      "error": null,
+      "model": "ollama/qwen2.5vl:7b",
+      "timings": {
+        "prepare": 21,
+        "recognizeWall": 162228,
+        "recognize": 162213,
+        "ink": 75,
+        "render": 115,
+        "total": 162442,
+        "other": 3
+      },
+      "rounds": [],
+      "counts": {
+        "error": 0,
+        "warning": 0,
+        "info": 2
+      },
+      "issues": [
+        {
+          "severity": "info",
+          "code": "model-note",
+          "message": "Dropped table t13: it had no rows."
+        },
+        {
+          "severity": "info",
+          "code": "model-note",
+          "message": "Dropped 12 repeated element(s) (same type, text and place)."
+        },
+        {
+          "severity": "info",
+          "code": "model-note",
+          "message": "Coordinates exceeded the image by 2%; rescaled uniformly."
+        },
+        {
+          "severity": "info",
+          "code": "model-note",
+          "message": "Grouped 12 aligned cells into one table (6×2)."
+        },
+        {
+          "severity": "info",
+          "code": "bounds",
+          "id": "tbl1",
+          "message": "Moved inside the image area (by -5, 0 px)."
+        },
+        {
+          "severity": "info",
+          "code": "review",
+          "id": "tbl1",
+          "message": "Table read by a local model: check every cell."
+        }
+      ],
+      "ir": {
+        "version": 1,
+        "image": {
+          "width": 1277,
+          "height": 629
+        },
+        "elements": [
+          {
+            "id": "tbl1",
+            "kind": "table",
+            "bbox": {
+              "x": 19.885990554336882,
+              "y": 46.58385093167702,
+              "w": 917.8149486617023,
+              "h": 889.7515527950311
+            },
+            "review": {
+              "needed": true,
+              "reason": "Table read by a local model: check every cell."
+            },
+            "table": {
+              "header": true,
+              "rows": [
+                [
+                  [
+                    {
+                      "text": "항목"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "제출 내용"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "AI 모델"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Ollama + Qwen2.5-VL 7B"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Coding Agent"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Claude Code"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Skills"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "실제 사용한 skill 파일이 있다면 포함"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "MCP"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "실제 사용한 MCP 서버와 설정이 있다면 명시"
+                    }
+                  ]
+                ],
+                [
+                  [
+                    {
+                      "text": "Prompts"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "Claude Code 작업 지시 및 주요 반복 개선 기록"
+                    }
+                  ]
+                ]
+              ]
+            }
+          }
+        ],
+        "notes": [
+          "Dropped table t13: it had no rows.",
+          "Dropped 12 repeated element(s) (same type, text and place).",
+          "Coordinates exceeded the image by 2%; rescaled uniformly.",
+          "Grouped 12 aligned cells into one table (6×2)."
+        ]
+      },
+      "elementTypes": [
+        "table"
+      ],
+      "applied": [
+        "text",
+        "text",
+        "table"
+      ],
+      "outsideFrame": [],
+      "coversExisting": [],
+      "textEditable": true,
+      "undoRedo": "ok"
+    }
+  ],
+  "status": {
+    "provider": "ollama",
+    "model": "ollama/qwen2.5vl:7b",
+    "ready": true
+  },
+  "saved": {
+    "slides": 2,
+    "elements": 5
+  },
+  "pdf": {
+    "file": "Untitled presentation.pdf",
+    "bytes": 21003,
+    "pages": 2
+  },
+  "pptx": {
+    "bytes": 18169,
+    "slides": 2
+  },
+  "finished": "2026-11-06T08:20:26.103Z"
+}

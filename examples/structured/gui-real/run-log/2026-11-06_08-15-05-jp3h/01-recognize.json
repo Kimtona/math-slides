@@ -1,0 +1,258 @@
+{
+  "provider": "ollama",
+  "model": "ollama/qwen2.5vl:7b",
+  "ms": 93917,
+  "usage": {
+    "input_tokens": 2018,
+    "output_tokens": 557,
+    "load_ms": 14,
+    "prompt_ms": 17407,
+    "eval_ms": 76339
+  },
+  "stopReason": "stop",
+  "image": {
+    "width": 1218,
+    "height": 659
+  },
+  "rawText": "{\n  \"elements\": [\n    {\n      \"id\": \"e1\",\n      \"type\": \"title\",\n      \"bbox_2d\": [58, 65, 413, 114],\n      \"content\": \"Project notes\"\n    },\n    {\n      \"id\": \"e2\",\n      \"type\": \"text\",\n      \"bbox_2d\": [58, 160, 1024, 192],\n      \"content\": \"The final model is Qwen2.5-VL, the old baseline was replaced.\"\n    },\n    {\n      \"id\": \"e3\",\n      \"type\": \"list\",\n      \"bbox_2d\": [86, 228, 444, 258],\n      \"content\": \"Run the model locally\",\n      \"ordered\": false\n    },\n    {\n      \"id\": \"e4\",\n      \"type\": \"list\",\n      \"bbox_2d\": [86, 280, 458, 310],\n      \"content\": \"Check every table cell\",\n      \"ordered\": false\n    },\n    {\n      \"id\": \"e5\",\n      \"type\": \"list\",\n      \"bbox_2d\": [86, 332, 476, 362],\n      \"content\": \"Keep the original image\",\n      \"ordered\": false\n    },\n    {\n      \"id\": \"e6\",\n      \"type\": \"list\",\n      \"bbox_2d\": [76, 396, 404, 426],\n      \"content\": \"Convert the sketch\",\n      \"ordered\": true\n    },\n    {\n      \"id\": \"e7\",\n      \"type\": \"list\",\n      \"bbox_2d\": [76, 450, 376, 478],\n      \"content\": \"Review the result\",\n      \"ordered\": true\n    },\n    {\n      \"id\": \"e8\",\n      \"type\": \"list\",\n      \"bbox_2d\": [76, 502, 408, 532],\n      \"content\": \"Apply it to the slide\",\n      \"ordered\": true\n    },\n    {\n      \"id\": \"e9\",\n      \"type\": \"quote\",\n      \"bbox_2d\": [94, 574, 718, 604],\n      \"content\": \"Think on paper. Present with MathSlides.\"\n    }\n  ]\n}",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "e1",
+        "type": "title",
+        "bbox_2d": [
+          58,
+          65,
+          413,
+          114
+        ],
+        "content": "Project notes"
+      },
+      {
+        "id": "e2",
+        "type": "text",
+        "bbox_2d": [
+          58,
+          160,
+          1024,
+          192
+        ],
+        "content": "The final model is Qwen2.5-VL, the old baseline was replaced."
+      },
+      {
+        "id": "e3",
+        "type": "list",
+        "bbox_2d": [
+          86,
+          228,
+          444,
+          258
+        ],
+        "content": "Run the model locally",
+        "ordered": false
+      },
+      {
+        "id": "e4",
+        "type": "list",
+        "bbox_2d": [
+          86,
+          280,
+          458,
+          310
+        ],
+        "content": "Check every table cell",
+        "ordered": false
+      },
+      {
+        "id": "e5",
+        "type": "list",
+        "bbox_2d": [
+          86,
+          332,
+          476,
+          362
+        ],
+        "content": "Keep the original image",
+        "ordered": false
+      },
+      {
+        "id": "e6",
+        "type": "list",
+        "bbox_2d": [
+          76,
+          396,
+          404,
+          426
+        ],
+        "content": "Convert the sketch",
+        "ordered": true
+      },
+      {
+        "id": "e7",
+        "type": "list",
+        "bbox_2d": [
+          76,
+          450,
+          376,
+          478
+        ],
+        "content": "Review the result",
+        "ordered": true
+      },
+      {
+        "id": "e8",
+        "type": "list",
+        "bbox_2d": [
+          76,
+          502,
+          408,
+          532
+        ],
+        "content": "Apply it to the slide",
+        "ordered": true
+      },
+      {
+        "id": "e9",
+        "type": "quote",
+        "bbox_2d": [
+          94,
+          574,
+          718,
+          604
+        ],
+        "content": "Think on paper. Present with MathSlides."
+      }
+    ]
+  },
+  "output": {
+    "elements": [
+      {
+        "id": "e1",
+        "bbox": {
+          "x": 47.61904761904761,
+          "y": 98.63429438543247,
+          "w": 291.46141215106735,
+          "h": 74.35508345978755
+        },
+        "kind": "text",
+        "text": "Project notes",
+        "role": "title"
+      },
+      {
+        "id": "e2",
+        "bbox": {
+          "x": 47.61904761904761,
+          "y": 242.79210925644918,
+          "w": 793.1034482758621,
+          "h": 48.558421851289836
+        },
+        "kind": "text",
+        "text": "The final model is Qwen2.5-VL, the old baseline was replaced.",
+        "role": "body"
+      },
+      {
+        "id": "e3",
+        "bbox": {
+          "x": 70.60755336617406,
+          "y": 345.97875569044004,
+          "w": 320.19704433497543,
+          "h": 203.33839150227618
+        },
+        "_listItem": true,
+        "kind": "text",
+        "blocks": [
+          {
+            "type": "bullet",
+            "items": [
+              [
+                {
+                  "text": "Run the model locally"
+                }
+              ],
+              [
+                {
+                  "text": "Check every table cell"
+                }
+              ],
+              [
+                {
+                  "text": "Keep the original image"
+                }
+              ]
+            ]
+          }
+        ],
+        "text": "Run the model locally\nCheck every table cell\nKeep the original image",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Run the model locally\nCheck every table cell\nKeep the original image"
+        }
+      },
+      {
+        "id": "e6",
+        "bbox": {
+          "x": 62.397372742200325,
+          "y": 600.9104704097117,
+          "w": 272.5779967159277,
+          "h": 206.37329286798172
+        },
+        "_listItem": true,
+        "kind": "text",
+        "blocks": [
+          {
+            "type": "ordered",
+            "items": [
+              [
+                {
+                  "text": "Convert the sketch"
+                }
+              ],
+              [
+                {
+                  "text": "Review the result"
+                }
+              ],
+              [
+                {
+                  "text": "Apply it to the slide"
+                }
+              ]
+            ]
+          }
+        ],
+        "text": "Convert the sketch\nReview the result\nApply it to the slide",
+        "role": "body",
+        "review": {
+          "needed": true,
+          "reason": "List read by a local model: check bullets vs. numbers and the items.",
+          "transcribed": "Convert the sketch\nReview the result\nApply it to the slide"
+        }
+      },
+      {
+        "id": "e9",
+        "bbox": {
+          "x": 77.17569786535304,
+          "y": 871.0166919575114,
+          "w": 512.3152709359605,
+          "h": 45.523520485584186
+        },
+        "kind": "text",
+        "blocks": [
+          {
+            "type": "quote",
+            "spans": [
+              {
+                "text": "Think on paper. Present with MathSlides."
+              }
+            ]
+          }
+        ],
+        "text": "Think on paper. Present with MathSlides.",
+        "role": "body"
+      }
+    ],
+    "notes": []
+  }
+}

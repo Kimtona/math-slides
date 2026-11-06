@@ -1,0 +1,291 @@
+{
+  "source": "saved IR",
+  "file": "examples/structured/before/ai-table.ir.json",
+  "model": "ollama/qwen2.5vl:7b",
+  "localOutput": {
+    "elements": [
+      {
+        "id": "t1",
+        "type": "title",
+        "bbox_2d": [
+          25,
+          30,
+          95,
+          68
+        ],
+        "content": "항목",
+        "color": "black"
+      },
+      {
+        "id": "t2",
+        "type": "title",
+        "bbox_2d": [
+          469,
+          30,
+          615,
+          68
+        ],
+        "content": "제출 내용",
+        "color": "black"
+      },
+      {
+        "id": "t3",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          140,
+          142,
+          174
+        ],
+        "content": "AI 모델",
+        "color": "black"
+      },
+      {
+        "id": "t4",
+        "type": "text",
+        "bbox_2d": [
+          469,
+          140,
+          926,
+          174
+        ],
+        "content": "Ollama + Qwen2.5-VL 7B",
+        "color": "black"
+      },
+      {
+        "id": "t5",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          250,
+          275,
+          284
+        ],
+        "content": "Coding Agent",
+        "color": "black"
+      },
+      {
+        "id": "t6",
+        "type": "text",
+        "bbox_2d": [
+          469,
+          250,
+          704,
+          284
+        ],
+        "content": "Claude Code",
+        "color": "black"
+      },
+      {
+        "id": "t7",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          356,
+          120,
+          389
+        ],
+        "content": "Skills",
+        "color": "black"
+      },
+      {
+        "id": "t8",
+        "type": "text",
+        "bbox_2d": [
+          469,
+          356,
+          1040,
+          389
+        ],
+        "content": "실제 사용한 skill 파일이 있다면 포함",
+        "color": "black"
+      },
+      {
+        "id": "t9",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          465,
+          110,
+          498
+        ],
+        "content": "MCP",
+        "color": "black"
+      },
+      {
+        "id": "t10",
+        "type": "text",
+        "bbox_2d": [
+          469,
+          465,
+          1198,
+          498
+        ],
+        "content": "실제 사용한 MCP 서버와 설정이 있다면 명시",
+        "color": "black"
+      },
+      {
+        "id": "t11",
+        "type": "text",
+        "bbox_2d": [
+          25,
+          574,
+          178,
+          607
+        ],
+        "content": "Prompts",
+        "color": "black"
+      },
+      {
+        "id": "t12",
+        "type": "text",
+        "bbox_2d": [
+          469,
+          574,
+          1226,
+          607
+        ],
+        "content": "Claude Code 작업 지시 및 주요 반복 개선 기록",
+        "color": "black"
+      }
+    ]
+  },
+  "sentImage": {
+    "width": 1277,
+    "height": 629
+  },
+  "totalMs": 617,
+  "parseIssues": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "bounds",
+        "id": "tbl1",
+        "message": "Moved inside the slide (by -43, 0 px)."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "tbl1",
+        "message": "Table read by a local model: check every cell."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 2
+    },
+    "review": [
+      "tbl1"
+    ]
+  },
+  "ir": {
+    "version": 1,
+    "image": {
+      "width": 1277,
+      "height": 629
+    },
+    "elements": [
+      {
+        "id": "tbl1",
+        "kind": "table",
+        "bbox": {
+          "x": 19.57713390759593,
+          "y": 47.694753577106525,
+          "w": 940.4855129209084,
+          "h": 917.329093799682
+        },
+        "review": {
+          "needed": true,
+          "reason": "Table read by a local model: check every cell."
+        },
+        "table": {
+          "header": true,
+          "rows": [
+            [
+              [
+                {
+                  "text": "항목"
+                }
+              ],
+              [
+                {
+                  "text": "제출 내용"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "AI 모델"
+                }
+              ],
+              [
+                {
+                  "text": "Ollama + Qwen2.5-VL 7B"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Coding Agent"
+                }
+              ],
+              [
+                {
+                  "text": "Claude Code"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Skills"
+                }
+              ],
+              [
+                {
+                  "text": "실제 사용한 skill 파일이 있다면 포함"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "MCP"
+                }
+              ],
+              [
+                {
+                  "text": "실제 사용한 MCP 서버와 설정이 있다면 명시"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Prompts"
+                }
+              ],
+              [
+                {
+                  "text": "Claude Code 작업 지시 및 주요 반복 개선 기록"
+                }
+              ]
+            ]
+          ]
+        }
+      }
+    ],
+    "notes": [
+      "Grouped 12 aligned cells into one table (6×2)."
+    ]
+  },
+  "map": {
+    "tbl1": [
+      "Mw0wUQCFbc"
+    ]
+  }
+}

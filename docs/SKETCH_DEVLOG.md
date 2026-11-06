@@ -332,3 +332,59 @@ Two code paths can add minutes after recognition:
 
 The user's 268 s run left no run log, so which of the two caused it cannot be shown; both are now visible in the step
 timings, and the stall is fixed.
+
+## 2026-11-06 — Stage 9: structure — tables, formatting, lists, headings, quotes (branch `feature/sketch-structured`)
+
+**Goal.** A screenshot should become the editor's own structures, not loose text: table → `TableElement`, bold/italic/strike →
+real marks, bullet/ordered list → `bulletList`/`orderedList`, heading → larger paragraph, quote → `blockquote`, equation → the
+existing `mathInline`/`mathBlock`. No Markdown characters may remain as text, and no editor feature was re-implemented.
+
+**What the editor already had (reused as is).** `TableElement {cols, rows: TableCell[][], headerRow}` with `newTable`, `scaleCols`,
+`repairTable`, `tableProblems`; cells are plain rich text (marks only: no math, no lists). Marks `bold`/`italic`/`strike`/`underline`
+(StarterKit + Underline). Lists `bulletList|orderedList > listItem > paragraph`. There is NO heading node: a heading is a paragraph
+with a `fontSize` attribute (`headingSize(level)`). Quote = `blockquote`. PPTX: table → `<a:tbl>` (header row bold), runs carry
+`b/i/strike`, lists → bullets/numbering.
+
+**Baseline (current code, real model, `examples/structured/before/`).** The AI-model/submission table screenshot (906×446, user's
+image; no EXIF) became **12 separate text boxes, 0 tables** (133.9 s). The model had read all 12 cells and their boxes correctly:
+recognition was fine, grouping into a structure was missing.
+
+**Implementation.**
+- `src/sketch/ir.ts`: kind `table`; `IRSpan` (text + bold/italic/strike/underline), `IRBlock` (paragraph, heading level 1–4, quote, bullet,
+  ordered), `IRTable {header, rows → cells → spans}`; JSON Schema for the Claude provider. Untrusted-input handling: only known fields
+  survive, defaults never invent (header = false unless stated), ragged rows padded and reported, ≤ 40×12 cells, a table without usable
+  rows becomes a plain note if it has text and is dropped otherwise.
+- `src/sketch/convert.ts`: `blocksToDoc` / `spansToNodes` (marks, `$…$` → `mathInline`), `tableElement` (font from the source row pitch, column
+  widths from the typeset text, header = the table's own header style). Headings are widened for their larger size.
+- `electron/sketch-markup.cjs` + `sketch-local.cjs`: the local model writes `**bold**`, `*italic*`, `~~strike~~`, `- item`, `1. item`, `> quote`,
+  `# heading` or a Markdown table, which are turned into spans/blocks/table BEFORE anything reaches the slide (equations protected). Conservative
+  **grid detection** groups a model's separate cell boxes into one table (≥ 3 rows × ≥ 2 columns, equal cells per row, aligned left edges, ≥ 80 %
+  of the page's text); consecutive one-item `list` elements become one list. Both are flagged for review.
+- `src/sketch/validate.ts`: `tableProblems`; dialog notes for tables/formatted notes. Test input: `examples/sketches/ai-table.png`;
+  `formatted-notes.png` is a **synthetic** screenshot rendered from `formatted-notes.html` (`scripts/html-to-png.mjs`) — the user supplied no formatted
+  image.
+
+**Real-model experiments (qwen2.5vl:7b, all outputs kept).**
+1. Run 1 (`after/ai-table.failed.json`): the model listed the 12 cells, then looped on an empty `"table"` element until the 2048-token limit:
+   **302 s and the whole answer was thrown away.** Fixes: (a) `salvageElements` keeps the *finished* elements of a cut-off answer (a half-written one is
+   never completed), (b) loop detection aborts the stream when a short unit repeats ≥ 4× (a complete normal answer is not flagged), (c) an empty/garbage
+   `table` (e.g. `":[["`) is dropped, not kept as a note.
+2. Run 2 (`run2/`): table image 106.6 s → 1 native table, 12 cells exact. Formatted image 98.1 s → title, paragraph, quote recognized; **no
+   bold/italic/strike markers**; every list item its own `list` element, bullets marked `ordered:true` → 5 plain boxes. Fix: merge consecutive aligned items into one list.
+3. Run 3 (`run3/`, **rejected**): adding concrete JSON examples to the prompt made the model **copy the example's coordinates** (`[40,30,900,420]`…),
+   output the table content three times over the whole image and drop the heading. Faster (44–47 s) only because the answers were shorter. Reverted.
+4. In-app run (`gui-real/`): the model repeated the entire run of 12 cells (same ids and boxes) and stopped normally; the duplicates were fed to grid
+   detection → a **6×4** table (wrong). Fix: elements with the same type, text and place are kept once (same words at another place stay). Real output
+   kept as `tests/fixtures/sketch/ai-table.duplicated.json`.
+5. In-app run after the fix (`gui-real2/`): **6×2 table, 12 cells exact, header row detected**, 162.4 s (the app and the CLI send slightly different
+   pixels, so the model's answer — and its length — differs).
+
+**Tests.** `tests/sketch-convert.mjs` (headless): marker parser, untrusted structures, table/formatted conversion, grid detection (positive, 2×2, misaligned,
+partial page), looped and duplicated REAL outputs, list merging. `tests/sketch-structured-gui.mjs` (Electron, fixtures replayed — the table scenario replays the
+real salvaged answer): one 6×2 table with exact cell texts, header weight 700 vs 400, editing one cell leaves the others and Undo restores it, save → reopen,
+PDF, PPTX (`<a:tbl>` 6 rows/12 cells, bold header row); formatted notes: real bold/italic/strike marks, bullet + ordered list, blockquote, heading,
+a bold word inside a table cell, save → reopen, PDF, PPTX runs/bullets/quote. One existing assertion used `table` as its "unsupported kind" example; it uses `chart` now.
+
+**Real-model status (honest).** Recognized and converted: tables (via grid detection, not via the model's own `table` type, which it never filled
+correctly), headings, quotes, lists (bullet vs. numbered is the model's guess — flagged). **Not recognized by the 7B model: bold, italic, strikethrough** — it wrote
+no markers in any run; the conversion supports them (tested), the model does not see them. The Claude provider can use the structured `blocks` schema; it was not run.

@@ -1,0 +1,39 @@
+{
+  "model": "ollama/qwen2.5vl:7b",
+  "timings": {
+    "prepare": 24,
+    "recognizeWall": 93933,
+    "recognize": 93917,
+    "ink": 18,
+    "render": 122,
+    "total": 94098,
+    "other": 1
+  },
+  "rounds": [],
+  "validation": {
+    "issues": [
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e3",
+        "message": "List read by a local model: check bullets vs. numbers and the items."
+      },
+      {
+        "severity": "info",
+        "code": "review",
+        "id": "e6",
+        "message": "List read by a local model: check bullets vs. numbers and the items."
+      }
+    ],
+    "counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 2
+    },
+    "review": [
+      "e3",
+      "e6"
+    ]
+  },
+  "parseIssues": []
+}
