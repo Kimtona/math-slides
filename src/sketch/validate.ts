@@ -8,6 +8,7 @@
 import type { PMNode, SlideElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
 import { renderTex } from '../math/mathjax';
+import { tableProblems } from '../model/table';
 import type { IRIssue, SketchIR } from './ir';
 import type { ConversionResult, Frame } from './convert';
 
@@ -83,6 +84,9 @@ export function validateSketch(ir: SketchIR, conv: ConversionResult, heights?: R
       }
     }
   }
+
+  // Tables must be rectangular, merge-free grids the table editor can open.
+  for (const el of els) if (el.type === 'table') for (const msg of tableProblems(el)) issues.push({ severity: 'error', code: 'table', id: irOf.get(el.id), message: msg });
 
   // LaTeX: every equation (block or inline, in text boxes and shapes) must render.
   for (const el of els) {

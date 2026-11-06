@@ -104,8 +104,11 @@ function ReviewItem({ e }: { e: IRElement }) {
           {r.inferred && <button className={`sk-chip${value === r.inferred ? ' on' : ''}`} title="The model's reading from context — not what is written" onClick={() => commit(r.inferred!)}>Inferred: <code>{r.inferred}</code></button>}
         </div>
       )}
-      <textarea rows={field === 'latex' ? 2 : Math.min(4, value.split('\n').length)} value={draft} spellCheck={false}
-        onChange={(ev) => setDraft(ev.target.value)} onBlur={() => commit(draft)} onKeyDown={(ev) => ev.stopPropagation()} />
+      {e.kind === 'table'
+        ? <div className="sk-muted">Table {e.table?.rows.length}×{e.table?.rows[0]?.length}: edit the cells after Apply (they are ordinary table cells).</div>
+        : <textarea rows={field === 'latex' ? 2 : Math.min(4, value.split('\n').length)} value={draft} spellCheck={false}
+            onChange={(ev) => setDraft(ev.target.value)} onBlur={() => commit(draft)} onKeyDown={(ev) => ev.stopPropagation()} />}
+      {e.blocks && <div className="sk-muted">Formatted text: editing it here replaces its formatting; better edit it after Apply.</div>}
     </div>
   );
 }

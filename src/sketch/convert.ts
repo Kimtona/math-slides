@@ -8,12 +8,13 @@
  * the picture itself. Without a frame (command-line tool) one uniform scale fits the content into the content area.
  * No beautification (alignment/spacing) is applied.
  */
-import type { LineElement, PMNode, ShapeElement, SlideElement, TextElement } from '../model/types';
+import type { LineElement, PMNode, ShapeElement, SlideElement, TableElement, TextElement } from '../model/types';
 import { SLIDE_H, SLIDE_W } from '../model/types';
-import { DEFAULT_TEXT_COLOR, lineBox, newLine, newShape, newText } from '../model/defaults';
+import { DEFAULT_TEXT_COLOR, emptyDoc, headingSize, lineBox, newLine, newShape, newText } from '../model/defaults';
+import { estimateTableHeight, newTable, repairTable, scaleCols, TABLE_CELL_PAD_X, TABLE_CELL_PAD_Y } from '../model/table';
 import { renderTex } from '../math/mathjax';
-import type { IRBox, IRColor, IRElement, IRIssue, IRPoint, SketchIR } from './ir';
-import { hasArrowhead, IR_SCALE, isConnectorKind } from './ir';
+import type { IRBlock, IRBox, IRColor, IRElement, IRIssue, IRPoint, IRSpan, SketchIR } from './ir';
+import { hasArrowhead, IR_SCALE, isConnectorKind, spansPlain } from './ir';
 
 /** Slide area the sketch content is fitted into (keeps a margin and the footer free). */
 export const CONTENT_AREA = { x: 48, y: 40, w: SLIDE_W - 96, h: SLIDE_H - 96 };
@@ -140,6 +141,48 @@ export function textToSketchDoc(text: string): PMNode {
   return { type: 'doc', content: lines.map((l) => (l ? { type: 'paragraph', content: inlineNodes(l) } : { type: 'paragraph' })) };
 }
 
+// ---------- structure: spans / blocks → the editor's own rich-text nodes (nothing new is invented) ----------
+
+const marksOf = (sp: IRSpan) => {
+  const m: { type: string }[] = [];
+  if (sp.bold) m.push({ type: 'bold' });
+  if (sp.italic) m.push({ type: 'italic' });
+  if (sp.strike) m.push({ type: 'strike' });
+  if (sp.underline) m.push({ type: 'underline' });
+  return m.length ? m : undefined;
+};
+
+/** Spans → text nodes carrying real marks (bold/italic/strike/underline); `$...$` inside a span becomes an inline equation node. */
+export function spansToNodes(spans: IRSpan[], withMath = true): PMNode[] {
+  const out: PMNode[] = [];
+  for (const sp of spans) {
+    const marks = marksOf(sp);
+    const parts: PMNode[] = withMath ? inlineNodes(sp.text) : [{ type: 'text', text: sp.text }];
+    for (const n of parts) out.push(n.type === 'text' && marks ? { ...n, marks } : n);
+  }
+  return out;
+}
+
+/** Blocks → ProseMirror doc of the editor: paragraph, blockquote, bulletList/orderedList > listItem, and heading = paragraph with a larger fontSize (as `# ` does). */
+export function blocksToDoc(blocks: IRBlock[], baseFont: number): PMNode {
+  const para = (spans: IRSpan[], attrs?: Record<string, unknown>): PMNode => {
+    const content = spansToNodes(spans);
+    return { type: 'paragraph', ...(attrs ? { attrs } : {}), ...(content.length ? { content } : {}) };
+  };
+  return {
+    type: 'doc',
+    content: blocks.map((b): PMNode => {
+      if ('items' in b) {
+        const content = b.items.map((it): PMNode => ({ type: 'listItem', content: [para(it)] }));
+        return b.type === 'ordered' ? { type: 'orderedList', attrs: { start: b.start ?? 1 }, content } : { type: 'bulletList', content };
+      }
+      if (b.type === 'quote') return { type: 'blockquote', content: [para(b.spans)] };
+      if (b.type === 'heading') return para(b.spans, { fontSize: Math.max(baseFont, Math.min(headingSize(b.level), Math.round(baseFont * 1.6))) });
+      return para(b.spans);
+    }),
+  };
+}
+
 /** Width of one line in em, measuring inline math with MathJax. */
 function lineWidthEm(line: string): number {
   let w = 0;
@@ -188,7 +231,9 @@ function textElement(e: IRElement, pl: Placement, issues: IRIssue[]): TextElemen
   const lines = text.split('\n');
   let fontSize = fontFromInk(b.h / lines.length, e.role);
   const align: TextElement['style']['align'] = e.role === 'annotation' || e.role === 'label' ? 'center' : 'left';
-  const widthEm = Math.max(...lines.map(lineWidthEm));
+  // One scale per text line, in the order blocksPlain() writes them: a heading is drawn up to 1.6× the note's font, so its line needs that much room.
+  const scales = e.blocks ? e.blocks.flatMap((b) => ('items' in b ? b.items.map(() => 1) : [b.type === 'heading' ? 1.6 : 1])) : [];
+  const widthEm = Math.max(...lines.map((l, i) => lineWidthEm(l) * (scales[i] ?? 1))) + (e.blocks?.some((b) => 'items' in b || b.type === 'quote') ? 1.8 : 0); // + list markers / quote bar indent
   // Typeset text is often wider than the handwriting. If it does not fit between its written position and the edge
   // of the placement area, the font gets smaller instead of the box being pushed sideways onto its neighbours
   // (real GUI run: a right-hand note moved 107 px left over the left-hand note).
@@ -227,7 +272,7 @@ function textElement(e: IRElement, pl: Placement, issues: IRIssue[]): TextElemen
   const box = keepInside({ x, y, w, h }, issues, e.id, pl.area);
   const el = newText(round(box.x), round(box.y), {
     w: round(box.w),
-    doc: textToSketchDoc(text),
+    doc: e.blocks ? blocksToDoc(e.blocks, fontSize) : textToSketchDoc(text),
     style: { fontSize, align, color: INK[e.color ?? 'black'] },
   });
   el.h = round(box.h);
@@ -327,6 +372,34 @@ function lineElement(e: IRElement, pl: Placement, shapes: Map<string, ShapeEleme
   return el;
 }
 
+/**
+ * A recognized table → the editor's own TableElement (newTable + rich-text cells), not text and not an image.
+ * Font from the row pitch of the source, column widths from the typeset text of each column, header row = the table's own header style.
+ */
+function tableElement(e: IRElement, pl: Placement, issues: IRIssue[]): TableElement {
+  const t = e.table!;
+  const b = mapBox(e.bbox, pl);
+  const nRows = t.rows.length, nCols = t.rows[0].length, lh = 1.35;
+  let fontSize = snapFont(clamp((b.h / nRows - 2 * TABLE_CELL_PAD_Y) / lh, 14, 40));
+  const colEm = Array.from({ length: nCols }, (_, c) => Math.max(1, ...t.rows.map((r) => lineWidthEm(spansPlain(r[c])))));
+  const natural = (f: number) => colEm.map((em) => em * f * 1.06 + 2 * TABLE_CELL_PAD_X + 8);
+  const sum = (v: number[]) => v.reduce((a, x) => a + x, 0);
+  const maxW = Math.max(120, pl.area.w - 8);
+  if (sum(natural(fontSize)) > maxW) fontSize = Math.max(12, Math.floor((fontSize * maxW) / sum(natural(fontSize))));
+  const widths = natural(fontSize);
+  const total = Math.round(Math.min(maxW, Math.max(b.w, sum(widths))));
+  const el = newTable(0, 0, { rows: nRows, cols: nCols, w: total });
+  el.cols = scaleCols(widths, total);
+  el.rows = t.rows.map((r) => r.map((c) => ({ doc: c.length ? ({ type: 'doc', content: [{ type: 'paragraph', content: spansToNodes(c, false) }] } as PMNode) : emptyDoc() })));
+  el.textStyle = { ...el.textStyle, fontSize, color: INK[e.color ?? 'black'] };
+  el.headerRow = t.header;
+  el.w = total;
+  el.h = estimateTableHeight(nRows, fontSize, lh);
+  const box = keepInside({ x: b.x, y: b.y, w: el.w, h: el.h }, issues, e.id, pl.area);
+  el.x = round(box.x); el.y = round(box.y);
+  return repairTable(el);
+}
+
 /** Text written inside a shape becomes the shape's own text instead of a separate box. */
 function insideTarget(e: IRElement, ir: SketchIR): string | undefined {
   if (e.kind !== 'text') return undefined;
@@ -363,6 +436,7 @@ export function irToElements(ir: SketchIR, frame?: Frame): ConversionResult {
     let el: SlideElement;
     if (isConnectorKind(e.kind)) el = lineElement(e, pl, shapes);
     else if (e.kind === 'math') el = mathElement(e, pl, issues);
+    else if (e.kind === 'table') el = tableElement(e, pl, issues);
     else el = textElement(e, pl, issues);
     map[e.id] = [el.id];
     out.push({ z: isConnectorKind(e.kind) ? 1 : 2, el });

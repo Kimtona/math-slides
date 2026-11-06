@@ -16,6 +16,8 @@ Elements (one per visual unit)
 - arrow: a stroke with an arrowhead. "from" is the tail, "to" is the tip.
 - line: a plain stroke without arrowhead, e.g. a tick or connector linking a note to what it explains.
 - curvedArrow / curve: like arrow / line, but the stroke is clearly bent (an arc). Give "from" and "to" as for arrows, plus "control": the quadratic Bézier control point (the curve's middle lies halfway between the from-to midpoint and "control"). If you cannot place a control point, give "bend" instead: the side the arc bulges towards in the image ("up", "down", "left" or "right"), and optionally "bendDepth": how far the arc's middle lies from the straight from-to line, as a fraction of that line's length (about 0.25 for a clear arc). Use arrow / line for strokes that are (nearly) straight.
+- table: a grid of rows and columns (with or without lines): ONE element for the whole table, bbox around it, "table": { "header": true if the first row is a header row, "rows": [ [ spans of cell 1, spans of cell 2, ... ], ... ] } with the same number of cells in every row.
+- Formatted text (bold, italic, strikethrough, underline, bullet or numbered lists, headings, quotes): use "blocks" instead of only "text". A block is { "type": "paragraph"|"heading"|"quote", "spans": [...] } or { "type": "bullet"|"ordered", "items": [ spans, ... ] } (heading also has "level" 1-4). A span is { "text": ..., "bold"?: true, "italic"?: true, "strike"?: true, "underline"?: true }; only mark what is visibly formatted. Keep "text" as the plain content too.
 - For arrows, lines and their curved forms, set fromId / toId to the id of the element an endpoint touches or points at, when there is one.
 
 Roles and relations
@@ -71,6 +73,10 @@ For each element give:
   "title" = the heading of the slide;
   "text" = a handwritten note or word that is not inside a shape;
   "math" = a formula; "content" is its LaTeX. Use LaTeX commands, not Unicode: Greek letters as \\theta \\pi \\tau, \\nabla, \\log, \\cdot, and double-struck letters as \\mathbb{E}. Keep each symbol as written (lowercase stays lowercase).
+  "table" = a grid of rows and columns (with or without lines). Give ONE "table" element for the whole grid, never one element per cell. "rows" is the list of rows, each row a list of the cell texts in order (same number of cells in every row, "" for an empty cell). "header": true if the first row is a header row, else false. bbox_2d covers the whole table;
+  "list" = a bulleted or numbered list: "items" are the item texts in order (no bullet or number characters), "ordered": true for 1. 2. 3., false for bullets;
+  "heading" = a heading inside the content (not the slide title): "content" and "level" 1-3;
+  "quote" = a quoted passage set off with a bar or indentation at the left;
   "circle" or "rectangle" = a drawn shape; "content" is the text written inside it, or "". A highlighter mark (a thick, light-colored loop or box around or over words) is also a circle or rectangle, with "pen": "highlighter" and "explains": the id of the text it marks;
   "arrow" = a stroke with an arrowhead; "line" = a stroke without arrowhead (for example a tick from a note to a term);
   "curved_arrow" / "curve" = the same, but the stroke is bent (an arc, a hook or a loop). Hand-drawn arrows are often bent: use "arrow"/"line" only for strokes that are really straight.
@@ -86,6 +92,7 @@ For each element give:
 Rules:
 - One element per drawn thing. Notes written in different places are different elements. Lines of one note belong together, separated by "\\n".
 - List every arrow, including short and bent ones; "points" start at the tail and end at the arrowhead.
+- Formatting: inside "content", "items" and table cells wrap exactly the words that are visibly bold in **double asterisks**, italic in *single asterisks* and struck through in ~~double tildes~~. Plain words get no markers; never add markers for anything else.
 - Copy text exactly as written, in its own language (Korean stays Korean). Do not translate, fix spelling, complete or add anything.
 - Only list things that are really drawn. Ignore grid lines, ruled lines, paper texture and shadows.
 - In JSON strings write every LaTeX backslash as \\\\ (for example "\\\\nabla").

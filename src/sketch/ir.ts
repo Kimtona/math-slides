@@ -10,8 +10,8 @@
 
 export const IR_SCALE = 1000;
 
-export type IRKind = 'text' | 'math' | 'shape' | 'arrow' | 'line' | 'curvedArrow' | 'curve';
-export const IR_KINDS: readonly IRKind[] = ['text', 'math', 'shape', 'arrow', 'line', 'curvedArrow', 'curve'];
+export type IRKind = 'text' | 'math' | 'shape' | 'arrow' | 'line' | 'curvedArrow' | 'curve' | 'table';
+export const IR_KINDS: readonly IRKind[] = ['text', 'math', 'shape', 'arrow', 'line', 'curvedArrow', 'curve', 'table'];
 /** Connector kinds (straight or curved). `curvedArrow`/`curve` are the curved forms of `arrow`/`line`. */
 export const isConnectorKind = (k: IRKind) => k === 'arrow' || k === 'line' || k === 'curvedArrow' || k === 'curve';
 export const hasArrowhead = (k: IRKind) => k === 'arrow' || k === 'curvedArrow';
@@ -48,6 +48,19 @@ export interface IRReview {
 
 export interface IRRelation { type: IRRelationType; target: string }
 
+/** A run of text with inline formatting; `$...$` inside `text` is inline math (as everywhere in the IR). */
+export interface IRSpan { text: string; bold?: boolean; italic?: boolean; strike?: boolean; underline?: boolean }
+/** Rich-text blocks: paragraphs, headings (level 1..4), block quotes and bullet / ordered lists (each item = spans). */
+export type IRBlock =
+  | { type: 'paragraph' | 'quote'; spans: IRSpan[] }
+  | { type: 'heading'; level: number; spans: IRSpan[] }
+  | { type: 'bullet' | 'ordered'; items: IRSpan[][]; start?: number };
+/** A table: rows → cells → spans. `header`: the first row is a header row (never assumed). Rectangular after parseIR. */
+export interface IRTable { header: boolean; rows: IRSpan[][][] }
+
+export const IR_BLOCK_TYPES = ['paragraph', 'heading', 'quote', 'bullet', 'ordered'] as const;
+export const IR_MAX_TABLE_ROWS = 40, IR_MAX_TABLE_COLS = 12, IR_MAX_BLOCKS = 60, IR_MAX_TEXT = 600;
+
 export interface IRElement {
   id: string;
   kind: IRKind;
@@ -55,6 +68,10 @@ export interface IRElement {
   bbox: IRBox;
   /** text: plain text, `\n` separates written lines, `$...$` marks inline math. shape: the label written inside. */
   text?: string;
+  /** text: the same content as structured blocks (formatting, lists, headings, quotes). When present it wins over `text`, which then only holds its plain text. */
+  blocks?: IRBlock[];
+  /** table: the cells. */
+  table?: IRTable;
   /** math: LaTeX of the displayed equation (no surrounding $). */
   latex?: string;
   shape?: IRShape;
@@ -109,6 +126,24 @@ const num = { type: 'number' } as const;
 const box = { type: 'object', properties: { x: num, y: num, w: num, h: num }, required: ['x', 'y', 'w', 'h'], additionalProperties: false } as const;
 const point = { type: 'object', properties: { x: num, y: num }, required: ['x', 'y'], additionalProperties: false } as const;
 
+const bool = { type: 'boolean' } as const;
+const spansSchema = {
+  type: 'array',
+  items: { type: 'object', properties: { text: { type: 'string' }, bold: bool, italic: bool, strike: bool, underline: bool }, required: ['text'], additionalProperties: false },
+} as const;
+const blockSchema = {
+  type: 'object',
+  properties: { type: { type: 'string', enum: [...IR_BLOCK_TYPES] }, level: num, spans: spansSchema, items: { type: 'array', items: spansSchema }, start: num },
+  required: ['type'],
+  additionalProperties: false,
+} as const;
+const tableSchema = {
+  type: 'object',
+  properties: { header: bool, rows: { type: 'array', items: { type: 'array', items: spansSchema } } },
+  required: ['rows'],
+  additionalProperties: false,
+} as const;
+
 export const IR_ELEMENT_SCHEMA = {
   type: 'object',
   properties: {
@@ -116,6 +151,8 @@ export const IR_ELEMENT_SCHEMA = {
     kind: { type: 'string', enum: [...IR_KINDS] },
     bbox: box,
     text: { type: 'string' },
+    blocks: { type: 'array', items: blockSchema },
+    table: tableSchema,
     latex: { type: 'string' },
     shape: { type: 'string', enum: [...IR_SHAPES] },
     from: point,
@@ -223,6 +260,58 @@ export interface IRIssue {
 
 const isObj = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+// ---------- untrusted structure: spans, blocks, tables ----------
+
+function cleanSpan(v: unknown): IRSpan | null {
+  if (typeof v === 'string') return v ? { text: v.slice(0, IR_MAX_TEXT) } : null;
+  if (!isObj(v) || typeof v.text !== 'string' || !v.text) return null;
+  const s: IRSpan = { text: v.text.slice(0, IR_MAX_TEXT) };
+  for (const k of ['bold', 'italic', 'strike', 'underline'] as const) if (v[k] === true) s[k] = true;
+  return s;
+}
+/** Accepts a string, one span or an array of either; anything else is empty. Only known fields survive. */
+export function cleanSpans(v: unknown): IRSpan[] {
+  const arr = Array.isArray(v) ? v : v === undefined || v === null ? [] : [v];
+  return arr.map(cleanSpan).filter((x): x is IRSpan => !!x);
+}
+export const spansPlain = (spans: IRSpan[]) => spans.map((x) => x.text).join('');
+/** Plain text of blocks, one line per paragraph / list item. */
+export const blocksPlain = (blocks: IRBlock[]) => blocks.flatMap((b) => ('items' in b ? b.items.map(spansPlain) : [spansPlain(b.spans)])).join('\n');
+
+export function cleanBlocks(v: unknown): IRBlock[] {
+  if (!Array.isArray(v)) return [];
+  const out: IRBlock[] = [];
+  for (const b of v.slice(0, IR_MAX_BLOCKS)) {
+    if (!isObj(b)) continue;
+    const type = (IR_BLOCK_TYPES as readonly string[]).includes(b.type) ? b.type : b.items ? 'bullet' : 'paragraph'; // unknown type: keep the content as a plain paragraph / list
+    if (type === 'bullet' || type === 'ordered') {
+      const items = (Array.isArray(b.items) ? b.items : []).slice(0, IR_MAX_BLOCKS).map(cleanSpans).filter((x) => x.length);
+      if (items.length) out.push(type === 'ordered' ? { type, items, ...(finite(b.start) && b.start >= 1 && b.start < 1000 ? { start: Math.round(b.start) } : {}) } : { type, items });
+      continue;
+    }
+    const spans = cleanSpans(b.spans);
+    if (!spans.length) continue;
+    out.push(type === 'heading' ? { type, level: finite(b.level) ? Math.max(1, Math.min(4, Math.round(b.level))) : 2, spans } : { type: type as 'paragraph' | 'quote', spans });
+  }
+  return out;
+}
+
+/** Rectangular, size-limited table or null. Ragged rows are padded with empty cells (reported); too many rows/columns are cut (reported). */
+export function cleanTable(v: unknown, issues: IRIssue[], id: string): IRTable | null {
+  if (!isObj(v) || !Array.isArray(v.rows)) return null;
+  const rawRows = v.rows.filter(Array.isArray);
+  if (rawRows.length > IR_MAX_TABLE_ROWS || rawRows.some((r: unknown[]) => r.length > IR_MAX_TABLE_COLS))
+    issues.push({ severity: 'warning', code: 'table', id, message: `Table cut to ${IR_MAX_TABLE_ROWS} rows × ${IR_MAX_TABLE_COLS} columns.` });
+  const rows = rawRows.slice(0, IR_MAX_TABLE_ROWS).map((r: unknown[]) => r.slice(0, IR_MAX_TABLE_COLS).map(cleanSpans));
+  const cols = Math.max(0, ...rows.map((r) => r.length));
+  if (!rows.length || !cols || rows.every((r) => r.every((c) => !c.length))) return null;
+  if (rows.some((r) => r.length !== cols)) {
+    issues.push({ severity: 'warning', code: 'table', id, message: 'Rows had different numbers of cells; short rows were padded with empty cells (check the table).' });
+    for (const r of rows) while (r.length < cols) r.push([]);
+  }
+  return { header: v.header === true, rows };
+}
 const clampN = (v: number) => Math.max(0, Math.min(IR_SCALE, v));
 
 function cleanBox(b: unknown): IRBox | null {
@@ -330,6 +419,19 @@ export function parseIR(raw: unknown, image: { width: number; height: number }):
       for (const k of ['reason', 'transcribed', 'inferred'] as const) if (typeof e.review[k] === 'string' && e.review[k]) r[k] = e.review[k];
       el.review = r;
     }
+    // Structure (untrusted): blocks and tables are cleaned field by field; whatever cannot be used is dropped, never guessed.
+    if (e.blocks !== undefined) {
+      const blocks = cleanBlocks(e.blocks);
+      if (blocks.length) { el.blocks = blocks; if (!el.text?.trim()) el.text = blocksPlain(blocks); }
+      else if (el.kind === 'text') issues.push({ severity: 'info', code: 'structure', id, message: 'Ignored an empty or invalid "blocks" field.' });
+    }
+    if (el.kind === 'table') {
+      const table = cleanTable(e.table, issues, id);
+      if (table) el.table = table;
+      else if (el.text?.trim()) { el.kind = 'text'; issues.push({ severity: 'warning', code: 'table', id, message: 'Table without usable rows: kept its text as a plain note.' }); }
+      else { drop('schema', 'Table without usable rows.'); continue; }
+    } else delete el.table;
+    if (el.kind !== 'text') delete el.blocks;
     // Kind-specific content requirements.
     if (el.kind === 'text' && !el.text?.trim()) { drop('schema', 'Text element without text.'); continue; }
     if (el.kind === 'math' && !el.latex) { drop('schema', 'Math element without LaTeX.'); continue; }

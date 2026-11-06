@@ -206,7 +206,10 @@ export async function runSketch() {
 export async function editElement(id: string, patch: Partial<IRElement>) {
   const ir = get().ir;
   if (!ir) return;
-  const next = applyPatches(ir, [{ op: 'update', id, element: patch, reason: 'user edit' }]);
+  // Editing the plain text of a formatted note replaces its structure (the user's text wins over the old marks/lists).
+  const had = ir.elements.find((e) => e.id === id)?.blocks;
+  const element = patch.text !== undefined && had ? { ...patch, blocks: undefined } : patch;
+  const next = applyPatches(ir, [{ op: 'update', id, element, reason: 'user edit' }]);
   await rebuild(next.ir);
 }
 

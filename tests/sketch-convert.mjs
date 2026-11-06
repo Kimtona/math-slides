@@ -74,7 +74,7 @@ try {
   {
     const { ir, issues } = parseIR({
       elements: [
-        { id: 'x', kind: 'table', bbox: { x: 0, y: 0, w: 10, h: 10 } },
+        { id: 'x', kind: 'chart', bbox: { x: 0, y: 0, w: 10, h: 10 } }, // (table is a supported kind now)
         { id: 'm', kind: 'math', bbox: { x: 0, y: 0, w: 10, h: 10 } },
         { id: 't', kind: 'text', text: 'hi', bbox: { x: -50, y: 990, w: 2000, h: 50 }, relations: [{ type: 'inside', target: 'ghost' }] },
         { id: 'a', kind: 'arrow', bbox: { x: 100, y: 100, w: 200, h: 10 }, toId: 'ghost' },
@@ -357,6 +357,148 @@ try {
     const saved = JSON.parse(JSON.stringify(fc.elements));
     assert.deepEqual(saved.filter((e) => e.type === 'line').map((l) => [l.cx, l.cy]), lines.map((l) => [l.cx, l.cy]), 'control points survive JSON (save/reopen)');
   }
+  // ---- Structure: tables, formatted text, lists, headings, quotes (src/sketch + electron/sketch-markup.cjs) ----
+  {
+    const { createRequire } = await import('node:module');
+    const req = createRequire(import.meta.url);
+    const M = req(path.join(root, 'electron/sketch-markup.cjs'));
+    const { localToModelIR } = req(path.join(root, 'electron/sketch-local.cjs'));
+    const { tableProblems } = await server.ssrLoadModule('/src/model/table.ts');
+    const toIR = (raw, w = 1000, h = 1000) => parseIR(raw, { width: w, height: h });
+    const kindsOf = (els) => els.map((e) => e.type);
+    const flatText = (doc) => { const out = []; const walk = (n) => { if (n.text) out.push(n.text); n.content?.forEach(walk); }; walk(doc); return out.join(''); };
+
+    // -- inline markers → spans (never characters); math and literals protected
+    assert.deepEqual(M.parseInline('a **b** *c* ~~d~~ e'), [{ text: 'a ' }, { text: 'b', bold: true }, { text: ' ' }, { text: 'c', italic: true }, { text: ' ' }, { text: 'd', strike: true }, { text: ' e' }]);
+    assert.deepEqual(M.parseInline('***x***'), [{ text: 'x', bold: true, italic: true }]);
+    assert.deepEqual(M.parseInline('$a*b*c$ and **d**'), [{ text: '$a*b*c$ and ' }, { text: 'd', bold: true }], 'markers inside $…$ are not formatting');
+    assert.deepEqual(M.parseInline('2 * 3 * 4 and **open'), [{ text: '2 * 3 * 4 and **open' }], 'lone/unbalanced markers stay literal');
+    // -- lines → blocks
+    const blocks = M.markupToBlocks('# Title\nplain **bold** text\n- one\n- two\n1. first\n2. second\n> quoted');
+    assert.deepEqual(blocks.map((b) => b.type), ['heading', 'paragraph', 'bullet', 'ordered', 'quote']);
+    assert.equal(blocks[0].level, 1); assert.equal(blocks[2].items.length, 2); assert.equal(blocks[3].items.length, 2);
+    assert.equal(M.markupToBlocks('just a plain note\nwith two lines'), null, 'plain notes stay plain (unchanged behavior)');
+    assert.equal(M.blocksPlain(blocks), 'Title\nplain bold text\none\ntwo\nfirst\nsecond\nquoted');
+    assert.deepEqual(M.parseMarkdownTable('| A | B |\n|---|---|\n| 1 | 2 |'), [['A', 'B'], ['1', '2']]);
+    assert.equal(M.parseMarkdownTable('just | one line'), null);
+
+    // -- untrusted model structure: defaults, repair, safe fallbacks
+    const issues0 = [];
+    const bad = toIR({ elements: [
+      { id: 't1', kind: 'table', bbox: { x: 0, y: 0, w: 500, h: 300 }, table: { rows: [['a', 'b', 'c'], ['d'], 'oops', [['x']]] } },          // ragged, junk row, string cells
+      { id: 't2', kind: 'table', bbox: { x: 0, y: 400, w: 500, h: 100 }, table: { rows: [] }, text: 'kept words' },                              // no rows but text → note
+      { id: 't3', kind: 'table', bbox: { x: 0, y: 600, w: 500, h: 100 }, table: 7 },                                                             // nothing usable → dropped
+      { id: 'b1', kind: 'text', bbox: { x: 0, y: 700, w: 500, h: 100 }, blocks: [
+        { type: 'heading', level: 99, spans: [{ text: 'H', bold: 'yes', italic: true, evil: 1 }] }, { type: 'nonsense', spans: [{ text: 'p' }] },
+        { type: 'bullet', items: [[{ text: 'i1' }], 'i2', [], null] }, 5, { type: 'quote', spans: [] }] },
+    ] }, 1000, 1000);
+    const byId = Object.fromEntries(bad.ir.elements.map((e) => [e.id, e]));
+    assert.equal(byId.t1.kind, 'table'); assert.ok(byId.t1.table.rows.every((r) => r.length === 3), 'ragged rows padded to a rectangle');
+    assert.equal(byId.t1.table.header, false, 'header is never assumed');
+    assert.ok(bad.issues.some((i) => i.code === 'table' && i.id === 't1'), 'padding is reported');
+    assert.equal(byId.t2.kind, 'text'); assert.equal(byId.t2.text, 'kept words'); assert.ok(bad.issues.some((i) => i.id === 't2' && i.code === 'table'));
+    assert.ok(!byId.t3, 'a table with nothing usable is dropped, not invented');
+    assert.deepEqual(byId.b1.blocks.map((b) => b.type), ['heading', 'paragraph', 'bullet'], 'invalid blocks dropped, unknown type kept as paragraph');
+    assert.equal(byId.b1.blocks[0].level, 4, 'level clamped'); assert.deepEqual(byId.b1.blocks[0].spans, [{ text: 'H', italic: true }], 'only known boolean flags survive');
+    assert.equal(byId.b1.blocks[2].items.length, 2);
+    const huge = toIR({ elements: [{ id: 'h', kind: 'table', bbox: { x: 0, y: 0, w: 900, h: 900 }, table: { rows: Array.from({ length: 100 }, () => Array.from({ length: 30 }, () => 'x')) } }] });
+    assert.ok(huge.ir.elements[0].table.rows.length <= 40 && huge.ir.elements[0].table.rows[0].length <= 12 && huge.issues.some((i) => i.code === 'table'), 'oversized tables are cut and reported');
+
+    // -- table → the editor's own TableElement (6 × 2 like the AI-model screenshot), header bold, cell docs are plain rich text
+    const cells = [['항목', '제출 내용'], ['AI 모델', 'Ollama + Qwen2.5-VL 7B'], ['Coding Agent', 'Claude Code'], ['Skills', '실제 사용한 skill 파일이 있다면 포함'], ['MCP', '실제 사용한 MCP 서버와 설정이 있다면 명시'], ['Prompts', 'Claude Code 작업 지시 및 주요 반복 개선 기록']];
+    const tIR = toIR({ elements: [{ id: 'T', kind: 'table', bbox: { x: 20, y: 40, w: 960, h: 880 }, table: { header: true, rows: cells.map((r, i) => r.map((t) => [{ text: t, ...(i === 0 ? { bold: true } : {}) }])) } }] }, 906, 446).ir;
+    const frame = { x: 100, y: 200, w: 1000, h: 480 };
+    const tc = irToElements(tIR, frame);
+    assert.deepEqual(kindsOf(tc.elements), ['table'], 'one native table, no loose text');
+    const T = tc.elements[0];
+    assert.equal(T.rows.length, 6); assert.equal(T.cols.length, 2); assert.equal(T.headerRow, true);
+    assert.equal(T.cols.reduce((a, b) => a + b, 0), T.w, 'column widths sum to the table width');
+    assert.deepEqual(tableProblems(T), [], 'a valid table the table editor can open');
+    assert.deepEqual(T.rows.map((r) => r.map((c) => flatText(c.doc))), cells, 'every cell text exact');
+    assert.deepEqual(T.rows[0][0].doc.content[0].content[0].marks, [{ type: 'bold' }], 'header cells carry a real bold mark');
+    assert.equal(T.rows[1][0].doc.content[0].content[0].marks, undefined);
+    assert.ok(T.x >= frame.x - 1 && T.x + T.w <= frame.x + frame.w + 1, 'inside the image frame');
+    assert.ok(!/\*\*|\||~~|<b>/.test(JSON.stringify(T.rows)), 'no Markdown/HTML characters in cells');
+    assert.ok(validateSketch(tIR, tc, undefined, { frame }).counts.error === 0, 'no validation errors');
+    const tjson = JSON.parse(JSON.stringify(tc.elements)); assert.deepEqual(tjson, JSON.parse(JSON.stringify(tc.elements)), 'JSON-safe');
+
+    // -- formatted text → real marks, lists, heading size, blockquote; inline math kept
+    const ft = toIR({ elements: [{ id: 'N', kind: 'text', bbox: { x: 30, y: 30, w: 700, h: 500 }, text: 'x', blocks: [
+      { type: 'heading', level: 2, spans: [{ text: 'Project notes' }] },
+      { type: 'paragraph', spans: [{ text: 'The ' }, { text: 'final model', bold: true }, { text: ' is ' }, { text: 'Qwen', italic: true }, { text: ', the ' }, { text: 'old baseline', strike: true }, { text: ' and $\\pi_\\theta$.' }] },
+      { type: 'bullet', items: [[{ text: 'Run locally' }], [{ text: 'Check', bold: true }, { text: ' cells' }]] },
+      { type: 'ordered', start: 1, items: [[{ text: 'Convert' }], [{ text: 'Review' }]] },
+      { type: 'quote', spans: [{ text: 'Think on paper.' }] },
+    ] }] }, 1000, 1000).ir;
+    const fc = irToElements(ft, { x: 100, y: 100, w: 1000, h: 500 });
+    const doc = fc.elements[0].doc, top = doc.content.map((n) => n.type);
+    assert.deepEqual(top, ['paragraph', 'paragraph', 'bulletList', 'orderedList', 'blockquote'], 'native nodes: ' + top);
+    assert.ok(doc.content[0].attrs.fontSize > fc.elements[0].style.fontSize, 'heading = paragraph with a larger fontSize (as "# " does)');
+    const mk = (n) => (n.marks ?? []).map((m) => m.type);
+    const para = doc.content[1].content;
+    assert.deepEqual(para.filter((n) => n.type === 'text').map((n) => [n.text, mk(n).join('+')]).filter(([, m]) => m), [['final model', 'bold'], ['Qwen', 'italic'], ['old baseline', 'strike']]);
+    assert.ok(para.some((n) => n.type === 'mathInline' && n.attrs.latex === '\\pi_\\theta'), 'inline math is the existing mathInline node');
+    assert.deepEqual(doc.content[2].content.map((li) => li.type), ['listItem', 'listItem']); assert.equal(doc.content[3].attrs.start, 1);
+    assert.deepEqual(doc.content[2].content[1].content[0].content[0].marks, [{ type: 'bold' }], 'bold inside a list item');
+    assert.ok(!/(^|")\s*[-•*]\s|\*\*|~~|(^|")\d+\.\s/.test(JSON.stringify(doc).replace(/"type":"[^"]*"/g, '')), 'no Markdown symbols left as text');
+
+    // -- the local adapter: a flat model answer (markers, rows, items) → the same structures
+    const fmtLocal = await fixture('formatted-notes.local.json');
+    const loc = localToModelIR(fmtLocal, 1504, 814);
+    const lr = toIR(loc, 1504, 814); assert.deepEqual(lr.issues.filter((i) => i.severity !== 'info'), [], 'adapter output is a valid IR');
+    const lc = irToElements(lr.ir, { x: 60, y: 60, w: 1100, h: 560 });
+    assert.ok(lc.elements.some((e) => e.type === 'table'), 'table from "rows"');
+    const lt = lc.elements.filter((e) => e.type === 'text').map((e) => e.doc.content.map((n) => n.type)).flat();
+    assert.ok(['bulletList', 'orderedList', 'blockquote'].every((t) => lt.includes(t)), 'list / quote nodes from the flat format: ' + lt);
+
+    // -- grid detection: the real baseline output (12 separate cell boxes) becomes ONE table; look-alikes do not
+    const base = JSON.parse(await readFile(path.join(root, 'examples/structured/before/ai-table.ir.json'), 'utf8'));
+    const baseIR = localToModelIR(base.localOutput, base.sentImage.width, base.sentImage.height);
+    assert.deepEqual(baseIR.elements.map((e) => e.kind), ['table']);
+    assert.equal(baseIR.elements[0].table.rows.length, 6); assert.equal(baseIR.elements[0].table.header, true, 'header = the model called the first row headings');
+    assert.deepEqual(baseIR.elements[0].table.rows.map((r) => r.map((c) => c.map((sp) => sp.text).join(''))), cells, 'cells exact');
+    // -- a REAL looping model answer (12 cells, then an empty "table" repeated until the token limit): finished elements are kept
+    const looped = await fixture('ai-table.looped-raw.json');
+    const OL = req(path.join(root, 'electron/sketch-ollama.cjs'));
+    assert.ok(OL.isRepeating(looped.rawText), 'the loop is detected');
+    assert.ok(!OL.isRepeating(base.rawText), 'a complete, normal answer is not flagged');
+    const kept = OL.salvageElements(looped.rawText);
+    assert.equal(kept.length, 13, 'complete elements kept once each (12 cells + the empty table)');
+    const salvaged = localToModelIR({ elements: kept, _salvaged: { kept: kept.length, reason: 'the model started repeating itself' } }, looped.sentImage.width, looped.sentImage.height);
+    assert.deepEqual(salvaged.elements.map((e) => e.kind), ['table'], 'the cells become ONE table; the empty table element is dropped, nothing is invented');
+    assert.ok(salvaged.notes.some((n) => /cut off/.test(n)) && salvaged.notes.some((n) => /no rows/.test(n)), 'both are reported: ' + salvaged.notes);
+    assert.equal(OL.salvageElements('{"elements":[{"id":"a","type":"text","content":"x"},{"id":"b","type":"te').length, 1, 'a half-written element is never completed');
+    // -- list items listed one element each (the real model's habit) become ONE list; look-alikes stay separate
+    const real2 = await fixture('formatted-notes.real-run2.json');
+    const r2 = localToModelIR(real2.localOutput, real2.sentImage.width, real2.sentImage.height);
+    const types2 = r2.elements.map((e) => (e.blocks ? e.blocks[0].type : e.kind));
+    assert.deepEqual(types2, ['text', 'text', 'ordered', 'quote'], 'real output: title, paragraph, ONE list, quote — ' + types2);
+    assert.equal(r2.elements[2].blocks[0].items.length, 6, 'six items in one list');
+    assert.ok(r2.elements[2].review?.needed && /bullets vs/.test(r2.elements[2].review.reason), 'bullets vs numbers is flagged for review (the model marked bullets as ordered)');
+    const li = (id, y, x = 50, ordered = false, h = 30) => ({ id, type: 'list', ordered, bbox_2d: [x, y, x + 300, y + h], content: 'item ' + id });
+    const kindsOfList = (els) => localToModelIR({ elements: els }, 1000, 1000).elements.map((e) => e.blocks?.[0]?.items?.length ?? 'x');
+    assert.deepEqual(kindsOfList([li('a', 100), li('b', 140), li('c', 180)]), [3], 'stacked, aligned items → one list');
+    assert.deepEqual(kindsOfList([li('a', 100), li('b', 400)]), [1, 1], 'a large vertical gap keeps them apart');
+    assert.deepEqual(kindsOfList([li('a', 100), li('b', 140, 300)]), [1, 1], 'a different left edge keeps them apart');
+    assert.deepEqual(kindsOfList([li('a', 100), li('b', 140, 50, true)]), [1, 1], 'bullet and numbered items are never mixed');
+    // -- a REAL answer that repeated the whole run of cells: duplicates are dropped BEFORE grid detection (was a 6×4 table)
+    const dup = await fixture('ai-table.duplicated.json');
+    assert.equal(dup.localOutput.elements.length, 25, 'fixture: 12 cells + empty table + the 12 cells again');
+    const dupIR = localToModelIR(dup.localOutput, dup.sentImage.width, dup.sentImage.height);
+    assert.deepEqual(dupIR.elements.map((e) => e.kind), ['table']);
+    assert.deepEqual([dupIR.elements[0].table.rows.length, dupIR.elements[0].table.rows[0].length], [6, 2], 'a 6×2 table, not 6×4');
+    assert.ok(dupIR.notes.some((n) => /repeated element/.test(n)), 'the repetition is reported');
+    const twice = (id) => [{ id, type: 'text', bbox_2d: [100, 100, 300, 130], content: 'Claude Code' }, { id: id + 'b', type: 'text', bbox_2d: [100, 400, 300, 430], content: 'Claude Code' }];
+    assert.equal(localToModelIR({ elements: twice('x') }, 1000, 1000).elements.length, 2, 'the same words at another place are two elements');
+    const mkText = (id, x, y, w, extra = {}) => ({ id, type: 'text', bbox_2d: [x, y, x + w, y + 30], content: id, ...extra });
+    const grid = (rows, cols, jitter = {}) => ({ elements: Array.from({ length: rows * cols }, (_, i) => mkText('c' + i, 50 + (i % cols) * 400 + (jitter[i] ?? 0), 40 + Math.floor(i / cols) * 100, 150)) });
+    assert.equal(localToModelIR(grid(4, 2), 1000, 600).elements.filter((e) => e.kind === 'table').length, 1, 'a clean 4×2 grid → table');
+    assert.equal(localToModelIR(grid(2, 2), 1000, 600).elements.filter((e) => e.kind === 'table').length, 0, 'a 2×2 arrangement is not turned into a table');
+    assert.equal(localToModelIR(grid(4, 2, { 3: 90 }), 1000, 600).elements.filter((e) => e.kind === 'table').length, 0, 'a misaligned column breaks it');
+    const mixed = grid(4, 2); mixed.elements.push(mkText('note', 300, 500, 200, { explains: 'c0' }), mkText('n2', 60, 560, 300), mkText('n3', 70, 600, 100));
+    assert.equal(localToModelIR(mixed, 1000, 700).elements.filter((e) => e.kind === 'table').length, 0, 'a grid that is only part of the page is left alone');
+  }
+
   console.log('sketch-convert: all checks passed');
 } finally {
   await server.close();

@@ -2,7 +2,9 @@
 // conversion to the shared model IR ({ elements, notes } with 0..1000 coordinates) that src/sketch/ir.ts validates.
 // Nothing is invented here: unreadable or inconsistent items are kept and flagged for review, or dropped with a note.
 
-const TYPES = ['title', 'text', 'math', 'circle', 'rectangle', 'arrow', 'line', 'curved_arrow', 'curve'];
+const { parseInline, markupToBlocks, blocksPlain, parseMarkdownTable, detectGridTable, mergeListItems } = require('./sketch-markup.cjs');
+
+const TYPES = ['title', 'text', 'math', 'circle', 'rectangle', 'arrow', 'line', 'curved_arrow', 'curve', 'heading', 'list', 'quote', 'table'];
 const BENDS = ['up', 'down', 'left', 'right'];
 const COLORS = ['black', 'blue', 'red', 'green'];
 const str = { type: 'string' };
@@ -26,6 +28,12 @@ const LOCAL_SCHEMA = {
           via: { type: 'array', items: num, minItems: 2, maxItems: 2 },
           bend: { type: 'string', enum: BENDS },
           explains: str,
+          // structure: table rows (cells as strings), list items, heading level
+          rows: { type: 'array', items: { type: 'array', items: str } },
+          header: { type: 'boolean' },
+          items: { type: 'array', items: str },
+          ordered: { type: 'boolean' },
+          level: num,
           pen: { type: 'string', enum: ['pen', 'highlighter'] },
           unsure: str,
         },
@@ -55,6 +63,10 @@ function repairLatex(s) {
  * are (wrapping inside them corrupted `\(\pi_{\theta}\)` into `\($\pi$_{$\theta$}\)` — PPO capture).
  */
 const MATH_SPAN = /\$\$[^$]+?\$\$|\$[^$]+?\$|\\\([\s\S]+?\\\)|\\\[[\s\S]+?\\\]/g;
+function wrapBlocks(blocks) {
+  const fix = (spans) => spans.map((sp) => ({ ...sp, text: wrapInlineCommands(sp.text) }));
+  return blocks.map((b) => (b.items ? { ...b, items: b.items.map(fix) } : { ...b, spans: fix(b.spans) }));
+}
 function wrapInlineCommands(text) {
   let out = '', last = 0, m;
   const re = new RegExp(MATH_SPAN.source, 'g');
@@ -71,6 +83,8 @@ const HANGUL = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]/;
  * while reporting no uncertainty, and its LaTeX needs a look; so those are always offered for review. */
 function localReviewReason(out) {
   if (out.kind === 'math') return 'Equation read by a local model: check the LaTeX against the sketch.';
+  if (out.blocks && out.blocks.some((b) => b.items)) return 'List read by a local model: check bullets vs. numbers and the items.';
+  if (out.kind === 'table' && out.table.rows.some((r) => r.some((c) => HANGUL.test(c.map((s) => s.text).join(''))))) return 'Table read by a local model: check every cell.';
   if (out.kind === 'text' && HANGUL.test(out.text ?? '')) return 'Korean handwriting read by a local model: check the wording.';
   if (out.kind === 'shape' && HANGUL.test(out.text ?? '')) return 'Korean label read by a local model: check the wording.';
   return '';
@@ -84,7 +98,7 @@ function localReviewReason(out) {
  */
 function mergeStackedLines(elements, width = 1000, height = 1000) {
   const px = (b) => ({ x: (b.x * width) / 1000, y: (b.y * height) / 1000, w: (b.w * width) / 1000, h: (b.h * height) / 1000 });
-  const texts = elements.filter((e) => e.kind === 'text' && e.role !== 'title');
+  const texts = elements.filter((e) => e.kind === 'text' && e.role !== 'title' && !e.blocks); // structured notes (lists, quotes, formatting) are never merged line by line
   const absorbed = new Set();
   // 1) Words of the same line listed separately (vertical overlap ≥ 50%, small horizontal gap): joined with a space.
   texts.sort((a, b) => a.bbox.x - b.bbox.x);
@@ -140,7 +154,14 @@ function mergeStackedLines(elements, width = 1000, height = 1000) {
 function localToModelIR(data, width, height) {
   const notes = [];
   const warnings = [];
-  const items = Array.isArray(data?.elements) ? data.elements : [];
+  if (data?._salvaged) warnings.push(`The model's answer was cut off (${data._salvaged.reason}); kept its ${data._salvaged.kept} finished element(s) and dropped the rest.`);
+  const all = Array.isArray(data?.elements) ? data.elements : [];
+  // A model that repeats itself (even a whole run of elements, with the same ids and boxes) must not double its content:
+  // same type + same text + same place (within 8 px-ish buckets) = the same element, kept once. The same words at another place are kept.
+  const keyOf = (e) => [e?.type, typeof e?.content === 'string' ? e.content.trim() : '', Array.isArray(e?.items) ? e.items.join('\u0001') : '', Array.isArray(e?.bbox_2d) ? e.bbox_2d.map((v) => Math.round(v / 8)).join(',') : ''].join('|');
+  const seenKeys = new Set();
+  const items = all.filter((e) => { const k = keyOf(e); if (seenKeys.has(k)) return false; seenKeys.add(k); return true; });
+  if (items.length < all.length) warnings.push(`Dropped ${all.length - items.length} repeated element(s) (same type, text and place).`);
   const nx = (x) => (x / width) * 1000;
   const ny = (y) => (y / height) * 1000;
   // Some models answer in 0..1000 although asked for pixels: detect it from the coordinate range.
@@ -156,7 +177,7 @@ function localToModelIR(data, width, height) {
 
   const ids = new Set(items.map((e) => e?.id).filter((v) => typeof v === 'string'));
   const ref = (v) => (typeof v === 'string' && v && ids.has(v) ? v : undefined);
-  const elements = [];
+  let elements = [];
   for (const [i, e] of items.entries()) {
     const id = typeof e?.id === 'string' && e.id ? e.id : `e${i + 1}`;
     const b = Array.isArray(e?.bbox_2d) && e.bbox_2d.length === 4 && e.bbox_2d.every(isNum) ? e.bbox_2d : null;
@@ -170,8 +191,38 @@ function localToModelIR(data, width, height) {
     if (COLORS.includes(e.color)) out.color = e.color;
     if (e.pen === 'highlighter' || e.pen === 'pen') out.pen = e.pen;
     const unsure = typeof e.unsure === 'string' && e.unsure.trim() ? e.unsure.trim() : '';
-    if (e.type === 'title' || e.type === 'text') {
+    if (e.type === 'table') {
+      // Rows come as arrays of cell strings (or as a Markdown table in `content`); cell markers become spans, never characters.
+      const md = !Array.isArray(e.rows) ? parseMarkdownTable(typeof e.content === 'string' ? e.content : '') : null;
+      const rawRows = Array.isArray(e.rows) ? e.rows.filter(Array.isArray) : md ?? [];
+      const hasSep = typeof e.content === 'string' && /^\s*\|?\s*:?-{2,}/m.test(e.content);
+      Object.assign(out, {
+        kind: 'table',
+        table: { header: typeof e.header === 'boolean' ? e.header : !!md && hasSep, rows: rawRows.map((r) => r.map((c) => parseInline(typeof c === 'string' ? c : String(c ?? '')))) },
+      });
+      if (!rawRows.length) {
+        if (!/[\p{L}\p{N}]{2,}/u.test(content)) { notes.push(`Dropped table ${id}: it had no rows.`); continue; } // nothing readable (e.g. a looping model's ":[["): not a note
+        out.kind = 'text'; out.text = content; delete out.table; // no usable rows: keep the words as a note
+      }
+    } else if (e.type === 'list' || e.type === 'quote' || e.type === 'heading') {
+      let blocks = null;
+      if (e.type === 'list' && Array.isArray(e.items) && e.items.length) {
+        blocks = [{ type: e.ordered ? 'ordered' : 'bullet', items: e.items.filter((x) => typeof x === 'string' && x.trim()).map((x) => parseInline(x.replace(/^\s*(?:[-•·*]|\d{1,3}[.)])\s+/, ''))) }];
+      } else if (e.type === 'quote') {
+        blocks = [{ type: 'quote', spans: parseInline(content.replace(/^\s*>\s?/, '')) }];
+      } else if (e.type === 'heading') {
+        blocks = [{ type: 'heading', level: Number.isFinite(e.level) ? Math.max(1, Math.min(4, Math.round(e.level))) : 2, spans: parseInline(content.replace(/^\s*#{1,4}\s+/, '')) }];
+      } else if (e.type === 'list' && !Array.isArray(e.items) && content && !content.includes('\n') && !markupToBlocks(content)) {
+        // one list element per item (the model's habit): a one-item list now, merged with its neighbours below
+        blocks = [{ type: e.ordered ? 'ordered' : 'bullet', items: [parseInline(content)] }]; out._listItem = true;
+      } else blocks = markupToBlocks(content); // a list written as lines in `content`
+      if (blocks && blocks.length) Object.assign(out, { kind: 'text', blocks: wrapBlocks(blocks), text: blocksPlain(wrapBlocks(blocks)), role: e.type === 'heading' && e.level === 1 ? 'title' : 'body' });
+      else Object.assign(out, { kind: 'text', text: wrapInlineCommands(content), role: 'body' });
+    } else if (e.type === 'title' || e.type === 'text') {
       Object.assign(out, { kind: 'text', text: wrapInlineCommands(content), role: e.type === 'title' ? 'title' : 'body' });
+      // Formatting markers / list / quote / heading lines in a note become structure; a plain note stays exactly as before.
+      const blocks = e.type === 'text' || /[*~]|^\s*[-#>]|^\s*\d+[.)]/m.test(content) ? markupToBlocks(content) : null;
+      if (blocks) Object.assign(out, { blocks: wrapBlocks(blocks), text: blocksPlain(wrapBlocks(blocks)) });
     } else if (e.type === 'math') {
       Object.assign(out, { kind: 'math', latex: repairLatex(typeof e.content === 'string' ? e.content : '').replace(/^\$+|\$+$/g, '').trim(), role: 'body' });
     } else if (e.type === 'circle' || e.type === 'rectangle') {
@@ -209,6 +260,17 @@ function localToModelIR(data, width, height) {
     }
     elements.push(out);
     out._unsure = unsure;
+  }
+  elements = mergeListItems(elements, width, height);
+  // The model listed every table cell as its own element? Aligned cells covering the page become one table (conservative rules).
+  if (!elements.some((e) => e.kind === 'table')) {
+    const det = detectGridTable(elements, width, height);
+    if (det) {
+      const ids = new Set(det.ids);
+      for (let i = elements.length - 1; i >= 0; i--) if (ids.has(elements[i].id)) elements.splice(i, 1);
+      elements.push({ id: 'tbl1', kind: 'table', bbox: det.bbox, table: det.table, _unsure: det.table.header ? '' : 'Table inferred from aligned cells: check whether the first row is a header.' });
+      warnings.push(`Grouped ${det.ids.length} aligned cells into one table (${det.table.rows.length}×${det.table.rows[0].length}).`);
+    }
   }
   const { elements: merged, merged: nMerged } = mergeStackedLines(elements, width, height);
   if (nMerged) warnings.push(`Merged ${nMerged} stacked line(s) into multi-line notes.`);
